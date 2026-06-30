@@ -1,3 +1,0 @@
-cargo:rustc-check-cfg=cfg(slint_debug_property)
-cargo:rerun-if-changed=widgets
-cargo:rustc-env=SLINT_WIDGETS_LIBRARY=C:\Users\Mr. Deb\Documents\GitHub\ironvault-admin\target\debug\build\i-slint-compiler-333765e0ff7503f9\out\included_library.rs

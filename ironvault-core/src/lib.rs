@@ -1,11 +1,9 @@
-pub mod crypto;
-pub mod database;
-pub mod models;
+// =========================================================================
+// IronVault Core Module Export Gateway (lib.rs)
+// Integrates the cryptographic signature modules and schema models.
+// =========================================================================
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
+
+// Expose our security validation modules to the frontend interface
+pub mod crypto;
+pub mod models;

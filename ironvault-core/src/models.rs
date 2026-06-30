@@ -1,21 +1,37 @@
-use serde::{Deserialize, Serialize};
+// =========================================================================
+// IronVault Data Models (models.rs)
+// Structures the relational database properties, logging events, and security roles.
+// =========================================================================
 
-#[derive(Debug, Serialize, Deserialize)]
-pub enum UserRole {
-    Admin,
-    Auditor,
+
+use serde::{Serialize, Deserialize};
+
+/// Security clearance tiers for application users
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum AuthorizationRole {
+    SuperAdministrator,
     Operator,
+    Auditor,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct AuditLog {
-    pub id: u64,
-    pub message: String,
+/// Structure representing a log entries for auditing tasks
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SecurityAuditRecord {
+    pub timestamp: String,
+    pub requested_by: String,
+    pub action_performed: String,
+    pub target_schema: String,
+    pub signature_hash: String,
+    pub verified_by_authority: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TransactionRecord {
-    pub id: u64,
-    pub description: String,
-    pub amount: f64,
+
+/// Structure holding network metrics for the Oracle/PostgreSQL nodes
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RelationalDatabaseNode {
+    pub node_id: String,
+    pub instance_name: String,
+    pub connection_string: String,
+    pub connection_protocol: String,
+    pub encryption_enabled: bool,
 }

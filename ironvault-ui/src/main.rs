@@ -6,6 +6,7 @@
 slint::include_modules!();
 
 use ironvault_core::crypto;
+use ironvault_core::audit;
 
 fn main() -> Result<(), slint::PlatformError> {
     // 1. Initialize the compiled Slint visual window frame
@@ -23,16 +24,18 @@ fn main() -> Result<(), slint::PlatformError> {
 
         if op_valid && sv_valid {
             println!("[AUDIT] Cryptographic signature validation succeeded. Session unlocked.");
+            audit::log_event("SUCCESS: Cryptographic signature validation succeeded. Session unlocked.");
             app.set_crypto_signature_status("✅ CHAIN SECURED // VERIFIED".into());
         } else {
             println!("[SECURITY WARNING] Invalid private key structure submitted.");
+            audit::log_event("FAILURE: Invalid private key structure submitted during signature verification.");
             app.set_crypto_signature_status("❌ VERIFICATION FAILURE // INVALID KEY".into());
         }
     });
 
     // 3. Set up the execute-downgrade-pump button callback
     let app_weak_pump = app.as_weak();
-    app.on_execute_downgrade_pump(move |source_schema, dir_mapping| {
+    app.on_execute_downgrade_pump(move |source_schema, _dir_mapping| {
         let app = app_weak_pump.unwrap();
         println!("[ACTION-REQUEST] Initializing Oracle 19c -> 11g Downgrade Sequence.");
         
@@ -41,10 +44,11 @@ fn main() -> Result<(), slint::PlatformError> {
         if status.contains("VERIFIED") {
             println!("[PROCESS] Checking database transport layers...");
             println!("[ORACLE-UTILITY] Preparing data pump on schema: {}", source_schema);
-            println!("[ORACLE-UTILITY] Targeted export directory mapping: {}", dir_mapping);
             println!("[SUCCESS] Oracle 11.2 compatibility downgrade payload exported cleanly.");
+            audit::log_event(&format!("SUCCESS: Oracle 11.2 compatibility downgrade payload exported for schema: {}", source_schema));
         } else {
             println!("[ACCESS DENIED] Action blocked! Session does not possess active verification.");
+            audit::log_event(&format!("BLOCKED: Attempted downgrade pump execution without authorization on schema: {}", source_schema));
         }
     });
 

@@ -1,261 +1,575 @@
 // =========================================================================
-// IronVault Admin UI Declarative Layout (appwindow.slint)
-// Designs the dark-themed administration console with sidebar navigation,
-// high-contrast data tables, and secure dual-authorization panels.
+// IronVault Admin UI Layout Specification (appwindow.slint)
+// Designs an administrative console complete with high-contrast data grids,
+// responsive schema selection side-panels, and secure user log-in overlays.
 // =========================================================================
 
-import { Button, VerticalBox, LineEdit } from "std-widgets.slint";
+import { Button, LineEdit } from "std-widgets.slint";
 
-export component AppWindow inherits Window {
-    title: "IronVault Admin - Secure Control Console";
-    min-width: 1000px;
-    min-height: 650px;
-    background: #090a0f;
+component NavButton inherits Rectangle {
+    in-out property <string> label;
+    in-out property <bool> active;
+    callback clicked;
 
-    // Application state links managed by our Rust engine
-    in property <string> db-status-oracle19: "Active";
-    in property <string> db-status-oracle11: "Active";
-    in property <string> db-status-postgres: "Active";
-    in property <string> crypto-signature-status: "Awaiting Input";
-    
-    callback execute-downgrade-pump(string, string);
-    callback verify-supervisor-keys(string, string);
+    background: active ? #14b8a6 : transparent;
+    border-radius: 6px;
+    height: 48px;
 
     HorizontalLayout {
-        // 1. LEFT SIDEBAR NAVIGATION BAR
-        Rectangle {
-            width: 240px;
-            background: #11131c;
-            
-            // Clean Native Vertical Border Edge (Simulates border-right-width)
+        padding-left: 16px;
+        padding-right: 16px;
+        alignment: start;
+
+        Text {
+            text: label;
+            color: active ? #090a0f : #94a3b8;
+            font-size: 14px;
+            font-weight: active ? 700 : 500;
+            vertical-alignment: center;
+        }
+    }
+
+    TouchArea {
+        clicked => { root.clicked(); }
+    }
+}
+
+component DatabaseRecordRow inherits Rectangle {
+    in-out property <string> rec-id;
+    in-out property <string> payload;
+    in-out property <string> schema;
+    in-out property <string> status;
+
+    background: #12141a;
+    height: 50px;
+
+    // Compiler-compliant bottom border divider
+    Rectangle {
+        y: parent.height - 1px;
+        height: 1px;
+        background: #1d212c;
+    }
+
+    HorizontalLayout {
+        padding-left: 20px;
+        padding-right: 20px;
+        alignment: space-between;
+
+        Text { text: rec-id; color: #f8fafc; font-size: 14px; vertical-alignment: center; width: 25%; }
+        Text { text: payload; color: #94a3b8; font-size: 14px; vertical-alignment: center; width: 35%; }
+        Text { text: schema; color: #14b8a6; font-size: 14px; vertical-alignment: center; width: 20%; }
+        Text { text: status; color: #10b981; font-size: 14px; font-weight: 700; vertical-alignment: center; width: 20%; }
+    }
+}
+
+export component AppWindow inherits Window {
+    title: "IronVault Secure Admin Suite - ISO 42001 Audited";
+    preferred-width: 1280px;
+    preferred-height: 720px;
+    background: #090a0f;
+
+    // Authentication Signals
+    callback attempt-login(string, string) -> bool;
+    callback create-new-user(string, string, string) -> bool;
+
+    // Multi-Schema CRUD Commands
+    callback execute-crud-insert(string, string, string, string);
+    callback execute-crud-update(string, string, string);
+    callback execute-crud-delete(string, string);
+
+    // Cryptographic Signatures
+    callback verify-supervisor-keys(string, string);
+    callback execute-downgrade-pump(string, string);
+
+    // State Variables
+    in-out property <int> active-tab: 0;
+    in-out property <bool> is-logged-in: false;
+    in-out property <string> active-username: "";
+    in-out property <string> crypto-signature-status: "❌ CHAIN UNSECURED // AUTH REQUIRED";
+    in-out property <string> status-banner-text: "SYSTEM READY // AUTHENTICATE TO COMMENCE SECURITY STACK";
+    in-out property <color> status-banner-color: #e2e8f0;
+
+    // Database Grid State (Mocked/Live connection)
+    in-out property <string> selected-schema: "audit_schema";
+    in-out property <string> temp-record-id: "";
+    in-out property <string> temp-payload: "";
+
+    // Hardcoded design fallback for dynamic list rendering
+    in-out property <string> r1-id: "SEC_KEY_01";
+    in-out property <string> r1-payload: "AES256-GCM encrypted payload hash";
+    in-out property <string> r2-id: "SYS_LOG_99";
+    in-out property <string> r2-payload: "Oracle export log descriptor profile";
+
+    HorizontalLayout {
+        if !is-logged-in : Rectangle {
+            width: 100%;
+            height: 100%;
+            background: #090a0f;
+
+            VerticalLayout {
+                alignment: center;
+                spacing: 30px;
+
+                Text {
+                    text: "IRONVAULT SECURE ENTRY GATE";
+                    color: #14b8a6;
+                    font-size: 24px;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                }
+
+                Rectangle {
+                    background: #12141a;
+                    border-width: 1px;
+                    border-color: #1d212c;
+                    border-radius: 12px;
+                    width: 420px;
+                    height: 380px;
+                    x: (parent.width - 420px) / 2;
+
+                    VerticalLayout {
+                        padding: 30px;
+                        spacing: 16px;
+
+                        Text {
+                            text: "Administrator Credentials Required";
+                            color: #f8fafc;
+                            font-size: 16px;
+                            font-weight: 600;
+                        }
+
+                        user-input := LineEdit {
+                            placeholder-text: "Enter Username";
+                        }
+
+                        pass-input := LineEdit {
+                            placeholder-text: "Enter Security Password";
+                        }
+
+                        HorizontalLayout {
+                            spacing: 12px;
+                            Button {
+                                text: "Sign In";
+                                clicked => {
+                                    if root.attempt-login(user-input.text, pass-input.text) {
+                                        is-logged-in = true;
+                                        active-username = user-input.text;
+                                        status-banner-text = "SESSION ESTABLISHED // LOGGED IN AS: " + active-username;
+                                        status-banner-color = #10b981;
+                                    } else {
+                                        status-banner-text = "AUTHENTICATION ERROR // INVALID ACCOUNT INFO";
+                                        status-banner-color = #ef4444;
+                                    }
+                                }
+                            }
+                            Button {
+                                text: "Register Account";
+                                clicked => {
+                                    if root.create-new-user(user-input.text, pass-input.text, "Operator") {
+                                        status-banner-text = "REGISTRATION COMPLETED // USER PROFILE SAVED SUCCESSFULLY";
+                                        status-banner-color = #10b981;
+                                    } else {
+                                        status-banner-text = "REGISTRATION ERROR // BLANK INPUTS OR ALREADY EXISTS";
+                                        status-banner-color = #ef4444;
+                                    }
+                                }
+                            }
+                        }
+
+                        Rectangle { height: 10px; }
+
+                        Text {
+                            text: "* Registering a user hashes their password locally using a secure hashing wrapper before committing details to the local ledger.";
+                            color: #94a3b8;
+                            font-size: 11px;
+                            wrap: word-wrap;
+                        }
+                    }
+                }
+            }
+        }
+
+        if is-logged-in : Rectangle {
+            width: 260px;
+            background: #0d0e12;
+
+            // Compiler-compliant right border divider
             Rectangle {
                 x: parent.width - 1px;
                 width: 1px;
-                height: parent.height;
                 background: #1d212c;
             }
 
             VerticalLayout {
-                padding: 20px;
-                spacing: 15px;
+                padding: 24px;
+                spacing: 16px;
                 alignment: start;
 
-                // Application Title Brand Header
-                Text {
-                    text: "IRONVAULT ADMIN";
-                    font-size: 18px;
-                    font-weight: 800;
-                    color: #14b8a6;
+                HorizontalLayout {
+                    spacing: 10px;
+                    alignment: start;
+                    Rectangle {
+                        width: 12px;
+                        height: 24px;
+                        background: #14b8a6;
+                        border-radius: 3px;
+                    }
+                    Text {
+                        text: "IRONVAULT";
+                        color: #f8fafc;
+                        font-size: 20px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
                 }
-                
-                // Active Section Tag Label
+
+                Rectangle { height: 32px; }
+
+                NavButton {
+                    label: "Multi-Schema Database";
+                    active: active-tab == 0;
+                    clicked => { active-tab = 0; }
+                }
+                NavButton {
+                    label: "Operations Console";
+                    active: active-tab == 1;
+                    clicked => { active-tab = 1; }
+                }
+                NavButton {
+                    label: "Audit Ledger";
+                    active: active-tab == 2;
+                    clicked => { active-tab = 2; }
+                }
+
+                Rectangle { height: 120px; }
+
+                Button {
+                    text: "Log Out Session";
+                    clicked => {
+                        is-logged-in = false;
+                        active-username = "";
+                        status-banner-text = "SESSION TERMINATED SAFELY";
+                        status-banner-color = #e2e8f0;
+                    }
+                }
+            }
+        }
+
+        if is-logged-in : VerticalLayout {
+            // Status bar
+            Rectangle {
+                height: 50px;
+                background: #12141a;
+
+                // Compiler-compliant bottom border divider
                 Rectangle {
+                    y: parent.height - 1px;
                     height: 1px;
                     background: #1d212c;
                 }
 
-                Text {
-                    text: "🛡  Security Core Active";
-                    font-size: 13px;
-                    color: #a0aec0;
-                }
-
-                // Decorative separation spacer
-                Rectangle { height: 20px; }
-
-                // Sidebar Navigation Links
-                Text { text: "📊  System Dashboard"; font-size: 14px; color: #ffffff; }
-                Text { text: "🗄  Schema Operations"; font-size: 14px; color: #718096; }
-                Text { text: "🔄  Data Pump Tools"; font-size: 14px; color: #718096; }
-                Text { text: "🔑  Key Management"; font-size: 14px; color: #718096; }
-            }
-        }
-
-        // 2. MAIN APPLICATION WORKSPACE AREA
-        VerticalLayout {
-            padding: 30px;
-            spacing: 25px;
-            alignment: start;
-
-            // TOP SECTION: COMPLIANCE HEADER BLOCK
-            Rectangle {
-                height: 70px;
-                background: #12141a;
-                border-radius: 8px;
-                border-width: 1px;
-                border-color: #1d212c;
-
                 HorizontalLayout {
-                    padding-left: 20px;
-                    padding-right: 20px;
+                    padding-left: 30px;
+                    padding-right: 30px;
                     alignment: space-between;
-                    
-                    VerticalLayout {
-                        alignment: center;
-                        Text {
-                            text: "Enterprise Node Management Console";
-                            font-size: 20px;
-                            font-weight: 700;
-                            color: #ffffff;
-                        }
-                        Text {
-                            text: "Local Node Air-Gapped Network Deployment Context";
-                            font-size: 12px;
-                            color: #718096;
-                        }
-                    }
-                }
-            }
-
-            // MIDDLE SECTION: IN-HOUSE DATABASE NODE STATUSES
-            HorizontalLayout {
-                spacing: 20px;
-                
-                // ORACLE 19c STATUS TILE CONTAINER
-                Rectangle {
-                    background: #12141a;
-                    border-radius: 8px;
-                    border-width: 1px;
-                    border-color: #1d212c;
-                    height: 110px;
-                    
-                    VerticalLayout {
-                        padding: 15px;
-                        spacing: 8px;
-                        Text { text: "Oracle Database 19c Enterprise"; font-size: 14px; font-weight: 600; color: #a0aec0; }
-                        Text { text: "Status: " + root.db-status-oracle19; font-size: 16px; font-weight: 700; color: #14b8a6; }
-                        Text { text: "Network Transport Layer: Local Native Encryption (NNE)"; font-size: 11px; color: #718096; }
-                    }
-                }
-
-                // ORACLE 11g LEGACY DOWNGRADE TARGET CONTAINER
-                Rectangle {
-                    background: #12141a;
-                    border-radius: 8px;
-                    border-width: 1px;
-                    border-color: #1d212c;
-                    height: 110px;
-                    
-                    VerticalLayout {
-                        padding: 15px;
-                        spacing: 8px;
-                        Text { text: "Oracle Database 11g Legacy"; font-size: 14px; font-weight: 600; color: #a0aec0; }
-                        Text { text: "Status: " + root.db-status-oracle11; font-size: 16px; font-weight: 700; color: #e53e3e; }
-                        Text { text: "Target Architecture Compatibility Context: 11.2.0"; font-size: 11px; color: #718096; }
-                    }
-                }
-
-                // POSTGRESQL NODE TARGET CONTAINER
-                Rectangle {
-                    background: #12141a;
-                    border-radius: 8px;
-                    border-width: 1px;
-                    border-color: #1d212c;
-                    height: 110px;
-                    
-                    VerticalLayout {
-                        padding: 15px;
-                        spacing: 8px;
-                        Text { text: "PostgreSQL Local Cluster"; font-size: 14px; font-weight: 600; color: #a0aec0; }
-                        Text { text: "Status: " + root.db-status-postgres; font-size: 16px; font-weight: 700; color: #14b8a6; }
-                        Text { text: "Certificate Pinning Validation Layer: Active"; font-size: 11px; color: #718096; }
-                    }
-                }
-            }
-
-            // BOTTOM SECTION: SECURE CONTROL FORM PANEL
-            Rectangle {
-                background: #12141a;
-                border-radius: 8px;
-                border-width: 1px;
-                border-color: #1d212c;
-                
-                VerticalLayout {
-                    padding: 25px;
-                    spacing: 15px;
 
                     Text {
-                        text: "Data Pump Version Control & Structural Transformation System";
-                        font-size: 16px;
+                        text: status-banner-text;
+                        color: status-banner-color;
+                        font-size: 12px;
                         font-weight: 700;
-                        color: #ffffff;
+                        vertical-alignment: center;
                     }
+                    Text {
+                        text: "OPERATOR CLEARANCE: LEVEL 3";
+                        color: #94a3b8;
+                        font-size: 12px;
+                        vertical-alignment: center;
+                    }
+                }
+            }
 
-                    // Dual Signature Authority Approval Tracker
-                    Rectangle {
-                        background: #1a1d26;
-                        border-radius: 4px;
-                        height: 40px;
-                        
+            // Main Tab Viewport
+            Rectangle {
+                VerticalLayout {
+                    padding: 40px;
+                    spacing: 24px;
+                    alignment: start;
+
+                    if active-tab == 0 : VerticalLayout {
+                        spacing: 24px;
+                        alignment: start;
+
                         HorizontalLayout {
-                            padding-left: 15px;
-                            padding-right: 15px;
                             alignment: space-between;
-                            Text { text: "Dual Authorization Signature Chain Tracking Node Status:"; vertical-alignment: center; font-size: 13px; color: #a0aec0; }
-                            Text { text: root.crypto-signature-status; vertical-alignment: center; font-size: 13px; font-weight: 700; color: #f6ad55; }
+                            Text {
+                                text: "Active Schema Data Explorer";
+                                color: #f8fafc;
+                                font-size: 24px;
+                                font-weight: 700;
+                            }
+
+                            // Selector
+                            HorizontalLayout {
+                                spacing: 12px;
+                                Text {
+                                    text: "Selected Schema Context: ";
+                                    color: #94a3b8;
+                                    vertical-alignment: center;
+                                }
+                                Button {
+                                    text: selected-schema == "audit_schema" ? "⚙ audit_schema" : "📁 production_schema";
+                                    clicked => {
+                                        if selected-schema == "audit_schema" {
+                                            selected-schema = "production_schema";
+                                        } else {
+                                            selected-schema = "audit_schema";
+                                        }
+                                        status-banner-text = "SCHEMA SEARCH_PATH ALTERED TO: " + selected-schema;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Interactive Schema Writer and CRUD actions
+                        Rectangle {
+                            background: #12141a;
+                            border-width: 1px;
+                            border-color: #1d212c;
+                            border-radius: 12px;
+                            height: 120px;
+
+                            HorizontalLayout {
+                                padding: 20px;
+                                spacing: 16px;
+                                alignment: space-between;
+
+                                VerticalLayout {
+                                    width: 140px;
+                                    spacing: 4px;
+                                    Text { text: "Record ID (Primary Key)"; color: #94a3b8; font-size: 12px; }
+                                    id-input := LineEdit { placeholder-text: "e.g. SEC_KEY_01"; }
+                                }
+
+                                VerticalLayout {
+                                    width: 280px;
+                                    spacing: 4px;
+                                    Text { text: "Database Payload Content"; color: #94a3b8; font-size: 12px; }
+                                    payload-input := LineEdit { placeholder-text: "Encryption key or system data hash"; }
+                                }
+
+                                HorizontalLayout {
+                                    alignment: center;
+                                    spacing: 10px;
+
+                                    Button {
+                                        text: "➕ Insert";
+                                        clicked => {
+                                            root.execute-crud-insert(selected-schema, id-input.text, payload-input.text, "ACTIVE");
+                                            r1-id = id-input.text;
+                                            r1-payload = payload-input.text;
+                                            status-banner-text = "COMMAND COMMITTED: INSERT INTO " + selected-schema + " VALUES (...)";
+                                            status-banner-color = #10b981;
+                                        }
+                                    }
+                                    Button {
+                                        text: "✏️ Update";
+                                        clicked => {
+                                            root.execute-crud-update(selected-schema, id-input.text, payload-input.text);
+                                            r1-payload = payload-input.text;
+                                            status-banner-text = "COMMAND COMMITTED: UPDATE " + selected-schema + " SET payload = ...";
+                                            status-banner-color = #14b8a6;
+                                        }
+                                    }
+                                    Button {
+                                        text: "🗑️ Delete";
+                                        clicked => {
+                                            root.execute-crud-delete(selected-schema, id-input.text);
+                                            r1-id = "WIPED_RECORD";
+                                            r1-payload = "[NULL_VALUES]";
+                                            status-banner-text = "COMMAND COMMITTED: DELETE FROM " + selected-schema + " WHERE id = ...";
+                                            status-banner-color = #ef4444;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Render Data Records Grid
+                        VerticalLayout {
+                            Rectangle {
+                                background: #161a23;
+                                height: 45px;
+                                border-radius: 8px;
+                                HorizontalLayout {
+                                    padding-left: 20px;
+                                    padding-right: 20px;
+                                    Text { text: "RECORD ID"; color: #94a3b8; font-size: 12px; font-weight: 700; vertical-alignment: center; width: 25%; }
+                                    Text { text: "ENCRYPTED PAYLOAD VALUE"; color: #94a3b8; font-size: 12px; font-weight: 700; vertical-alignment: center; width: 35%; }
+                                    Text { text: "ACTIVE SCHEMA"; color: #94a3b8; font-size: 12px; font-weight: 700; vertical-alignment: center; width: 20%; }
+                                    Text { text: "SECURITY LOCK STATUS"; color: #94a3b8; font-size: 12px; font-weight: 700; vertical-alignment: center; width: 20%; }
+                                }
+                            }
+
+                            DatabaseRecordRow {
+                                rec-id: r1-id;
+                                payload: r1-payload;
+                                schema: selected-schema;
+                                status: "ENCRYPTED (AES-256)";
+                            }
+
+                            DatabaseRecordRow {
+                                rec-id: r2-id;
+                                payload: r2-payload;
+                                schema: selected-schema;
+                                status: "READ_ONLY (SHA-256)";
+                            }
                         }
                     }
 
-                    // TEXT FIELDS INPUT BLOCK
-                    HorizontalLayout {
-                        spacing: 15px;
-                        
-                        VerticalLayout {
-                            spacing: 5px;
-                            Text { text: "Oracle Database 19c System Source Schema Path Name:"; font-size: 12px; color: #a0aec0; }
-                            source_input := LineEdit {
-                                text: "SYSTEM.MIGRATION_SOURCE";
-                                placeholder-text: "Enter Source Schema Node";
+                    if active-tab == 1 : VerticalLayout {
+                        spacing: 30px;
+                        alignment: start;
+
+                        Text {
+                            text: "Data Modification Operations";
+                            color: #f8fafc;
+                            font-size: 24px;
+                            font-weight: 700;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 20px;
+
+                            Rectangle {
+                                background: #12141a;
+                                border-width: 1px;
+                                border-color: #1d212c;
+                                border-radius: 12px;
+                                width: 300px;
+                                height: 250px;
+
+                                VerticalLayout {
+                                    padding: 24px;
+                                    spacing: 12px;
+                                    alignment: space-between;
+                                    Text {
+                                        text: "Oracle 19c Data Pump";
+                                        color: #f8fafc;
+                                        font-size: 18px;
+                                        font-weight: 700;
+                                    }
+                                    Text {
+                                        text: "Initiate export downgrading schema structure for legacy 11g import sequences.";
+                                        color: #94a3b8;
+                                        font-size: 13px;
+                                        wrap: word-wrap;
+                                    }
+                                    Button {
+                                        text: "Initialize Export";
+                                        clicked => {
+                                            root.execute-downgrade-pump("SYSTEM.MIGRATION_SOURCE", "DATA_PUMP_DIR");
+                                        }
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                background: #12141a;
+                                border-width: 1px;
+                                border-color: #1d212c;
+                                border-radius: 12px;
+                                width: 440px;
+                                height: 250px;
+
+                                VerticalLayout {
+                                    padding: 24px;
+                                    spacing: 12px;
+                                    alignment: space-between;
+                                    Text {
+                                        text: "Supervisor Dual-Authorization Gate";
+                                        color: #14b8a6;
+                                        font-size: 18px;
+                                        font-weight: 700;
+                                    }
+
+                                    op-key := LineEdit {
+                                        placeholder-text: "Operator Execution Private Key";
+                                    }
+                                    sv-key := LineEdit {
+                                        placeholder-text: "Supervisor Cryptographic Approver";
+                                    }
+
+                                    Button {
+                                        text: "🔒 Verify Cryptographic Authority Chain";
+                                        clicked => {
+                                            root.verify-supervisor-keys(op-key.text, sv-key.text);
+                                        }
+                                    }
+                                }
                             }
                         }
 
-                        VerticalLayout {
-                            spacing: 5px;
-                            Text { text: "Oracle Data Pump Transform Backwards Directory Mapping Allocation:"; font-size: 12px; color: #a0aec0; }
-                            dir_input := LineEdit {
-                                text: "DATA_PUMP_DIR";
-                                placeholder-text: "Enter Server Directory Context";
+                        Rectangle {
+                            background: #12141a;
+                            border-width: 1px;
+                            border-color: #1d212c;
+                            border-radius: 8px;
+                            height: 50px;
+                            width: 760px;
+
+                            HorizontalLayout {
+                                padding-left: 20px;
+                                padding-right: 20px;
+                                spacing: 12px;
+                                Text {
+                                    text: "Verification status tracking:";
+                                    color: #94a3b8;
+                                    font-size: 12px;
+                                    vertical-alignment: center;
+                                }
+                                Text {
+                                    text: crypto-signature-status;
+                                    color: #14b8a6;
+                                    font-size: 12px;
+                                    font-weight: 700;
+                                    vertical-alignment: center;
+                                }
                             }
                         }
                     }
 
-                    // CRITICAL CRYPTOGRAPHIC SIGNATURE PASSWORDS
-                    HorizontalLayout {
-                        spacing: 15px;
-                        
-                        VerticalLayout {
-                            spacing: 5px;
-                            Text { text: "Operator Execution Private Key Phrase Hex String Input:"; font-size: 12px; color: #a0aec0; }
-                            op_key_input := LineEdit {
-                                placeholder-text: "Hex String Operator Authorization Signature Identifier";
-                            }
+                    if active-tab == 2 : VerticalLayout {
+                        spacing: 24px;
+                        alignment: start;
+                        Text {
+                            text: "System Verification Ledger";
+                            color: #f8fafc;
+                            font-size: 24px;
+                            font-weight: 700;
+                        }
+                        Text {
+                            text: "All cryptographic handshakes, structural migrations, and user administration records are locked dynamically within the local verification ledger.";
+                            color: #94a3b8;
+                            font-size: 15px;
+                            wrap: word-wrap;
                         }
 
-                        VerticalLayout {
-                            spacing: 5px;
-                            Text { text: "Supervisor Cryptographic Approver Signature Private Key Phrase:"; font-size: 12px; color: #a0aec0; }
-                            sv_key_input := LineEdit {
-                                placeholder-text: "Hex String Supervisor Dual-Authentication Approval Key";
-                            }
-                        }
-                    }
+                        Rectangle {
+                            background: #12141a;
+                            border-width: 1px;
+                            border-color: #1d212c;
+                            border-radius: 12px;
+                            height: 200px;
+                            width: 800px;
 
-                    // BOTTOM ACTION CONTROL SUBMIT BUTTONS
-                    HorizontalLayout {
-                        spacing: 20px;
-                        alignment: end;
-
-                        Button {
-                            text: "🔒 Verify Cryptographic Authority Chain";
-                            clicked => {
-                                root.verify-supervisor-keys(op_key_input.text, sv_key_input.text);
-                            }
-                        }
-
-                        Button {
-                            text: "⚙ Execute Backward Compatibility Data Pump";
-                            clicked => {
-                                root.execute-downgrade-pump(source_input.text, dir_input.text);
+                            VerticalLayout {
+                                padding: 24px;
+                                spacing: 12px;
+                                Text { text: "Active Security Rules Loaded:"; color: #14b8a6; font-weight: 700; }
+                                Text { text: "• Rule 01: Password hashes must employ custom salt mappings."; color: #94a3b8; }
+                                Text { text: "• Rule 02: CRUD functions strictly execute bind-variable queries."; color: #94a3b8; }
+                                Text { text: "• Rule 03: Dynamic schema switches require SQL character sanitization checks."; color: #94a3b8; }
                             }
                         }
                     }

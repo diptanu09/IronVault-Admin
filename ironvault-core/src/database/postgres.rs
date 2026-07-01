@@ -1,44 +1,100 @@
+// =========================================================================
+// IronVault PostgreSQL secure Multi-Schema CRUD Engine (postgres.rs)
+// Executes fully parameterized CRUD commands dynamically across multiple schemas.
+// =========================================================================
+
 use native_tls::TlsConnector;
 use postgres_native_tls::MakeTlsConnector;
 use std::error::Error;
+use tokio_postgres::Client;
 
-/// Establishes a secure, real-time TLS connection loop with a target PostgreSQL instance.
-/// 
-/// # Arguments
-/// * `connection_string` - Standard format: "host=127.0.0.1 user=postgres password=secret dbname=ironvault sslmode=require"
-pub async fn establish_secure_connection(connection_string: &str) -> Result<(), Box<dyn Error>> {
+/// Configures and connects securely to the PostgreSQL instance
+pub async fn establish_secure_connection(connection_string: &str) -> Result<Client, Box<dyn Error>> {
     println!("[PROCESS] Initializing Native-TLS layer for PostgreSQL connection...");
 
-    // 1. Build the system's native TLS pipeline wrapper
-    let tls_inner_connector = TlsConnector::builder()
-        // If using a self-signed corporate DB certificate, you would uncomment this line:
-        // .add_root_certificate(native_tls::Certificate::from_pem(&std::fs::read("root_ca.pem")?)?)
-        .build()?;
-
-    // 2. Wrap it into the adapter format required by the tokio-postgres driver stack
+    let tls_inner_connector = TlsConnector::builder().build()?;
     let tls_connector = MakeTlsConnector::new(tls_inner_connector);
 
     println!("[PROCESS] Opening TCP socket connection and executing TLS Handshake...");
-
-    // 3. Establish the socket layer handshake
     let (client, connection) = tokio_postgres::connect(connection_string, tls_connector).await?;
 
-    // 4. Spawn the background connection worker loop. 
-    // This maintains the active network channel separately from our analytical queries.
     tokio::spawn(async move {
         if let Err(e) = connection.await {
             eprintln!("[ERROR] Active PostgreSQL connection stream failure: {}", e);
         }
     });
 
-    println!("[SUCCESS] Secure TLS channel established. Target database is fully responsive.");
+    println!("[SUCCESS] Secure TLS channel established. Target database is responsive.");
+    Ok(client)
+}
+
+/// Executes dynamic schema switching securely using safe identifiers and parameterized structures.
+pub async fn execute_dynamic_insert(
+    client: &Client,
+    schema: &str,
+    record_id: &str,
+    payload_data: &str,
+    status: &str,
+) -> Result<(), Box<dyn Error>> {
+    let sanitized_schema = sanitize_schema_name(schema)?;
     
-    // Quick validation query to ensure the pool is healthy
-    let rows = client.query("SELECT version();", &[]).await?;
-    if let Some(row) = rows.first() {
-        let db_version: String = row.get(0);
-        println!("[DATABASE INFO] Connected to: {}", db_version);
+    let search_path_query = format!("SET search_path TO {}, public", sanitized_schema);
+    client.batch_execute(&search_path_query).await?;
+
+    let sql_query = "INSERT INTO data_records (id, payload, active_status) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING";
+    client.execute(sql_query, &[&record_id, &payload_data, &status]).await?;
+
+    println!("[SQL ENGINE] Parameterized INSERT successfully committed to schema: {}", sanitized_schema);
+    Ok(())
+}
+
+/// Safely updates an existing record in the target schema using parameterized parameters
+pub async fn execute_dynamic_update(
+    client: &Client,
+    schema: &str,
+    record_id: &str,
+    new_payload_data: &str,
+) -> Result<(), Box<dyn Error>> {
+    let sanitized_schema = sanitize_schema_name(schema)?;
+    
+    let search_path_query = format!("SET search_path TO {}, public", sanitized_schema);
+    client.batch_execute(&search_path_query).await?;
+
+    let sql_query = "UPDATE data_records SET payload = $1 WHERE id = $2";
+    client.execute(sql_query, &[&new_payload_data, &record_id]).await?;
+
+    println!("[SQL ENGINE] Parameterized UPDATE successfully committed to schema: {}", sanitized_schema);
+    Ok(())
+}
+
+/// Safely removes a record from the target schema table
+pub async fn execute_dynamic_delete(
+    client: &Client,
+    schema: &str,
+    record_id: &str,
+) -> Result<(), Box<dyn Error>> {
+    let sanitized_schema = sanitize_schema_name(schema)?;
+    
+    let search_path_query = format!("SET search_path TO {}, public", sanitized_schema);
+    client.batch_execute(&search_path_query).await?;
+
+    let sql_query = "DELETE FROM data_records WHERE id = $1";
+    client.execute(sql_query, &[&record_id]).await?;
+
+    println!("[SQL ENGINE] Parameterized DELETE successfully committed from schema: {}", sanitized_schema);
+    Ok(())
+}
+
+/// Internal helper ensuring schema strings only contain safe, alphanumeric characters
+fn sanitize_schema_name(schema: &str) -> Result<String, &'static str> {
+    if schema.is_empty() {
+        return Err("Schema name cannot be blank.");
+    }
+    
+    let is_safe = schema.chars().all(|c| c.is_alphanumeric() || c == '_');
+    if !is_safe {
+        return Err("Malicious SQL characters detected! Schema switching aborted.");
     }
 
-    Ok(())
+    Ok(schema.to_lowercase())
 }

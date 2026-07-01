@@ -1,12 +1,11 @@
 // =========================================================================
 // IronVault Data Models (models.rs)
-// Structures the relational database properties, logging events, and security roles.
+// Structures the database schema, security accounts, and active session roles.
 // =========================================================================
-
 
 use serde::{Serialize, Deserialize};
 
-/// Security clearance tiers for application users
+/// Security clearance roles matching authorization controls
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum AuthorizationRole {
     SuperAdministrator,
@@ -14,7 +13,24 @@ pub enum AuthorizationRole {
     Auditor,
 }
 
-/// Structure representing a log entries for auditing tasks
+/// Dynamic record structure used for real-time table visualizations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TableRecord {
+    pub record_id: String,
+    pub payload_data: String,
+    pub owner_schema: String,
+    pub active_status: String,
+}
+
+/// Registered user security credentials saved to the authentication pool
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AdminUser {
+    pub username: String,
+    pub password_hash: String,
+    pub assigned_role: String,
+}
+
+/// Structure representing a dynamic log entry for database auditing tasks
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityAuditRecord {
     pub timestamp: String,
@@ -23,15 +39,4 @@ pub struct SecurityAuditRecord {
     pub target_schema: String,
     pub signature_hash: String,
     pub verified_by_authority: bool,
-}
-
-
-/// Structure holding network metrics for the Oracle/PostgreSQL nodes
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RelationalDatabaseNode {
-    pub node_id: String,
-    pub instance_name: String,
-    pub connection_string: String,
-    pub connection_protocol: String,
-    pub encryption_enabled: bool,
 }

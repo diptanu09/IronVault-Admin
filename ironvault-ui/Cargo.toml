@@ -1,13 +1,27 @@
+#STREAMING_CHUNK:Configuring cargo build metadata and dependencies...
+
 [package]
 name = "ironvault-ui"
 version = "0.1.0"
 edition = "2021"
+build = "build.rs"
 
 [dependencies]
-# Connects our UI to our backend workspace dependency
+
+#Links our shared backend cryptographic and database core
+
 ironvault-core = { path = "../ironvault-core" }
-slint = "1.3"
+
+#High-performance desktop UI engine
+
+slint = "1.17.0"
+
+#Multi-threaded runtime for async database actions
+
 tokio = { version = "1.0", features = ["full"] }
 
 [build-dependencies]
-slint-build = "1.3"
+
+#Compiles your .slint markup layout directly during the Cargo build cycle
+
+slint-build = "1.17.0"

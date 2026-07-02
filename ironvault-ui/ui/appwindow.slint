@@ -1,83 +1,68 @@
 // =========================================================================
-// IronVault Master Window Layout Coordinator (appwindow.slint)
+// IronVault Master Composition Window (appwindow.slint)
 // =========================================================================
 
 import { Theme } from "theme.slint";
 import { LoginScreen } from "login.slint";
-import { Dashboard } from "dashboard.slint";
+import { DashboardScreen } from "dashboard.slint";
 
 export component AppWindow inherits Window {
-    title: "IronVault Enterprise Administration Suite // Dedicated Schema: " + root.selected-schema;
-    preferred-width: 1280px;
-    preferred-height: 720px;
-    background: Theme.colors.background;
+title: "IronVault Enterprise Administration Suite // Dedicated Schema: " + root.selected-schema;
+preferred-width: 1280px;
+preferred-height: 720px;
+background: Theme.colors.background;
 
-    // Master session / routing state variables
-    in-out property <bool> is-logged-in: false;
-    in-out property <string> session-user: "";
-    in-out property <string> session-role: "Auditor";
-    in-out property <string> app-status: "SYSTEM INITIALIZED AND ARMED";
-    in-out property <color> app-status-color: Theme.colors.text-muted;
-    in-out property <string> sys-hardware-id: "FETCHING MACHINE SIGNATURE...";
-    in-out property <string> selected-schema: "ironvault";
+// Master state properties linked in Rust controllers
+in-out property <bool> is-authenticated: false;
+in-out property <string> current-user: "Unauthenticated Session";
+in-out property <string> current-role: "guest";
+in-out property <string> hardware-id: "FINGERPRINT-CALCULATING...";
+in-out property <string> error-message: "";
 
-    // Cryptographic verification state
-    in-out property <string> crypto-signature-status: "❌ CHAIN UNSECURED // KEYS REQUIRED";
+in-out property <string> selected-schema: "ironvault";
+in-out property <string> crypto-signature-status: "AWAITING AUTHORIZATION CHAIN";
+in-out property <string> status-banner-text: "SYSTEM ONLINE // BINDING CONFIRMED";
+in-out property <color> status-banner-color: Theme.colors.success;
 
-    // Authentication signals passed to Rust main runtime
-    callback attempt-login(string, string) -> bool;
-    callback create-new-user(string, string, string) -> bool;
+// Interactive callback hooks
+callback attempt-login(string, string);
+callback trigger-registration(string, string);
+callback verify-supervisor-keys(string, string);
+callback execute-downgrade-pump(string, string);
+callback trigger-logout();
 
-    // Core Parameterized Data Operations
-    callback verify-supervisor-keys(string, string);
-    callback execute-downgrade-pump(string, string);
-    callback trigger-logout();
-
-    HorizontalLayout {
-        if !is-logged-in : LoginScreen {
-            error-message: root.app-status-color == Theme.colors.error ? root.app-status : "";
-            hardware-id: root.sys-hardware-id;
-
-            attempt-login(user, pass) => {
-                if root.attempt-login(user, pass) {
-                    root.is-logged-in = true;
-                    root.session-user = user;
-                    root.app-status = "SESSION ESTABLISHED SAFELY";
-                    root.app-status-color = Theme.colors.success;
-                } else {
-                    root.app-status = "AUTHENTICATION REFUSED: PASSWORD OR HARDWARE MISMATCH";
-                    root.app-status-color = Theme.colors.error;
-                }
-            }
-
-            trigger-registration(user, pass) => {
-                if root.create-new-user(user, pass, "operator") {
-                    root.app-status = "REGISTRATION CONFIRMED: SAVED TO DATABASE";
-                    root.app-status-color = Theme.colors.success;
-                } else {
-                    root.app-status = "REGISTRATION DENIED: USER UNIQUE CONFLICT OR ACCESS ERROR";
-                    root.app-status-color = Theme.colors.error;
-                }
-            }
+HorizontalLayout {
+    if !is-authenticated : LoginScreen {
+        error-message: root.error-message;
+        hardware-id: root.hardware-id;
+        
+        attempt-login(user, pass) => {
+            root.attempt-login(user, pass);
         }
-
-        if is-logged-in : Dashboard {
-            selected-schema: root.selected-schema;
-            active-operator: root.session-user;
-            active-role: root.session-role;
-            status-banner-text: root.app-status;
-            status-banner-color: root.app-status-color;
-            crypto-signature-status: root.crypto-signature-status;
-
-            verify-supervisor-keys(op, sv) => {
-                root.verify-supervisor-keys(op, sv);
-            }
-            execute-downgrade-pump(schema, dir) => {
-                root.execute-downgrade-pump(schema, dir);
-            }
-            trigger-logout() => {
-                root.trigger-logout();
-            }
+        trigger-registration(user, pass) => {
+            root.trigger-registration(user, pass);
         }
     }
+
+    if is-authenticated : DashboardScreen {
+        current-user: root.current-user;
+        current-role: root.current-role;
+        selected-schema: root.selected-schema;
+        crypto-signature-status: root.crypto-signature-status;
+        status-banner-text: root.status-banner-text;
+        status-banner-color: root.status-banner-color;
+
+        verify-supervisor-keys(op-key, sv-key) => {
+            root.verify-supervisor-keys(op-key, sv-key);
+        }
+        execute-downgrade-pump(schema, dir) => {
+            root.execute-downgrade-pump(schema, dir);
+        }
+        trigger-logout() => {
+            root.trigger-logout();
+        }
+    }
+}
+
+
 }

@@ -1,14 +1,9 @@
-// =========================================================================
-// IronVault Cyber-Vault Dark Design Tokens (theme.slint)
-// =========================================================================
-
 export struct Palette {
     background: color,
     surface: color,
     surface-hover: color,
     primary: color,
     primary-hover: color,
-    accent: color,
     text: color,
     text-muted: color,
     success: color,
@@ -17,28 +12,27 @@ export struct Palette {
 }
 
 export global Theme {
-    in-out property <string> font-family: "Segoe UI", "Inter", sans-serif;
-    in-out property <string> mono-font: "Consolas", "Courier New", monospace;
+    in-out property <string> font-family: "Segoe UI, Inter, sans-serif";
+    in-out property <string> mono-font: "Consolas, Courier New, monospace";
     
     out property <Palette> colors: {
-        background: #070A13,      // Deep Space Obsidian
-        surface: #0E1524,         // Sleek Blue-Gray Container Surface
-        surface-hover: #1A243A,   // Lighter slate hover focus state
-        primary: #0284C7,         // Crisp Tactical Cyan
-        primary-hover: #0369A1,   // Deep Sky Cyan Hover State
-        accent: #38BDF8,          // High-Glow Accent Blue
-        text: #F8FAFC,            // Arctic White Typography
-        text-muted: #64748B,      // Subdued Muted Slate
-        success: #10B981,         // Cybernetic Emerald Green
-        error: #EF4444,           // Coral Alert Red
-        border: #1E293B,          // Border Separation Line
+        background: #0B0F19,      // Deep space black
+        surface: #161F30,         // Dark slate container
+        surface-hover: #1E293B,   // Hover state accent
+        primary: #38BDF8,         // Electric neon blue
+        primary-hover: #0EA5E9,   // Deep blue focus
+        text: #F8FAFC,            // Near-white text
+        text-muted: #94A3B8,      // Muted slate gray
+        success: #10B981,         // Emerald green
+        error: #EF4444,           // Coral red
+        border: #334155,          // Tactical outline border
     };
 
     out property <length> space-xs: 4px;
     out property <length> space-sm: 8px;
     out property <length> space-md: 16px;
     out property <length> space-lg: 24px;
-    out property <length> space-xl: 32px;
+    out property <length> space-xl: 32px;  // Re-introduced to satisfy layout calculations
     
     out property <length> border-radius: 8px;
 }

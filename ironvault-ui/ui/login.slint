@@ -3,100 +3,142 @@
 // =========================================================================
 
 import { Theme } from "theme.slint";
-import { Button, LineEdit } from "std-widgets.slint";
 
 export component LoginScreen inherits Rectangle {
-    background: Theme.colors.background;
-    
-    in-out property <string> error-message: "";
-    in-out property <string> hardware-id: "CALCULATING PHYSICAL KEYWAY...";
-    
-    callback attempt-login(string, string);
-    callback trigger-registration(string, string);
+background: Theme.colors.background;
 
+in-out property <string> error-message: "";
+in-out property <string> hardware-id: "CALCULATING PHYSICAL KEYWAY...";
+
+// Form inputs exposed as properties
+in-out property <string> username: username-input.text;
+in-out property <string> password: password-input.text;
+
+callback attempt-login(string, string);
+callback trigger-registration(string, string);
+
+VerticalLayout {
+    padding-top: Theme.space-xl * 1.5;
+    padding-bottom: Theme.space-xl * 1.5;
+    spacing: Theme.space-lg;
+    alignment: center;
+
+    // Header Branding
     VerticalLayout {
-        padding-top: Theme.space-xl;
-        padding-bottom: Theme.space-xl;
-        spacing: Theme.space-lg;
-        alignment: center;
-
-        // Brand Typography Header
-        VerticalLayout {
-            spacing: Theme.space-xs;
-            Text {
-                text: "IRONVAULT // SYSTEM ADMIN";
-                font-size: 26px;
-                font-weight: 800;
-                font-family: Theme.font-family;
-                color: Theme.colors.accent;
-                horizontal-alignment: center;
-            }
-            Text {
-                text: "HARDWARE IDENTIFIER BINDING ENFORCED";
-                font-size: 11px;
-                font-family: Theme.mono-font;
-                color: Theme.colors.text-muted;
-                horizontal-alignment: center;
-            }
+        spacing: Theme.space-xs;
+        Text {
+            text: "HEXVAULT // SECURE SYSTEM";
+            font-size: 26px;
+            font-weight: 800;
+            font-family: Theme.font-family;
+            color: Theme.colors.primary;
+            horizontal-alignment: center;
         }
+        Text {
+            text: "DYNAMIC PHYSICAL HARDWARE BINDING ENFORCED";
+            font-size: 11px;
+            font-family: Theme.mono-font;
+            color: Theme.colors.text-muted;
+            horizontal-alignment: center;
+        }
+    }
 
-        // Lock Panel Card surface
-        Rectangle {
-            background: Theme.colors.surface;
-            border-color: Theme.colors.border;
-            border-width: 1px;
-            border-radius: Theme.border-radius * 1.5;
-            width: 440px;
-            height: 340px;
-            x: (parent.width - 440px) / 2;
+    // Central Card
+    Rectangle {
+        background: Theme.colors.surface;
+        border-color: Theme.colors.border;
+        border-width: 1px;
+        border-radius: Theme.border-radius * 1.5;
+        width: 440px;
+        height: 360px;
+
+        VerticalLayout {
+            padding: Theme.space-lg * 1.2;
+            spacing: Theme.space-md;
+
+            Text {
+                text: "CRYPTOGRAPHIC CREDENTIAL ACCESS GATEWAY";
+                font-size: 13px;
+                font-family: Theme.mono-font;
+                color: Theme.colors.text;
+                font-weight: 700;
+                horizontal-alignment: center;
+            }
+
+            // Inputs
+            VerticalLayout {
+                spacing: Theme.space-xs;
+                Text { text: "OPERATOR IDENTIFIER"; font-size: 10px; color: Theme.colors.text-muted; font-family: Theme.mono-font; }
+                username-input := TextInput {
+                    font-size: 14px;
+                    color: Theme.colors.text;
+                    text: "";
+                    single-line: true;
+                    Rectangle {
+                        z: -1;
+                        background: Theme.colors.background;
+                        border-color: Theme.colors.border;
+                        border-width: 1px;
+                        border-radius: Theme.border-radius;
+                        width: 100%;
+                        height: 38px;
+                    }
+                }
+            }
 
             VerticalLayout {
-                padding: Theme.space-lg * 1.2;
-                spacing: Theme.space-md;
-
-                Text {
-                    text: "CRYPTOGRAPHIC CREDENTIAL ACCESS";
-                    font-size: 13px;
-                    font-family: Theme.mono-font;
+                spacing: Theme.space-xs;
+                Text { text: "SECRET VERIFICATION PASSWORD"; font-size: 10px; color: Theme.colors.text-muted; font-family: Theme.mono-font; }
+                password-input := TextInput {
+                    font-size: 14px;
                     color: Theme.colors.text;
-                    font-weight: 700;
-                    horizontal-alignment: center;
-                }
-
-                // Inputs
-                VerticalLayout {
-                    spacing: Theme.space-xs;
-                    Text { text: "OPERATOR IDENTIFIER"; font-size: 10px; color: Theme.colors.text-muted; font-family: Theme.mono-font; }
-                    username-input := LineEdit {
-                        placeholder-text: "Enter operator identification key...";
+                    text: "";
+                    single-line: true;
+                    Rectangle {
+                        z: -1;
+                        background: Theme.colors.background;
+                        border-color: Theme.colors.border;
+                        border-width: 1px;
+                        border-radius: Theme.border-radius;
+                        width: 100%;
                         height: 38px;
                     }
                 }
+            }
 
-                VerticalLayout {
-                    spacing: Theme.space-xs;
-                    Text { text: "SECRET VERIFICATION PASSWORD"; font-size: 10px; color: Theme.colors.text-muted; font-family: Theme.mono-font; }
-                    password-input := LineEdit {
-                        placeholder-text: "••••••••••••";
-                        input-type: password;
-                        height: 38px;
-                    }
-                }
+            // Action Buttons
+            HorizontalLayout {
+                spacing: Theme.space-md;
+                height: 40px;
 
-                // Interactive Buttons
-                HorizontalLayout {
-                    spacing: Theme.space-md;
-                    Button {
+                Rectangle {
+                    background: Theme.colors.primary;
+                    border-radius: Theme.border-radius;
+                    Text {
                         text: "SIGN IN";
-                        primary: true;
-                        height: 40px;
+                        color: Theme.colors.background;
+                        font-weight: 700;
+                        font-size: 13px;
+                    }
+                    TouchArea {
                         clicked => {
                             root.attempt-login(username-input.text, password-input.text);
                         }
                     }
-                    Button {
-                        text: "REGISTER ACCOUNT";
-                        height: 40px;
+                }
+
+                Rectangle {
+                    background: Theme.colors.surface-hover;
+                    border-color: Theme.colors.border;
+                    border-width: 1px;
+                    border-radius: Theme.border-radius;
+                    Text {
+                        text: "REGISTER";
+                        color: Theme.colors.text;
+                        font-weight: 700;
+                        font-size: 13px;
+                    }
+                    TouchArea {
                         clicked => {
                             root.trigger-registration(username-input.text, password-input.text);
                         }
@@ -104,25 +146,28 @@ export component LoginScreen inherits Rectangle {
                 }
             }
         }
+    }
 
-        // Live System status footer
-        VerticalLayout {
-            spacing: Theme.space-xs;
-            if error-message != "" : Text {
-                text: "LIVE FEEDBACK: " + root.error-message;
-                color: Theme.colors.error;
-                font-size: 12px;
-                font-family: Theme.mono-font;
-                font-weight: 700;
-                horizontal-alignment: center;
-            }
-            Text {
-                text: "DEVICE BINDING FOOTPRINT: " + root.hardware-id;
-                color: Theme.colors.text-muted;
-                font-size: 10px;
-                font-family: Theme.mono-font;
-                horizontal-alignment: center;
-            }
+    // Status displays
+    VerticalLayout {
+        spacing: Theme.space-xs;
+        if error-message != "" : Text {
+            text: root.error-message;
+            color: Theme.colors.error;
+            font-size: 12px;
+            font-family: Theme.mono-font;
+            font-weight: 700;
+            horizontal-alignment: center;
+        }
+        Text {
+            text: "HARDWARE BINDING KEY: " + root.hardware-id;
+            color: Theme.colors.text-muted;
+            font-size: 10px;
+            font-family: Theme.mono-font;
+            horizontal-alignment: center;
         }
     }
+}
+
+
 }

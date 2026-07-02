@@ -5,152 +5,272 @@
 import { Theme } from "theme.slint";
 import { Button, LineEdit } from "std-widgets.slint";
 
-export component Dashboard inherits Rectangle {
+export component DashboardScreen inherits Rectangle {
     background: Theme.colors.background;
 
-    // Callbacks out to controller
+    in-out property <string> current-user: "";
+    in-out property <string> current-role: "";
+    in-out property <string> selected-schema: "ironvault";
+    in-out property <string> crypto-signature-status: "";
+    in-out property <string> status-banner-text: "";
+    in-out property <color> status-banner-color: Theme.colors.primary;
+
     callback verify-supervisor-keys(string, string);
     callback execute-downgrade-pump(string, string);
     callback trigger-logout();
 
-    // Context & Binding State Display variables
-    in-out property <string> selected-schema: "ironvault";
-    in-out property <string> active-operator: "ADMINISTRATOR";
-    in-out property <string> active-role: "superadmin";
-    in-out property <string> crypto-signature-status: "❌ CHAIN UNSECURED // KEYS REQUIRED";
-    in-out property <string> status-banner-text: "SYSTEM ONLINE // BINDING CONFIRMED";
-    in-out property <color> status-banner-color: Theme.colors.success;
-
     VerticalLayout {
-        // Upper Status Dashboard Banner
+        // 1. Top Status Banner Row
         Rectangle {
-            height: 60px;
+            background: root.status-banner-color.with-alpha(0.15);
+            height: 40px;
+            
+            Rectangle {
+                background: root.status-banner-color;
+                height: 1px;
+                y: parent.height - 1px;
+                width: parent.width;
+            }
+
+            HorizontalLayout {
+                padding-left: Theme.space-md;
+                padding-right: Theme.space-md;
+                alignment: space-between;
+                Text {
+                    text: root.status-banner-text;
+                    color: root.status-banner-color;
+                    font-family: Theme.mono-font;
+                    font-size: 12px;
+                    vertical-alignment: center;
+                }
+                Text {
+                    text: "SCHEMA ACTIVE: " + root.selected-schema;
+                    color: Theme.colors.text-muted;
+                    font-family: Theme.mono-font;
+                    font-size: 11px;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        // 2. Profile Administrative Header Bar
+        Rectangle {
             background: Theme.colors.surface;
-            border-bottom-width: 1px;
-            border-color: Theme.colors.border;
+            height: 60px;
+            
+            Rectangle {
+                background: Theme.colors.border;
+                height: 1px;
+                y: parent.height - 1px;
+                width: parent.width;
+            }
 
             HorizontalLayout {
                 padding-left: Theme.space-lg;
                 padding-right: Theme.space-lg;
                 alignment: space-between;
 
-                Text {
-                    text: root.status-banner-text;
-                    color: root.status-banner-color;
-                    font-size: 12px;
-                    font-family: Theme.mono-font;
-                    font-weight: 700;
-                    vertical-alignment: center;
-                }
-                
                 HorizontalLayout {
                     spacing: Theme.space-md;
+                    alignment: center;
                     Text {
-                        text: "OPERATOR: " + root.active-operator + " [" + root.active-role + "]";
-                        color: Theme.colors.text-muted;
-                        font-size: 12px;
-                        font-family: Theme.mono-font;
+                        text: "OPERATOR: " + root.current-user;
+                        color: Theme.colors.text;
+                        font-family: Theme.font-family;
+                        font-weight: 700;
                         vertical-alignment: center;
                     }
-                    Button {
-                        text: "🚪 LOGOUT";
-                        clicked => {
-                            root.trigger-logout();
+                    Rectangle {
+                        background: Theme.colors.primary.with-alpha(0.2);
+                        border-color: Theme.colors.primary;
+                        border-width: 1px;
+                        border-radius: 4px;
+                        height: 24px;
+                        y: (parent.height - self.height) / 2;
+                        
+                        HorizontalLayout {
+                            padding-left: Theme.space-sm;
+                            padding-right: Theme.space-sm;
+                            Text {
+                                text: root.current-role;
+                                color: Theme.colors.primary;
+                                font-family: Theme.mono-font;
+                                font-size: 10px;
+                                vertical-alignment: center;
+                            }
                         }
                     }
+                }
+
+                Button {
+                    text: "TERMINATE SESSION";
+                    height: 36px;
+                    y: (parent.height - self.height) / 2;
+                    clicked => { root.trigger-logout(); }
                 }
             }
         }
 
-        // Inner Grid Layout containing controls & data lists
-        VerticalLayout {
+        // 3. Central Operational Dashboard Grid Panels
+        HorizontalLayout {
             padding: Theme.space-lg;
             spacing: Theme.space-lg;
-            alignment: start;
 
-            Text {
-                text: "ironvault Workspace Control Core";
-                color: Theme.colors.text;
-                font-size: 22px;
-                font-weight: 800;
-            }
+            // Left Security Control Forms Column
+            VerticalLayout {
+                width: 420px;
+                spacing: Theme.space-md;
 
-            // Interactive DB Operations Input Form
-            Rectangle {
-                background: Theme.colors.surface;
-                border-width: 1px;
-                border-color: Theme.colors.border;
-                border-radius: Theme.border-radius;
-                height: 120px;
-
-                HorizontalLayout {
-                    padding: Theme.space-md;
-                    spacing: Theme.space-md;
-                    alignment: space-between;
+                Rectangle {
+                    background: Theme.colors.surface;
+                    border-color: Theme.colors.border;
+                    border-width: 1px;
+                    border-radius: Theme.border-radius;
 
                     VerticalLayout {
-                        width: 250px;
-                        spacing: Theme.space-xs;
-                        Text { text: "Schema Scope"; color: Theme.colors.text-muted; font-size: 10px; font-family: Theme.mono-font; }
-                        schema-input := LineEdit { placeholder-text: "ironvault"; text: root.selected-schema; }
-                    }
+                        padding: Theme.space-md;
+                        spacing: Theme.space-md;
+                        Text {
+                            text: "DUAL-KEY REPLICATOR INTERLOCK";
+                            color: Theme.colors.text;
+                            font-family: Theme.mono-font;
+                            font-weight: 700;
+                            font-size: 14px;
+                        }
+                        Text {
+                            text: "Input administrative validation tokens simultaneously to elevate transaction context pipelines safely.";
+                            color: Theme.colors.text-muted;
+                            font-size: 11px;
+                            wrap: word-wrap;
+                        }
 
-                    VerticalLayout {
-                        width: 350px;
-                        spacing: Theme.space-xs;
-                        Text { text: "Replication Export Mapping Directory"; color: Theme.colors.text-muted; font-size: 10px; font-family: Theme.mono-font; }
-                        dir-input := LineEdit { placeholder-text: "/var/backup/ironvault/dump"; }
-                    }
+                        VerticalLayout {
+                            spacing: Theme.space-xs;
+                            Text { text: "OPERATOR KEYRING KEY"; color: Theme.colors.text-muted; font-size: 10px; font-family: Theme.mono-font; }
+                            op-input := LineEdit { placeholder-text: "Enter authority code..."; height: 36px; }
+                        }
 
-                    HorizontalLayout {
-                        alignment: center;
-                        spacing: Theme.space-sm;
+                        VerticalLayout {
+                            spacing: Theme.space-xs;
+                            Text { text: "SUPERVISOR SIGNATURE KEY"; color: Theme.colors.text-muted; font-size: 10px; font-family: Theme.mono-font; }
+                            sv-input := LineEdit { placeholder-text: "Enter authentication signature..."; height: 36px; }
+                        }
 
                         Button {
-                            text: "📦 REPLICATE DB";
-                            clicked => {
-                                root.execute-downgrade-pump(schema-input.text, dir-input.text);
+                            text: "ENGAGE SECURITY INTERLOCK";
+                            height: 38px;
+                            clicked => { root.verify-supervisor-keys(op-input.text, sv-input.text); }
+                        }
+
+                        Rectangle {
+                            background: Theme.colors.background;
+                            border-color: Theme.colors.border;
+                            border-width: 1px;
+                            border-radius: 4px;
+                            height: 36px;
+                            
+                            Text {
+                                text: root.crypto-signature-status;
+                                color: Theme.colors.text;
+                                font-family: Theme.mono-font;
+                                font-size: 11px;
+                                vertical-alignment: center;
+                                horizontal-alignment: center;
                             }
+                        }
+                    }
+                }
+
+                // Disaster Recovery System Configuration Card
+                Rectangle {
+                    background: Theme.colors.surface;
+                    border-color: Theme.colors.border;
+                    border-width: 1px;
+                    border-radius: Theme.border-radius;
+
+                    VerticalLayout {
+                        padding: Theme.space-md;
+                        spacing: Theme.space-md;
+                        Text {
+                            text: "DATA RECOVERY PUMP TIMELINE";
+                            color: Theme.colors.text;
+                            font-family: Theme.mono-font;
+                            font-weight: 700;
+                            font-size: 13px;
+                        }
+                        
+                        VerticalLayout {
+                            spacing: Theme.space-xs;
+                            Text { text: "TARGET DISASTER RECOVERY DIRECTORY"; color: Theme.colors.text-muted; font-size: 10px; font-family: Theme.mono-font; }
+                            dir-input := LineEdit { placeholder-text: "C:\\ironvault\\backup"; height: 36px; }
+                        }
+
+                        Button {
+                            text: "FORCE REPLICATION RESYNC";
+                            height: 38px;
+                            clicked => { root.execute-downgrade-pump(root.selected-schema, dir-input.text); }
                         }
                     }
                 }
             }
 
-            // Cryptographic Handshake Gateway Control Panel Card
+            // Right Schema Logs Monitor Column
             Rectangle {
                 background: Theme.colors.surface;
-                border-width: 1px;
                 border-color: Theme.colors.border;
+                border-width: 1px;
                 border-radius: Theme.border-radius;
-                padding: Theme.space-md;
-                height: 180px;
 
                 VerticalLayout {
+                    padding: Theme.space-md;
                     spacing: Theme.space-md;
-                    Text {
-                        text: "Supervisor Dual-Authorization Security Cryptographic Verification Gate";
-                        color: Theme.colors.accent;
-                        font-size: 15px;
-                        font-weight: 700;
-                    }
-
+                    
                     HorizontalLayout {
-                        spacing: Theme.space-md;
-                        op-key := LineEdit { placeholder-text: "Primary Operator Private Verification Key..."; }
-                        sv-key := LineEdit { placeholder-text: "Supervisor Certificate Authority Approval Key..."; }
-                        Button {
-                            text: "🔒 VERIFY KEYS";
-                            clicked => {
-                                root.verify-supervisor-keys(op-key.text, sv-key.text);
+                        alignment: space-between;
+                        Text {
+                            text: "SCHEMA AUDIT TRAILS MONITOR";
+                            color: Theme.colors.text;
+                            font-family: Theme.mono-font;
+                            font-weight: 700;
+                            font-size: 14px;
+                            vertical-alignment: center;
+                        }
+                        Rectangle {
+                            background: Theme.colors.success.with-alpha(0.15);
+                            border-color: Theme.colors.success;
+                            border-width: 1px;
+                            border-radius: 4px;
+                            height: 22px;
+                            
+                            HorizontalLayout {
+                                padding-left: Theme.space-sm;
+                                padding-right: Theme.space-sm;
+                                Text {
+                                    text: "LIVE FEED";
+                                    color: Theme.colors.success;
+                                    font-family: Theme.mono-font;
+                                    font-size: 9px;
+                                    vertical-alignment: center;
+                                }
                             }
                         }
                     }
 
-                    Text {
-                        text: "AUTHORIZATION PIPELINE STATUS: " + root.crypto-signature-status;
-                        color: Theme.colors.text-muted;
-                        font-size: 11px;
-                        font-family: Theme.mono-font;
+                    Rectangle {
+                        background: Theme.colors.background;
+                        border-color: Theme.colors.border;
+                        border-width: 1px;
+                        border-radius: 4px;
+                        
+                        VerticalLayout {
+                            padding: Theme.space-md;
+                            spacing: Theme.space-sm;
+
+                            Text { text: "[SYSTEM OK] Authorized administrative security console instance generated."; font-family: Theme.mono-font; font-size: 11px; color: Theme.colors.success; }
+                            Text { text: "[SCHEMA OK] Bound database workspace context directly onto 'ironvault' namespace."; font-family: Theme.mono-font; font-size: 11px; color: Theme.colors.text-muted; }
+                            Text { text: "[SECURITY HANDSHAKE] Verified unique physical machine binding cryptographic profile."; font-family: Theme.mono-font; font-size: 11px; color: Theme.colors.primary; }
+                            Text { text: "[STREAM ACTIVE] Operational session logging feed tracking live audit records..."; font-family: Theme.mono-font; font-size: 11px; color: Theme.colors.text-muted; }
+                        }
                     }
                 }
             }

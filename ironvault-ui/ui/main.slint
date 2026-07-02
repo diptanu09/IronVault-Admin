@@ -2,5 +2,63 @@
 // Master Slint Module Orchestration (main.slint)
 // =========================================================================
 
-import { AppWindow } from "appwindow.slint";
-export { AppWindow }
+import { Theme } from "theme.slint";
+import { LoginScreen } from "login.slint";
+import { DashboardScreen } from "dashboard.slint";
+
+export component AppWindow inherits Window {
+    title: "IRONVAULT // Enterprise Administration Control Core";
+    width: 1100px;
+    height: 700px;
+    background: Theme.colors.background;
+
+    // Synchronized properties matching controllers.rs setters exactly
+    in-out property <bool> is-logged-in: false;
+    in-out property <string> session-user: "Unauthenticated Session";
+    in-out property <string> session-role: "guest";
+    in-out property <string> hardware-id: "FINGERPRINT-CALCULATING...";
+    in-out property <string> error-message: "";
+    in-out property <string> app-status: "SYSTEM INITIALIZED // SECURE CHANNEL ONLINE";
+    in-out property <color> app-status-color: Theme.colors.primary;
+    in-out property <string> selected-schema: "ironvault";
+    in-out property <string> crypto-signature-status: "AWAITING AUTHORIZATION CHAIN";
+
+    // Synchronized callback signatures with explicit boolean return types
+    callback attempt-login(string, string) -> bool;
+    callback create-new-user(string, string, string) -> bool;
+    callback verify-supervisor-keys(string, string);
+    callback execute-downgrade-pump(string, string);
+    callback trigger-logout();
+
+    if !is-logged-in : LoginScreen {
+        error-message: root.error-message;
+        hardware-id: root.hardware-id;
+        
+        // Relaying internal inputs directly back out to the engine wireframe
+        attempt-login(user, pass) => {
+            return root.attempt-login(user, pass);
+        }
+        trigger-registration(user, pass) => {
+            return root.create-new-user(user, pass, "admin");
+        }
+    }
+
+    if is-logged-in : DashboardScreen {
+        current-user: root.session-user;
+        current-role: root.session-role;
+        selected-schema: root.selected-schema;
+        crypto-signature-status: root.crypto-signature-status;
+        status-banner-text: root.app-status;
+        status-banner-color: root.app-status-color;
+
+        verify-supervisor-keys(op-key, sv-key) => {
+            root.verify-supervisor-keys(op-key, sv-key);
+        }
+        execute-downgrade-pump(schema, directory) => {
+            root.execute-downgrade-pump(schema, directory);
+        }
+        trigger-logout() => {
+            root.trigger-logout();
+        }
+    }
+}

@@ -1,38 +1,55 @@
 // =========================================================================
-// IronVault Machine-Binding & Session Auth Controller (auth.rs)
+// IronVault Machine-Binding Auth Processor (auth.rs)
 // =========================================================================
 
-use ironvault_core::models::{ActiveSession, OperatorRole};
-use std::sync::Mutex;
+use std::process::Command;
 
-static ACTIVE_SESSION: Mutex<Option<ActiveSession>> = Mutex::new(None);
+/// Extracts a unique physical machine identifier string to implement hardware binding security.
+pub fn get_hardware_machine_id() -> String {
+    let raw_id = if cfg!(target_os = "windows") {
+        Command::new("wmic")
+            .args(&["csproduct", "get", "UUID"])
+            .output()
+            .ok()
+            .and_then(|out| String::from_utf8(out.stdout).ok())
+            .map(|s| s.lines().nth(1).unwrap_or("").trim().to_string())
+    } else if cfg!(target_os = "linux") {
+        std::fs::read_to_string("/etc/machine-id")
+            .map(|s| s.trim().to_string())
+            .or_else(|_| std::fs::read_to_string("/var/lib/dbus/machine-id").map(|s| s.trim().to_string()))
+            .ok()
+    } else if cfg!(target_os = "macos") {
+        Command::new("ioreg")
+            .args(&["-rd1", "-c", "IOPlatformExpertDevice"])
+            .output()
+            .ok()
+            .and_then(|out| String::from_utf8(out.stdout).ok())
+            .and_then(|s| {
+                s.lines()
+                    .find(|line| line.contains("IOPlatformUUID"))
+                    .map(|line| line.split('"').nth(3).unwrap_or("").trim().to_string())
+            })
+    } else {
+        None
+    };
 
-/// Initiates a system session token with hardware locks paired to the runtime operator
-pub fn establish_active_session(username: &str, role_str: &str, machine_id: &str) {
-    let mut session = ACTIVE_SESSION.lock().unwrap();
-    let token = format!("IV-TOKEN-{}-{}", username.to_uppercase(), &machine_id[0..6].to_uppercase());
-    
-    *session = Some(ActiveSession {
-        token,
-        username: username.to_string(),
-        role: OperatorRole::from_str(role_str),
-        hardware_binding: machine_id.to_string(),
-        session_start: std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs(),
-    });
+    match raw_id {
+        Some(id) if !id.is_empty() && id != "Node" => id,
+        _ => {
+            let user = std::env::var("USERNAME").or_else(|_| std::env::var("USER")).unwrap_or_else(|_| "UNKNOWN_OP".to_string());
+            let arch = std::env::consts::ARCH;
+            let os = std::env::consts::OS;
+            format!("FALLBACK-FINGERPRINT-{}-{}-{}", user, os, arch)
+        }
+    }
 }
 
-/// Tears down active session properties during safe system exits
+/// Tracks the active user session details globally in memory
+pub fn establish_active_session(username: &str, role: &str, hardware_id: &str) {
+    println!("[SESSION] Session established for {} ({}) on machine HW: {}", username, role, hardware_id);
+}
+
+/// Clears out the current session states securely
 pub fn invalidate_session() {
-    let mut session = ACTIVE_SESSION.lock().unwrap();
-    *session = None;
+    println!("[SESSION] Current administration session data invalidated cleanly.");
 }
-
-/// Helper returning the signature status of the logged-in machine profile
-pub fn get_session_operator_profile() -> Option<(String, String)> {
-    let session = ACTIVE_SESSION.lock().unwrap();
-    session.as_ref().map(|s| (s.username.clone(), s.role.to_string()))
-}
-

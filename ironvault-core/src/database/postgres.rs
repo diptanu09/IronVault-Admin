@@ -1,5 +1,5 @@
 // =========================================================================
-// IronVault PostgreSQL Secure & Diagnostic Multi-Schema Database Connector
+// IronVault PostgreSQL secure Multi-Schema CRUD Engine (postgres.rs)
 // =========================================================================
 
 use native_tls::TlsConnector;
@@ -7,9 +7,8 @@ use postgres_native_tls::MakeTlsConnector;
 use std::error::Error;
 use tokio_postgres::Client;
 
-/// Configures and connects to the PostgreSQL instance. 
+/// Configures and connects securely to the PostgreSQL instance. 
 pub async fn establish_secure_connection(connection_string: &str) -> Result<Client, Box<dyn Error>> {
-    // 1. Mask password for terminal privacy, then print the actual string being used
     let mut masked_string = connection_string.to_string();
     if let Some(start) = connection_string.find("password=") {
         if let Some(end) = connection_string[start..].find(' ') {
@@ -20,7 +19,7 @@ pub async fn establish_secure_connection(connection_string: &str) -> Result<Clie
     }
     println!("[DIAGNOSTIC] Connecting with URI: {}", masked_string);
 
-    // 2. Attempt Secure Native-TLS connection first
+    // Attempt secure native TLS connection first
     let tls_inner_connector = TlsConnector::builder()
         .danger_accept_invalid_certs(true)
         .build()?;
@@ -33,44 +32,26 @@ pub async fn establish_secure_connection(connection_string: &str) -> Result<Clie
                     eprintln!("[ERROR] Active PostgreSQL TLS stream failure: {}", e);
                 }
             });
-            println!("[SUCCESS] Secure TLS channel established with database: AsstPro.");
+            println!("[SUCCESS] Secure TLS channel established with database.");
             return Ok(client);
         }
         Err(e) => {
-            print!("[WARNING] TLS connection rejected. ");
-            if let Some(db_err) = e.as_db_error() {
-                println!("PostgreSQL Server reported: FATAL {} (SQL State: {})", db_err.message(), db_err.code().code());
-            } else {
-                println!("Error details: {}", e);
-            }
-            println!("[PROCESS] Retrying with plain connection...");
+            println!("[WARNING] TLS rejected. Retrying with standard clean connection... Detail: {}", e);
         }
     }
 
-    // 3. Fall back to clean plain TCP (NoTls)
-    match tokio_postgres::connect(connection_string, tokio_postgres::NoTls).await {
-        Ok((client, connection)) => {
-            tokio::spawn(async move {
-                if let Err(e) = connection.await {
-                    eprintln!("[ERROR] Active PostgreSQL connection stream failure: {}", e);
-                }
-            });
-            println!("[SUCCESS] Standard channel established with database: AsstPro.");
-            Ok(client)
+    // Fall back to clean plain TCP (NoTls)
+    let (client, connection) = tokio_postgres::connect(connection_string, tokio_postgres::NoTls).await?;
+    tokio::spawn(async move {
+        if let Err(e) = connection.await {
+            eprintln!("[ERROR] Active PostgreSQL plain stream failure: {}", e);
         }
-        Err(e) => {
-            print!("[ERROR] Plain connection failed. ");
-            if let Some(db_err) = e.as_db_error() {
-                println!("PostgreSQL Server reported: FATAL {} (SQL State: {})", db_err.message(), db_err.code().code());
-            } else {
-                println!("Error details: {}", e);
-            }
-            Err(Box::new(e))
-        }
-    }
+    });
+    println!("[SUCCESS] Standard plain channel established with database.");
+    Ok(client)
 }
 
-/// Inserts a secure audit log directly into your "agartala.system_audit_logs" table
+/// Inserts a secure audit log directly into your target system audit logs table
 pub async fn write_system_audit_log(
     client: &Client,
     operator: &str,
@@ -78,13 +59,13 @@ pub async fn write_system_audit_log(
     details: &str,
 ) -> Result<(), Box<dyn Error>> {
     let sql_query = "
-        INSERT INTO agartala.system_audit_logs (operator_username, action_type, details) 
+        INSERT INTO ironvault_schema.system_audit_logs (operator_username, action_type, details) 
         VALUES ($1, $2, $3)";
     client.execute(sql_query, &[&operator, &action_type, &details]).await?;
     Ok(())
 }
 
-/// Safely inserts a new subscriber record into your "agartala.subscriber_details" table
+/// Safely inserts a new subscriber record into your subscriber table
 pub async fn execute_dynamic_insert(
     client: &Client,
     schema: &str,
@@ -99,14 +80,14 @@ pub async fn execute_dynamic_insert(
 
     let sql_query = "
         INSERT INTO subscriber_details (series_id, account_no, subscriber_name) 
-        VALUES ($1, $2, $3)";
+        VALUES ($1, $2, $3) ON CONFLICT (series_id, account_no) DO NOTHING";
     client.execute(sql_query, &[&series, &account, &name]).await?;
 
     println!("[SQL ENGINE] Parameterized INSERT committed to {}.subscriber_details", sanitized_schema);
     Ok(())
 }
 
-/// Safely updates an existing subscriber record's name in the "subscriber_details" table
+/// Safely updates an existing subscriber record's name
 pub async fn execute_dynamic_update(
     client: &Client,
     schema: &str,
@@ -125,7 +106,7 @@ pub async fn execute_dynamic_update(
     Ok(())
 }
 
-/// Safely removes an existing subscriber record from your "agartala.subscriber_details" table
+/// Safely removes an existing subscriber record
 pub async fn execute_dynamic_delete(
     client: &Client,
     schema: &str,

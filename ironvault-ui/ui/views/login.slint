@@ -4,16 +4,13 @@ import { Button, LineEdit, VerticalBox, HorizontalBox } from "std-widgets.slint"
 
 export component LoginView inherits Rectangle {
     callback login_requested(string, string);
-    callback registration_requested(string, string, string);
     
     in-out property <string> error_message: "";
-    in-out property <bool> register_mode: false;
-    
     background: #0B0F19;
     
     Rectangle {
         width: 400px;
-        height: 520px;
+        height: 420px;
         background: #111827;
         border-radius: 12px;
         border-width: 1px;
@@ -21,13 +18,13 @@ export component LoginView inherits Rectangle {
         
         VerticalBox {
             padding: 40px;
-            spacing: 15px;
+            spacing: 20px;
             alignment: center;
             
-            Text { text: root.register_mode ? "CREATE NEW OPERATOR" : "IRONVAULT SECURE LOGIN"; font-size: 20px; font-weight: 800; color: #38BDF8; horizontal-alignment: center; }
+            Text { text: "IRONVAULT SECURE LOGIN"; font-size: 20px; font-weight: 800; color: #38BDF8; horizontal-alignment: center; }
             Text { text: "Database Matrix Handshake Engine"; font-size: 11px; color: #6B7280; horizontal-alignment: center; }
             
-            Text { text: root.error_message; color: #EF4444; font-size: 12px; horizontal-alignment: center; }
+            Text { text: root.error_message; color: #EF4444; font-size: 12px; horizontal-alignment: center; wrap: word-wrap; }
             
             VerticalBox {
                 spacing: 5px;
@@ -41,37 +38,11 @@ export component LoginView inherits Rectangle {
                 password_in := LineEdit { input-type: password; placeholder-text: "••••••••"; }
             }
             
-            // Fixed: Component is always declared, but its layout height vanishes when not in registration view mode
-            VerticalBox {
-                spacing: 5px;
-                visible: root.register_mode;
-                height: root.register_mode ? 60px : 0px;
-                
-                Text { text: "Access Authorization Level Role"; color: #9CA3AF; font-size: 12px; }
-                role_in := LineEdit { text: "Operator"; placeholder-text: "SuperAdmin, Admin, Operator"; }
-            }
-            
             Rectangle { height: 10px; }
             
-            if !root.register_mode : Button {
-                text: "AUTHENTICATE CORE";
+            Button {
+                text: "AUTHENTICATE CORE ENGINE";
                 clicked => { root.login_requested(username_in.text, password_in.text); }
-            }
-            
-            if root.register_mode : Button {
-                text: "COMMIT NEW ACCOUNT TO CLUSTER";
-                clicked => { root.registration_requested(username_in.text, password_in.text, role_in.text); }
-            }
-            
-            TouchArea {
-                height: 30px;
-                clicked => { root.register_mode = !root.register_mode; root.error_message = ""; }
-                Text {
-                    text: root.register_mode ? "← Back to Login Console" : "➕ Onboard New Security Operator Profile";
-                    color: #38BDF8;
-                    font-size: 12px;
-                    horizontal-alignment: center;
-                }
             }
         }
     }

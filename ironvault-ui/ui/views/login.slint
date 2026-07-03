@@ -4,13 +4,19 @@ import { Button, LineEdit, VerticalBox, HorizontalBox } from "std-widgets.slint"
 
 export component LoginView inherits Rectangle {
     callback login_requested(string, string);
+    callback registration_requested(string, string);
     
     in-out property <string> error_message: "";
+    in-out property <bool> is_register_mode: false;
+
+    in-out property <string> captcha_question: "";
+    in-out property <string> captcha_answer: "";
+    
     background: #0B0F19;
     
     Rectangle {
         width: 400px;
-        height: 420px;
+        height: root.is_register_mode ? 490px : 420px;
         background: #111827;
         border-radius: 12px;
         border-width: 1px;
@@ -18,18 +24,36 @@ export component LoginView inherits Rectangle {
         
         VerticalBox {
             padding: 40px;
-            spacing: 20px;
+            spacing: 18px;
             alignment: center;
             
-            Text { text: "IRONVAULT SECURE LOGIN"; font-size: 20px; font-weight: 800; color: #38BDF8; horizontal-alignment: center; }
-            Text { text: "Database Matrix Handshake Engine"; font-size: 11px; color: #6B7280; horizontal-alignment: center; }
+            Text { 
+                text: root.is_register_mode ? "REQUEST NODE ACCESS" : "IRONVAULT SECURE LOGIN"; 
+                font-size: 20px; 
+                font-weight: 800; 
+                color: #38BDF8; 
+                horizontal-alignment: center; 
+            }
+            Text { 
+                text: root.is_register_mode ? "Account permissions must be assigned by an active SuperAdmin" : "Database Matrix Handshake Engine"; 
+                font-size: 11px; 
+                color: #6B7280; 
+                horizontal-alignment: center; 
+                wrap: word-wrap;
+            }
             
-            Text { text: root.error_message; color: #EF4444; font-size: 12px; horizontal-alignment: center; wrap: word-wrap; }
+            Text { 
+                text: root.error_message; 
+                color: (root.error_message == "Account requested! Awaiting SuperAdmin role assignment.") ? #10B981 : #EF4444; 
+                font-size: 12px; 
+                horizontal-alignment: center; 
+                wrap: word-wrap; 
+            }
             
             VerticalBox {
                 spacing: 5px;
                 Text { text: "Username"; color: #9CA3AF; font-size: 12px; }
-                username_in := LineEdit { placeholder-text: "Operator ID Name"; }
+                username_in := LineEdit { placeholder-text: "Requested Operator ID"; }
             }
             
             VerticalBox {
@@ -38,11 +62,50 @@ export component LoginView inherits Rectangle {
                 password_in := LineEdit { input-type: password; placeholder-text: "••••••••"; }
             }
             
-            Rectangle { height: 10px; }
+            VerticalBox {
+                spacing: 5px;
+                visible: root.is_register_mode;
+                Text { text: "Human Verification Factor Check"; color: #9CA3AF; font-size: 12px; }
+                HorizontalBox {
+                    spacing: 10px;
+                    alignment: start;
+                    Rectangle {
+                        width: 90px; height: 32px; background: #1F2937; border-radius: 4px;
+                        Text { text: root.captcha_question + " ="; color: #F3F4F6; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    human_ans := LineEdit { placeholder-text: "?"; width: 80px; }
+                }
+            }
             
-            Button {
+            Rectangle { height: 5px; }
+            
+            if !root.is_register_mode : Button {
                 text: "AUTHENTICATE CORE ENGINE";
                 clicked => { root.login_requested(username_in.text, password_in.text); }
+            }
+            
+            if root.is_register_mode : Button {
+                text: "SUBMIT REGISTRATION REQUEST";
+                clicked => { 
+                    if (human_ans.text != root.captcha_answer) {
+                        root.error_message = "HUMAN VERIFICATION ERROR: Incorrect calculation answer.";
+                    } else {
+                        root.registration_requested(username_in.text, password_in.text);
+                        username_in.text = "";
+                        password_in.text = "";
+                        human_ans.text = "";
+                    }
+                }
+            }
+            
+            HorizontalBox {
+                alignment: center;
+                spacing: 5px;
+                Text { text: root.is_register_mode ? "Already provisioned?" : "First time on this machine?"; color: #6B7280; font-size: 11px; }
+                TouchArea {
+                    clicked => { root.is_register_mode = !root.is_register_mode; root.error_message = ""; }
+                    Text { text: root.is_register_mode ? "Sign In" : "Request Access"; color: #38BDF8; font-size: 11px; font-weight: 700; }
+                }
             }
         }
     }

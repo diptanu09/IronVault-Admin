@@ -3004,6 +3004,7 @@ dependencies = [
  "ironvault-core",
  "ironvault-db",
  "log",
+ "rand 0.8.6",
  "serde",
  "serde_json",
  "slint",

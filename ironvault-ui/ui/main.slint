@@ -9,7 +9,6 @@ export component AppWindow inherits Window {
     width: 1024px;
     height: 720px;
     
-    // Core Application State Linkage
     in-out property <bool> is_logged_in: false;
     in-out property <string> login_error: "";
     in-out property <string> hwid_string: "HWID: FETCHING...";
@@ -18,32 +17,30 @@ export component AppWindow inherits Window {
     in-out property <string> current_user_role: "UNAUTHORIZED";
     in-out property <string> last_login: "NEVER";
 
-    // Navigation State
+    in-out property <string> pending_notification_name: "NONE";
+    in-out property <string> polling_error_msg: ""; 
+    
+    in-out property <string> captcha_q_main: "";
+    in-out property <string> captcha_a_main: "";
+    
     in-out property <string> active_tab: "overview";
 
-    // Event Relays Upstream to Rust Loop
     callback request_authentication(string, string);
-    callback request_registration(string, string, string);
+    callback request_registration(string, string);
+    callback approve_pending_operator(string, string);
+    callback deny_pending_operator(string); 
 
     background: #0B0F19;
 
     HorizontalBox {
-        spacing: 0;
-        padding: 0;
+        spacing: 0; padding: 0;
 
-        // SIDEBAR NAVIGATION MATRIX (Only visible when logged in)
         if root.is_logged_in : Rectangle {
-            width: 240px;
-            background: #111827;
-            border-width: 1px;
-            border-color: #1F2937;
+            width: 240px; background: #111827; border-width: 1px; border-color: #1F2937;
 
             VerticalBox {
-                padding: 20px;
-                spacing: 20px;
-                alignment: start;
+                padding: 20px; spacing: 20px; alignment: start;
 
-                // Application Header Branding
                 VerticalBox {
                     spacing: 4px;
                     Text { text: "IRONVAULT CORE"; font-size: 18px; font-weight: 800; color: #38BDF8; }
@@ -52,7 +49,6 @@ export component AppWindow inherits Window {
 
                 Rectangle { height: 2px; background: #1F2937; }
 
-                // User Identity Widget
                 VerticalBox {
                     spacing: 5px;
                     Text { text: "OPERATOR PROFILE:"; font-size: 10px; color: #9CA3AF; font-weight: 700; }
@@ -62,19 +58,15 @@ export component AppWindow inherits Window {
 
                 Rectangle { height: 2px; background: #1F2937; }
 
-                // Interactive Menu Tab Selectors
-                Button { 
-                    text: "📊 System Overview"; 
-                    clicked => { root.active_tab = "overview"; }
-                }
-                Button { 
-                    text: "➕ Onboard Operator"; 
-                    clicked => { root.active_tab = "registration"; }
+                Button { text: "📊 System Overview"; clicked => { root.active_tab = "overview"; } }
+                
+                if (root.current_user_role == "SuperAdmin" || root.current_user_role == "super_admin" || root.current_user_role == "Superadmin" || root.current_user_role == "superadmin") : Button { 
+                    text: "🔔 Approval Queue"; 
+                    clicked => { root.active_tab = "approvals"; } 
                 }
 
                 Rectangle { vertical-stretch: 1; } 
 
-                // Security Status Stamp footer
                 VerticalBox {
                     spacing: 4px;
                     Text { text: "SECURITY SIGNATURE:"; font-size: 9px; color: #4B5563; font-weight: 700; }
@@ -83,133 +75,113 @@ export component AppWindow inherits Window {
             }
         }
 
-        // MAIN CONTENT CANVAS VIEW AREA
         Rectangle {
             horizontal-stretch: 1;
             
             if !root.is_logged_in : LoginView {
                 error_message: root.login_error;
+                captcha_question: root.captcha_q_main;
+                captcha_answer: root.captcha_a_main;
                 login_requested(user, pass) => { root.request_authentication(user, pass); }
+                registration_requested(user, pass) => { root.request_registration(user, pass); }
             }
 
             if root.is_logged_in : VerticalBox {
-                padding: 40px;
-                spacing: 25px;
+                padding: 40px; spacing: 25px;
 
-                // DYNAMIC VIEW 1: SYSTEM OVERVIEW PANEL
                 if root.active_tab == "overview" : VerticalBox {
                     spacing: 20px;
-                    
                     VerticalBox {
                         spacing: 5px;
                         Text { text: "SYSTEM OPERATIONAL OVERVIEW"; font-size: 22px; font-weight: 800; color: #FFFFFF; }
                         Text { text: "Live node diagnostics connected to database cluster AsstPro"; font-size: 13px; color: #9CA3AF; }
                     }
 
-                    // Stat Metrics Grid Row
                     HorizontalBox {
                         spacing: 20px;
-                        
                         Rectangle {
-                            height: 100px;
-                            background: #111827;
-                            border-radius: 8px;
-                            border-width: 1px;
-                            border-color: #1F2937;
+                            height: 100px; background: #111827; border-radius: 8px; border-width: 1px; border-color: #1F2937;
                             VerticalBox {
                                 padding: 15px; alignment: center;
                                 Text { text: "DB MATRIX CONNECTION"; font-size: 11px; color: #9CA3AF; font-weight: 700; }
                                 Text { text: "ONLINE // SECURE"; font-size: 18px; color: #10B981; font-weight: 800; }
                             }
                         }
-
                         Rectangle {
-                            height: 100px;
-                            background: #111827;
-                            border-radius: 8px;
-                            border-width: 1px;
-                            border-color: #1F2937;
+                            height: 100px; background: #111827; border-radius: 8px; border-width: 1px; border-color: #1F2937;
                             VerticalBox {
                                 padding: 15px; alignment: center;
-                                Text { text: "CURRENT SESSION FOOTPRINT"; font-size: 11px; color: #9CA3AF; font-weight: 700; }
-                                Text { text: root.last_login; font-size: 12px; color: #38BDF8; font-weight: 600; wrap: word-wrap; }
+                                Text { text: "INCOMING PENDING REQUESTS"; font-size: 11px; color: #9CA3AF; font-weight: 700; }
+                                Text { text: root.pending_notification_name == "NONE" ? "0 CHANNELS" : "⚠️ ACTIONS REQUIRED"; font-size: 16px; color: root.pending_notification_name == "NONE" ? #6B7280 : #F59E0B; font-weight: 800; }
                             }
                         }
                     }
 
-                    // System Operational Welcome Display Card
                     Rectangle {
-                        background: #1E293B;
-                        border-radius: 8px;
-                        
-                        // FIXED: Replaced 'padding: 20px' configuration with structured layout internals
+                        background: #1E293B; border-radius: 8px;
                         VerticalBox {
-                            padding-left: 20px;
-                            padding-right: 20px;
-                            padding-top: 20px;
-                            padding-bottom: 20px;
-                            spacing: 10px;
+                            padding-left: 20px; padding-right: 20px; padding-top: 20px; padding-bottom: 20px; spacing: 10px;
                             Text { text: "Welcome Back, Authorized Operator."; font-size: 16px; font-weight: 700; color: #38BDF8; }
-                            Text { 
-                                text: "The core database abstraction layer has loaded successfully. All access queries and actions performed within this panel will be appended directly to the physical system audit sequence trail table schema logs."; 
-                                font-size: 13px; 
-                                color: #E2E8F0; 
-                                wrap: word-wrap; 
-                            }
+                            Text { text: "The core database abstraction layer has loaded successfully. All access queries and actions performed within this panel will be appended directly to the physical system audit sequence trail table schema logs."; font-size: 13px; color: #E2E8F0; wrap: word-wrap; }
                         }
                     }
                 }
 
-                // DYNAMIC VIEW 2: ACCOUNT MANAGEMENT ONBOARDING PANEL
-                if root.active_tab == "registration" : VerticalBox {
-                    spacing: 20px;
-                    alignment: start;
+                if (root.active_tab == "approvals" && (root.current_user_role == "SuperAdmin" || root.current_user_role == "super_admin" || root.current_user_role == "Superadmin" || root.current_user_role == "superadmin")) : VerticalBox {
+                    spacing: 20px; alignment: start;
 
                     VerticalBox {
                         spacing: 5px;
-                        Text { text: "SECURE OPERATOR ONBOARDING ENGINE"; font-size: 22px; font-weight: 800; color: #FFFFFF; }
-                        Text { text: "Provision new credential records directly into the ironvault.users schema cluster"; font-size: 13px; color: #9CA3AF; }
+                        Text { text: "PENDING SECURITY ENFORCEMENT QUEUE"; font-size: 22px; font-weight: 800; color: #FFFFFF; }
+                        Text { text: "Review raw device profile entry registration logs and assign roles dynamically"; font-size: 13px; color: #9CA3AF; }
                     }
 
                     Rectangle {
-                        width: 500px;
-                        background: #111827;
-                        border-radius: 10px;
-                        border-width: 1px;
-                        border-color: #1F2937;
+                        width: 550px; background: #111827; border-radius: 10px; border-width: 1px; border-color: #1F2937;
                         
                         VerticalBox {
-                            padding: 30px;
-                            spacing: 15px;
+                            padding: 30px; spacing: 18px;
 
-                            Text { text: root.login_error == "" ? "Fill out registration parameters:" : root.login_error; color: root.login_error == "Account Registered Successfully! Toggle view to sign in." ? #10B981 : #EF4444; font-size: 13px; }
-
-                            VerticalBox {
-                                spacing: 5px;
-                                Text { text: "New Username"; color: #9CA3AF; font-size: 12px; }
-                                reg_user := LineEdit { placeholder-text: "e.g. Operator_Delta"; }
+                            // FIXED: Moved padding to structural parent block correctly to eliminate Slint warnings
+                            if root.polling_error_msg != "" : Rectangle {
+                                background: #3B0712; border-radius: 6px; height: 50px; border-color: #991B1B; border-width: 1px;
+                                HorizontalBox {
+                                    padding-left: 15px;
+                                    Text { text: "🚨 DATABASE ACCESS EXCEPTION:\n" + root.polling_error_msg; color: #FCA5A5; font-size: 11px; font-weight: 700; vertical-alignment: center; }
+                                }
                             }
 
-                            VerticalBox {
-                                spacing: 5px;
-                                Text { text: "Secure Passcode"; color: #9CA3AF; font-size: 12px; }
-                                reg_pass := LineEdit { input-type: password; placeholder-text: "••••••••"; }
+                            if root.pending_notification_name == "NONE" : Text {
+                                text: "🎉 Excellent. All incoming registration requests have been authorized. Operational logs clean.";
+                                color: #10B981; font-size: 14px; wrap: word-wrap;
                             }
 
-                            VerticalBox {
-                                spacing: 5px;
-                                Text { text: "System Permission Level Role"; color: #9CA3AF; font-size: 12px; }
-                                reg_role := LineEdit { text: "Operator"; placeholder-text: "SuperAdmin, Admin, Operator, Viewer"; }
-                            }
+                            if root.pending_notification_name != "NONE" : VerticalBox {
+                                spacing: 15px;
+                                Rectangle {
+                                    background: #2D1510; border-radius: 6px; height: 45px;
+                                    VerticalBox {
+                                        alignment: center; padding-left: 15px;
+                                        Text { text: "⚠️ PENDING INTERCEPT FROM OPERATOR: " + root.pending_notification_name; color: #F59E0B; font-weight: 700; }
+                                    }
+                                }
+                                
+                                VerticalBox {
+                                    spacing: 5px;
+                                    Text { text: "Assign Workspace Privilege Authority Level"; color: #9CA3AF; font-size: 12px; }
+                                    assign_role := LineEdit { text: "Operator"; placeholder-text: "SuperAdmin, Admin, Operator"; }
+                                }
 
-                            Rectangle { height: 10px; }
-
-                            Button {
-                                text: "COMMIT OPERATOR ENTRY TO CLUSTER";
-                                clicked => { 
-                                    root.request_registration(reg_user.text, reg_pass.text, reg_role.text);
-                                    reg_user.text = "";
-                                    reg_pass.text = "";
+                                HorizontalBox {
+                                    spacing: 12px;
+                                    Button {
+                                        text: "APPROVE PROFILE & ASSIGN ROLE";
+                                        clicked => { root.approve_pending_operator(root.pending_notification_name, assign_role.text); }
+                                    }
+                                    Button {
+                                        text: "❌ REJECT & DENY";
+                                        clicked => { root.deny_pending_operator(root.pending_notification_name); }
+                                    }
                                 }
                             }
                         }

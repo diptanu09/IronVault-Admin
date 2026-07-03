@@ -19,13 +19,17 @@ chrono = { version = "0.4", features = ["serde"] }
 log = "0.4"
 env_logger = "0.11"
 thiserror = "1.0"
-#ironvault-core = { path = "../ironvault-core" }
-#ironvault-db = { path = "../ironvault-db" }
-#slint = "1.5"
+
+# ADDED: Required for generating runtime verification factors (CAPTCHA)
+rand = "0.8" 
+
+
 
 [dev-dependencies]
 tokio-test = "0.4"
 
+# UI Engine Core
+slint = "1.5"
 
 [build-dependencies]
 slint-build = "1.5"

@@ -29,6 +29,7 @@ export component AppWindow inherits Window {
     callback request_registration(string, string);
     callback approve_pending_operator(string, string);
     callback deny_pending_operator(string); 
+    callback request_logout();
 
     background: #0B0F19;
 
@@ -43,7 +44,10 @@ export component AppWindow inherits Window {
 
                 VerticalBox {
                     spacing: 4px;
-                    Text { text: "IRONVAULT CORE"; font-size: 18px; font-weight: 800; color: #38BDF8; }
+                    HorizontalBox {
+                        alignment: start; spacing: 8px;
+                        Text { text: "🛡️ IRONVAULT"; font-size: 18px; font-weight: 800; color: #38BDF8; vertical-alignment: center; }
+                    }
                     Text { text: "Admin Infrastructure v0.1.0"; font-size: 10px; color: #6B7280; }
                 }
 
@@ -66,6 +70,13 @@ export component AppWindow inherits Window {
                 }
 
                 Rectangle { vertical-stretch: 1; } 
+
+                Button {
+                    text: "🔓 Terminate Session";
+                    clicked => { root.request_logout(); }
+                }
+
+                Rectangle { height: 2px; background: #1F2937; }
 
                 VerticalBox {
                     spacing: 4px;
@@ -142,7 +153,6 @@ export component AppWindow inherits Window {
                         VerticalBox {
                             padding: 30px; spacing: 18px;
 
-                            // FIXED: Moved padding to structural parent block correctly to eliminate Slint warnings
                             if root.polling_error_msg != "" : Rectangle {
                                 background: #3B0712; border-radius: 6px; height: 50px; border-color: #991B1B; border-width: 1px;
                                 HorizontalBox {

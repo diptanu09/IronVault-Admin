@@ -49,24 +49,21 @@ async fn main() -> Result<(), slint::PlatformError> {
     app.set_captcha_a_main(captcha_a.into());
     app.set_login_error("".into());
 
-    // --- FIXED: REAL-TIME POLLING BACKGROUND TIMEOUT LOOP ---
+    // --- REAL-TIME POLLING BACKGROUND TIMEOUT LOOP ---
     let app_weak_poll = app.as_weak();
     let db_poll_clone = Arc::clone(&db);
     tokio::spawn(async move {
         loop {
             tokio::time::sleep(tokio::time::Duration::from_millis(2500)).await;
 
-            // 1. Fetch DB unconditionally. This is safe to run on the background thread!
             let db_result = db_poll_clone.fetch_next_pending_user().await;
             let app_weak_inner = app_weak_poll.clone();
 
-            // 2. Hand data over to the Main UI Thread to safely read properties and manipulate elements
             slint::invoke_from_event_loop(move || {
                 if let Some(ui) = app_weak_inner.upgrade() {
                     let role = ui.get_current_user_role().to_string().to_lowercase();
                     let is_superadmin = role.contains("super") && role.contains("admin");
 
-                    // Property check occurs safely on the active GUI layout thread!
                     if ui.get_is_logged_in() && is_superadmin {
                         match db_result {
                             Ok(Some(pending_name)) => {
@@ -202,6 +199,28 @@ async fn main() -> Result<(), slint::PlatformError> {
                 }
             }
         });
+    });
+
+    // --- FIXED: INTERFACE OPERATOR LOG OUT CHANNEL ---
+    let app_weak_logout = app.as_weak();
+    app.on_request_logout(move || {
+        if let Some(ui) = app_weak_logout.upgrade() {
+            // Reset state variables back to guest defaults cleanly
+            ui.set_is_logged_in(false);
+            ui.set_current_user_name("GUEST".into());
+            ui.set_current_user_role("UNAUTHORIZED".into());
+            ui.set_pending_notification_name("NONE".into());
+            ui.set_login_error("".into());
+
+            // Refresh the verification CAPTCHA to prevent session reuse replays
+            let mut fresh_rng = rand::thread_rng();
+            let v1 = fresh_rng.gen_range(5..20);
+            let v2 = fresh_rng.gen_range(2..10);
+            ui.set_captcha_q_main(format!("{} + {}", v1, v2).into());
+            ui.set_captcha_a_main((v1 + v2).to_string().into());
+            
+            println!("[SECURITY] Session terminated by user request. Session state scrubbed.");
+        }
     });
 
     app.run()

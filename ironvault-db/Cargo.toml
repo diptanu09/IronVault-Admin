@@ -1,0 +1,9 @@
+[package]
+name = "ironvault-db"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ironvault-core = { path = "../ironvault-core" }
+tokio-postgres = { version = "0.7", features = ["runtime"] }
+oracle = "0.6"

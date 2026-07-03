@@ -1,64 +1,124 @@
-// =========================================================================
-// Master Slint Module Orchestration (main.slint)
-// =========================================================================
-
-import { Theme } from "theme.slint";
-import { LoginScreen } from "login.slint";
-import { DashboardScreen } from "dashboard.slint";
+import { Button, LineEdit, VerticalBox, HorizontalBox } from "std-widgets.slint";
 
 export component AppWindow inherits Window {
-    title: "IRONVAULT // Enterprise Administration Control Core";
-    width: 1100px;
-    height: 700px;
-    background: Theme.colors.background;
+    title: "IRONVAULT // MULTI-DATABASE CONTROL CONSOLE";
+    callback execute_11g_action(string, string);
+    callback execute_12c_action(string, string);
+    
+    in-out property <string> status_text: "SYSTEM INITIALIZED // AWAITING COMMANDS";
+    in-out property <string> status_color: "#56b4f8"; 
 
-    // Synchronized properties matching controllers.rs setters exactly
-    in-out property <bool> is-logged-in: false;
-    in-out property <string> session-user: "Unauthenticated Session";
-    in-out property <string> session-role: "guest";
-    in-out property <string> hardware-id: "FINGERPRINT-CALCULATING...";
-    in-out property <string> error-message: "";
-    in-out property <string> app-status: "SYSTEM INITIALIZED // SECURE CHANNEL ONLINE";
-    in-out property <color> app-status-color: Theme.colors.primary;
-    in-out property <string> selected-schema: "ironvault";
-    in-out property <string> crypto-signature-status: "AWAITING AUTHORIZATION CHAIN";
+    width: 900px;
+    height: 650px;
+    background: #0f172a; // Deep slate charcoal canvas
 
-    // Synchronized callback signatures with explicit boolean return types
-    callback attempt-login(string, string) -> bool;
-    callback create-new-user(string, string, string) -> bool;
-    callback verify-supervisor-keys(string, string);
-    callback execute-downgrade-pump(string, string);
-    callback trigger-logout();
+    VerticalBox {
+        padding: 20px;
+        spacing: 15px;
 
-    if !is-logged-in : LoginScreen {
-        error-message: root.error-message;
-        hardware-id: root.hardware-id;
-        
-        // Relaying internal inputs directly back out to the engine wireframe
-        attempt-login(user, pass) => {
-            return root.attempt-login(user, pass);
+        // Header Title Bar
+        HorizontalBox {
+            Text {
+                text: "IRONVAULT CENTRAL MANAGEMENT HUB";
+                font-size: 24px;
+                font-weight: 800;
+                color: #f8fafc;
+            }
         }
-        trigger-registration(user, pass) => {
-            return root.create-new-user(user, pass, "admin");
-        }
-    }
 
-    if is-logged-in : DashboardScreen {
-        current-user: root.session-user;
-        current-role: root.session-role;
-        selected-schema: root.selected-schema;
-        crypto-signature-status: root.crypto-signature-status;
-        status-banner-text: root.app-status;
-        status-banner-color: root.app-status-color;
+        // Row 1: The PostgreSQL App State Card (Green Accent)
+        Rectangle {
+            background: #1e293b;
+            border-radius: 8px;
+            border-width: 2px;
+            border-color: #10b981; 
+            height: 100px;
+            
+            VerticalBox {
+                padding: 12px;
+                Text { text: "📊 PRIMARY STATE ENGINE (POSTGRESQL // SCHEMA: ironvault)"; font-size: 14px; font-weight: 700; color: #10b981; }
+                Text { text: "Status: ONLINE // Storing session credentials, access logs, and core verification tokens."; color: #94a3b8; font-size: 13px; }
+            }
+        }
 
-        verify-supervisor-keys(op-key, sv-key) => {
-            root.verify-supervisor-keys(op-key, sv-key);
+        // Row 2: Oracle 11g Operations Hub (Cyan Accent)
+        Rectangle {
+            background: #1e293b;
+            border-radius: 8px;
+            border-width: 2px;
+            border-color: #0ea5e9; 
+            
+            VerticalBox {
+                padding: 15px;
+                spacing: 10px;
+                Text { text: "🔵 ORACLE 11g OPERATION CONTROL (gpffp, agdak, vlcs)"; font-size: 14px; font-weight: 700; color: #0ea5e9; }
+                
+                HorizontalBox {
+                    spacing: 10px;
+                    Text { text: "Schema target:"; color: #e2e8f0; vertical-alignment: center; }
+                    input_11g_schema := LineEdit { text: "gpffp"; width: 120px; }
+                    Text { text: "Action Type:"; color: #e2e8f0; vertical-alignment: center; }
+                    input_11g_action := LineEdit { text: "FETCH_RECORDS"; width: 180px; }
+                    
+                    Button {
+                        text: "Execute 11g Operations";
+                        clicked => {
+                            root.execute_11g_action(input_11g_schema.text, input_11g_action.text);
+                        }
+                    }
+                }
+            }
         }
-        execute-downgrade-pump(schema, directory) => {
-            root.execute-downgrade-pump(schema, directory);
+
+        // Row 3: Oracle 12c Operations Hub (Purple Accent)
+        Rectangle {
+            background: #1e293b;
+            border-radius: 8px;
+            border-width: 2px;
+            border-color: #6366f1; 
+            
+            VerticalBox {
+                padding: 15px;
+                spacing: 10px;
+                Text { text: "🟣 ORACLE 12c DATA HUB (pendak, sai_agartala, penindex)"; font-size: 14px; font-weight: 700; color: #6366f1; }
+                
+                HorizontalBox {
+                    spacing: 10px;
+                    Text { text: "Schema target:"; color: #e2e8f0; vertical-alignment: center; }
+                    input_12c_schema := LineEdit { text: "pendak"; width: 120px; }
+                    Text { text: "Action Type:"; color: #e2e8f0; vertical-alignment: center; }
+                    input_12c_action := LineEdit { text: "SYNC_INDEXES"; width: 180px; }
+                    
+                    Button {
+                        text: "Execute 12c Operations";
+                        clicked => {
+                            root.execute_12c_action(input_12c_schema.text, input_12c_action.text);
+                        }
+                    }
+                }
+            }
         }
-        trigger-logout() => {
-            root.trigger-logout();
+
+        // Clean UI element to absorb remaining layout spacing dynamically
+        Rectangle {}
+
+        // System Bottom Console Status Monitoring Panel
+        Rectangle {
+            background: #020617;
+            border-radius: 6px;
+            height: 50px;
+            
+            HorizontalBox {
+                padding-left: 15px;
+                padding-right: 15px;
+                Text {
+                    text: root.status_text;
+                    color: #56b4f8;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                    font-family: "Consolas";
+                }
+            }
         }
     }
 }

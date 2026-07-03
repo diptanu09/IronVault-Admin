@@ -18,5 +18,5 @@ build/
 .vscode/
 
 # Ignore Rust-specific files
-target/
+target/debug
 

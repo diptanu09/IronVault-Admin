@@ -1,40 +1,11 @@
-   1.245225300s  INFO prepare_target{force=false package_id=ironvault-ui v0.1.0 (C:\Users\Mr. Deb\Documents\GitHub\ironvault-admin\ironvault-ui) target="ironvault-ui"}: cargo::core::compiler::fingerprint: stale: changed "C:\\Users\\Mr. Deb\\Documents\\GitHub\\ironvault-admin\\ironvault-ui\\ui/main.slint"
-   1.245267200s  INFO prepare_target{force=false package_id=ironvault-ui v0.1.0 (C:\Users\Mr. Deb\Documents\GitHub\ironvault-admin\ironvault-ui) target="ironvault-ui"}: cargo::core::compiler::fingerprint:           (vs) "C:\\Users\\Mr. Deb\\Documents\\GitHub\\ironvault-admin\\target\\debug\\build\\ironvault-ui-6f07f505fed55ae7\\output"
-   1.245288800s  INFO prepare_target{force=false package_id=ironvault-ui v0.1.0 (C:\Users\Mr. Deb\Documents\GitHub\ironvault-admin\ironvault-ui) target="ironvault-ui"}: cargo::core::compiler::fingerprint:                FileTime { seconds: 13427546917, nanos: 114543200 } < FileTime { seconds: 13427548671, nanos: 745935700 }
-   1.289055900s  INFO prepare_target{force=false package_id=ironvault-ui v0.1.0 (C:\Users\Mr. Deb\Documents\GitHub\ironvault-admin\ironvault-ui) target="ironvault-ui"}: cargo::core::compiler::fingerprint: fingerprint dirty for ironvault-ui v0.1.0 (C:\Users\Mr. Deb\Documents\GitHub\ironvault-admin\ironvault-ui)/Check { test: false }/TargetInner { name: "ironvault-ui", doc: true, ..: with_path("C:\\Users\\Mr. Deb\\Documents\\GitHub\\ironvault-admin\\ironvault-ui\\src\\main.rs", Edition2021) }
-   1.289124900s  INFO prepare_target{force=false package_id=ironvault-ui v0.1.0 (C:\Users\Mr. Deb\Documents\GitHub\ironvault-admin\ironvault-ui) target="ironvault-ui"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(StaleDepFingerprint { unit: UnitIndex(250) })
-   1.330524500s  INFO prepare_target{force=false package_id=ironvault-ui v0.1.0 (C:\Users\Mr. Deb\Documents\GitHub\ironvault-admin\ironvault-ui) target="build-script-build"}: cargo::core::compiler::fingerprint: fingerprint dirty for ironvault-ui v0.1.0 (C:\Users\Mr. Deb\Documents\GitHub\ironvault-admin\ironvault-ui)/RunCustomBuild/TargetInner { ..: custom_build_target("build-script-build", "C:\\Users\\Mr. Deb\\Documents\\GitHub\\ironvault-admin\\ironvault-ui\\build.rs", Edition2021) }
-   1.330566400s  INFO prepare_target{force=false package_id=ironvault-ui v0.1.0 (C:\Users\Mr. Deb\Documents\GitHub\ironvault-admin\ironvault-ui) target="build-script-build"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(StaleItem(ChangedFile { reference: "C:\\Users\\Mr. Deb\\Documents\\GitHub\\ironvault-admin\\target\\debug\\build\\ironvault-ui-6f07f505fed55ae7\\output", reference_mtime: FileTime { seconds: 13427546917, nanos: 114543200 }, stale: "C:\\Users\\Mr. Deb\\Documents\\GitHub\\ironvault-admin\\ironvault-ui\\ui/main.slint", stale_mtime: FileTime { seconds: 13427548671, nanos: 745935700 } }))
-   1.455589000s  INFO prepare_target{force=false package_id=ironvault-ui v0.1.0 (C:\Users\Mr. Deb\Documents\GitHub\ironvault-admin\ironvault-ui) target="ironvault-ui"}: cargo::core::compiler::fingerprint: fingerprint dirty for ironvault-ui v0.1.0 (C:\Users\Mr. Deb\Documents\GitHub\ironvault-admin\ironvault-ui)/Check { test: true }/TargetInner { name: "ironvault-ui", doc: true, ..: with_path("C:\\Users\\Mr. Deb\\Documents\\GitHub\\ironvault-admin\\ironvault-ui\\src\\main.rs", Edition2021) }
-   1.455654700s  INFO prepare_target{force=false package_id=ironvault-ui v0.1.0 (C:\Users\Mr. Deb\Documents\GitHub\ironvault-admin\ironvault-ui) target="ironvault-ui"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(StaleDepFingerprint { unit: UnitIndex(250) })
-   Compiling ironvault-ui v0.1.0 (C:\Users\Mr. Deb\Documents\GitHub\ironvault-admin\ironvault-ui)
-error: failed to run custom build command for `ironvault-ui v0.1.0 (C:\Users\Mr. Deb\Documents\GitHub\ironvault-admin\ironvault-ui)`
-note: To improve backtraces for build dependencies, set the CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG=true environment variable to enable debug information generation.
+error: failed to load manifest for workspace member `C:\Users\Mr. Deb\Documents\GitHub\ironvault-admin\ironvault-db`
+referenced by workspace at `C:\Users\Mr. Deb\Documents\GitHub\ironvault-admin\Cargo.toml`
 
 Caused by:
-  process didn't exit successfully: `C:\Users\Mr. Deb\Documents\GitHub\ironvault-admin\target\debug\build\ironvault-ui-fb96ed321c63ff05\build-script-build` (exit code: 101)
-  --- stderr
-  error: Unknown element 'Spacer'
-     --> C:\Users\Mr. Deb\Documents\GitHub\ironvault-admin\ironvault-ui\ui\main.slint:143:21
-      |
-  143 |                     Spacer {}
-      |                     ^^^^^^^
-      |
-  error: Unknown element 'Spacer'
-     --> C:\Users\Mr. Deb\Documents\GitHub\ironvault-admin\ironvault-ui\ui\main.slint:183:25
-      |
-  183 |                         Spacer {}
-      |                         ^^^^^^^
+  failed to parse manifest at `C:\Users\Mr. Deb\Documents\GitHub\ironvault-admin\ironvault-db\Cargo.toml`
 
-  thread 'main' (11304) panicked at ironvault-ui\build.rs:6:43:
-  called `Result::unwrap()` on an `Err` value: CompileError(["C:\\Users\\Mr. Deb\\Documents\\GitHub\\ironvault-admin\\ironvault-ui\\ui\\main.slint:143: Unknown element 'Spacer'", "C:\\Users\\Mr. Deb\\Documents\\GitHub\\ironvault-admin\\ironvault-ui\\ui\\main.slint:183: Unknown element 'Spacer'"])
-  stack backtrace:
-     0: std::panicking::panic_handler
-               at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library\std\src\panicking.rs:689
-     1: core::panicking::panic_fmt
-               at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library\core\src\panicking.rs:80
-     2: core::result::unwrap_failed
-               at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library\core\src\result.rs:1867
-     3: build_script_build::main
-     4: core::ops::function::FnOnce::call_once
-  note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+Caused by:
+  error inheriting `edition` from workspace root manifest's `workspace.package.edition`
+
+Caused by:
+  `workspace.package.edition` was not defined

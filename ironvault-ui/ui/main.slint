@@ -1,213 +1,104 @@
-import { Button, LineEdit, VerticalBox, HorizontalBox } from "std-widgets.slint";
+// Master window with sidebar + content router
+// Main entry point for the Slint UI
 
-// 1. Define what a clean database row looks like
-export struct DatabaseRecordRow {
-    id: int,
-    title: string,
-    schema_origin: string,
-    status: string,
-}
+import { Sidebar } from "components/sidebar.slint";
+import { TopBar } from "components/topbar.slint";
+import { LoginView } from "views/login.slint";
+import { RegisterView } from "views/register.slint";
+import { DashboardView } from "views/dashboard.slint";
 
-export component AppWindow inherits Window {
-    title: "IRONVAULT // MULTI-DATABASE CONTROL CONSOLE";
+export component MainWindow {
+    width: 1400px;
+    height: 900px;
+    background: @linear-gradient(180deg, #0a0e27 0%, #1a1f3a 100%);
     
-    // Callbacks to communicate with our Rust background workers
-    callback execute_11g_action(string, string);
-    callback execute_12c_action(string, string);
-    callback update_record_commit(int, string, string); // Triggered when clicking save edits
+    // Properties exposed to Rust
+    property <string> app_version: "1.0.0";
+    property <string> copyright_text: "© 2024 IronVault";
+    property <string> current_user: "";
+    property <string> user_role: "";
+    property <string> current_view: "login"; // login, register, dashboard
+    property <string> error_message: "";
+    property <string> notification: "";
+    property <string> login_error: "";
     
-    // Properties to hold app state
-    in-out property <string> status_text: "SYSTEM INITIALIZED // AWAITING COMMANDS";
-    in-out property <[DatabaseRecordRow]> table_data: [
-        { id: 104, title: "Log_Registry_Batch_A", schema_origin: "gpffp", status: "Live Active" },
-        { id: 105, title: "Index_Node_Cluster_09", schema_origin: "sai_agartala", status: "Synchronized" },
-        { id: 106, title: "Archive_Dump_VLC_02", schema_origin: "vlcs", status: "Pending Verification" }
-    ];
+    // Callbacks for Rust
+    callback login_clicked(string, string); // username, password
+    callback register_clicked(string, string, string); // name, email, password
+    callback logout_clicked();
+    callback navigate_view(string);
     
-    // State management for our interactive editing inputs
-    in-out property <int> selected_row_index: -1;
-    in-out property <string> current_edit_title: "";
-    in-out property <string> current_edit_status: "";
-
-    width: 1050px;
-    height: 700px;
-    background: #0f172a; // Deep slate charcoal canvas
-
-    VerticalBox {
-        padding: 20px;
-        spacing: 15px;
-
-        // Top Header
-        HorizontalBox {
-            Text {
-                text: "IRONVAULT CENTRAL MANAGEMENT HUB";
-                font-size: 24px;
-                font-weight: 800;
-                color: #f8fafc;
+    // Main horizontal layout
+    HorizontalLayout {
+        // Sidebar (only visible when logged in)
+        if current_user != "" {
+            Sidebar {
+                app_version: root.app_version;
+                copyright_text: root.copyright_text;
+                current_view: root.current_view;
+                navigate_view(view) => {
+                    root.current_view = view;
+                    root.navigate_view(view);
+                }
+                logout => {
+                    root.logout_clicked();
+                }
             }
         }
-
-        // Environment Top Status Cards Row
-        HorizontalBox {
-            spacing: 15px;
-            height: 90px;
+        
+        // Content area
+        VerticalLayout {
+            spacing: 0;
             
-            // PostgreSQL State Card
-            Rectangle {
-                background: #1e293b;
-                border-radius: 6px;
-                border-width: 2px;
-                border-color: #10b981;
-                VerticalBox {
-                    padding: 10px;
-                    Text { text: "📊 POSTGRESQL (ironvault)"; font-weight: 700; color: #10b981; font-size: 13px; }
-                    Text { text: "ONLINE // Session registry safe."; color: #94a3b8; font-size: 11px; }
-                }
-            }
-            // Oracle 11g Card
-            Rectangle {
-                background: #1e293b;
-                border-radius: 6px;
-                border-width: 2px;
-                border-color: #0ea5e9;
-                VerticalBox {
-                    padding: 10px;
-                    Text { text: "🔵 ORACLE 11G TARGET"; font-weight: 700; color: #0ea5e9; font-size: 13px; }
-                    Text { text: "CONNECTED // gpffp cluster active."; color: #94a3b8; font-size: 11px; }
-                }
-            }
-            // Oracle 12c Card
-            Rectangle {
-                background: #1e293b;
-                border-radius: 6px;
-                border-width: 2px;
-                border-color: #6366f1;
-                VerticalBox {
-                    padding: 10px;
-                    Text { text: "🟣 ORACLE 12C TARGET"; font-weight: 700; color: #6366f1; font-size: 13px; }
-                    Text { text: "CONNECTED // pendak matrix online."; color: #94a3b8; font-size: 11px; }
-                }
-            }
-        }
-
-        // Main Dynamic Data Grid Area (Splits into Table and Editor Panel)
-        HorizontalBox {
-            spacing: 20px;
-
-            // LEFT SIDE: The Data Grid Table
-            Rectangle {
-                background: #1e293b;
-                border-radius: 8px;
-                min-width: 600px;
-                
-                VerticalBox {
-                    padding: 15px;
-                    spacing: 8px;
-                    
-                    Text { text: "🗂️ ACTIVE CONTEXT MASTER DATA STREAM"; font-size: 14px; font-weight: 700; color: #f1f5f9; }
-                    
-                    // Table Column Headers
-                    HorizontalBox {
-                        padding: 8px;
-                        Text { text: "ID"; width: 50px; font-weight: 700; color: #64748b; }
-                        Text { text: "RECORD NAME / TITLE"; width: 220px; font-weight: 700; color: #64748b; }
-                        Text { text: "SCHEMA"; width: 120px; font-weight: 700; color: #64748b; }
-                        Text { text: "OPERATIONAL STATUS"; font-weight: 700; color: #64748b; }
-                    }
-
-                    // Loop through data array to draw individual rows dynamically
-                    for record[idx] in root.table_data : Rectangle {
-                        background: root.selected_row_index == idx ? #334155 : #0f172a;
-                        border-radius: 4px;
-                        height: 40px;
-
-                        HorizontalBox {
-                            padding-left: 8px;
-                            padding-right: 8px;
-                            Text { text: record.id; width: 50px; color: #e2e8f0; vertical-alignment: center; }
-                            Text { text: record.title; width: 220px; color: #f8fafc; vertical-alignment: center; font-weight: 700; }
-                            Text { text: record.schema_origin; width: 120px; color: #38bdf8; vertical-alignment: center; }
-                            Text { text: record.status; color: #a7f3d0; vertical-alignment: center; }
-                        }
-
-                        // Make row selectable on mouse clicks
-                        TouchArea {
-                            clicked => {
-                                root.selected_row_index = idx;
-                                root.current_edit_title = record.title;
-                                root.current_edit_status = record.status;
-                                root.status_text = "SELECTED RECORD ID: " + record.id;
-                            }
-                        }
-                    }
-                    Rectangle {}
-                }
-            }
-
-            // RIGHT SIDE: The Interactive Record Modifier Form Panel
-            Rectangle {
-                background: #1e293b;
-                border-radius: 8px;
-                width: 380px;
-                border-width: 2px;
-                border-color: root.selected_row_index != -1 ? #38bdf8 : #475569;
-                
-                VerticalBox {
-                    padding: 20px;
-                    spacing: 15px;
-                    
-                    Text { text: "📝 VISUAL SCHEMA MODIFIER"; font-size: 14px; font-weight: 700; color: #f1f5f9; }
-                    
-                    if (root.selected_row_index == -1) : VerticalBox {
-                        alignment: center;
-                        Text { text: "Select a row from the data stream grid to begin real-time record adjustments."; color: #64748b; wrap: word-wrap; horizontal-alignment: center; }
-                    }
-                    
-                    if (root.selected_row_index != -1) : VerticalBox {
-                        spacing: 12px;
-                        
-                        Text { text: "Editing entry indexing context fields safely."; color: #94a3b8; font-size: 12px; }
-                        
-                        VerticalBox {
-                            spacing: 4px;
-                            Text { text: "Record Title:"; color: #cbd5e1; font-size: 12px; }
-                            title_input := LineEdit { text: root.current_edit_title; }
-                        }
-
-                        VerticalBox {
-                            spacing: 4px;
-                            Text { text: "Operational Status Text:"; color: #cbd5e1; font-size: 12px; }
-                            status_input := LineEdit { text: root.current_edit_status; }
-                        }
-                        
-                        Rectangle {}
-                        
-                        Button {
-                            text: "Commit Changes to Cluster";
-                            clicked => {
-                                root.update_record_commit(root.selected_row_index, title_input.text, status_input.text);
-                            }
-                        }
+            // Top bar (only visible when logged in)
+            if current_user != "" {
+                TopBar {
+                    user_name: root.current_user;
+                    user_role: root.user_role;
+                    logout => {
+                        root.logout_clicked();
                     }
                 }
             }
-        }
-
-        // Console Logging Bottom Monitoring Status Bar
-        Rectangle {
-            background: #020617;
-            border-radius: 6px;
-            height: 45px;
             
-            HorizontalBox {
-                padding-left: 15px;
-                padding-right: 15px;
-                Text {
-                    text: root.status_text;
-                    color: #56b4f8;
-                    font-weight: 700;
-                    vertical-alignment: center;
-                    font-family: "Consolas";
+            // Main content router
+            VerticalLayout {
+                if current_view == "login" {
+                    LoginView {
+                        login_clicked(username, password) => {
+                            root.login_clicked(username, password);
+                        }
+                        navigate_register => {
+                            root.current_view = "register";
+                        }
+                    }
+                } else if current_view == "register" {
+                    RegisterView {
+                        register_clicked(name, email, password) => {
+                            root.register_clicked(name, email, password);
+                        }
+                        navigate_login => {
+                            root.current_view = "login";
+                        }
+                    }
+                } else if current_view == "dashboard" {
+                    DashboardView {
+                        // Pass any needed data to dashboard
+                    }
+                }
+            }
+            
+            // Error notification
+            if error_message != "" {
+                Rectangle {
+                    background: #d32f2f;
+                    height: 40px;
+                    Text {
+                        text: root.error_message;
+                        color: white;
+                        vertical_alignment: center;
+                        horizontal_alignment: center;
+                    }
                 }
             }
         }

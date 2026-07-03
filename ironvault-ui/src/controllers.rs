@@ -1,42 +1,123 @@
-use crate::AppWindow;
-use slint::{ComponentHandle, Model, SharedString, VecModel};
-use std::rc::Rc;
+//! Event controllers bridging UI to Core and Database layers
+//!
+//! Handles user interactions and coordinates between UI components
+//! and backend services (authentication, authorization, data operations)
 
-pub fn setup_event_handlers(app: &AppWindow) {
-    let app_weak = app.as_weak();
+use log::{info, warn};
+use ironvault_core::AuthManager;
 
-    // 1. Hook Up the Grid Update/Modification Callback
-    app.on_update_record_commit(move |index, new_title, new_status| {
-        let ui = app_weak.unwrap();
-        
-        // Extract the existing row data model array from Slint state context
-        let current_model = ui.get_table_data();
-        
-        // Build a fresh vector to compute modified changes
-        let mut updated_vector = Vec::new();
-        for i in 0..current_model.row_count() {
-            if let Some(mut record) = current_model.row_data(i) {
-                // If this is the row the operator clicked on, inject the modifications
-                if i == index as usize {
-                    record.title = new_title.clone();
-                    record.status = new_status.clone();
-                }
-                updated_vector.push(record);
-            }
+slint::include_modules!();
+
+/// Handle login form submission
+pub fn handle_login_action(username: &str, password: &str, ui: &MainWindow) {
+    info!("Login attempt for user: {}", username);
+
+    if username.is_empty() || password.is_empty() {
+        warn!("Login attempt with missing credentials");
+        ui.set_login_error("Username and password are required".into());
+        return;
+    }
+
+    // TODO: Delegate to AuthManager for validation
+    // let auth = AuthManager::new();
+    // match auth.authenticate(username, password).await {
+    //     Ok(user) => {
+    //         // Update UI with user info
+    //         ui.set_current_user(user.username.into());
+    //         ui.set_user_role(format!("{:?}", user.role).into());
+    //         navigate_to_dashboard(ui);
+    //     }
+    //     Err(e) => {
+    //         ui.set_login_error(format!("Authentication failed: {:?}", e).into());
+    //     }
+    // }
+}
+
+/// Handle logout action
+pub fn handle_logout_action(ui: &MainWindow) {
+    info!("User logout triggered");
+    ui.set_current_user("".into());
+    ui.set_user_role("".into());
+    // TODO: Clear session and navigate to login
+}
+
+/// Navigate to dashboard view
+pub fn navigate_to_dashboard(ui: &MainWindow) {
+    info!("Navigating to dashboard");
+    ui.set_current_view("dashboard".into());
+}
+
+/// Navigate to user management view
+pub fn navigate_to_users(ui: &MainWindow) {
+    info!("Navigating to user management");
+    ui.set_current_view("users".into());
+}
+
+/// Navigate to audit logs view
+pub fn navigate_to_audit_logs(ui: &MainWindow) {
+    info!("Navigating to audit logs");
+    ui.set_current_view("audit".into());
+}
+
+/// Handle data refresh request
+pub fn refresh_data(view: &str) {
+    info!("Refreshing data for view: {}", view);
+    // TODO: Fetch fresh data from database based on view
+}
+
+/// Handle user creation
+pub fn create_new_user(name: &str, email: &str, role: &str, ui: &MainWindow) {
+    info!("Creating new user: {} with role: {}", email, role);
+    
+    if name.is_empty() || email.is_empty() {
+        warn!("User creation with missing required fields");
+        ui.set_error_message("Name and email are required".into());
+        return;
+    }
+
+    // TODO: Delegate to database layer for user creation
+    // TODO: Log audit event
+    // TODO: Update UI with confirmation
+}
+
+/// Handle user deletion
+pub fn delete_user(user_id: &str, ui: &MainWindow) {
+    info!("Deleting user: {}", user_id);
+    
+    // TODO: Confirm deletion with user
+    // TODO: Delegate to database layer
+    // TODO: Log audit event
+    // TODO: Update UI
+}
+
+/// Handle user role change
+pub fn change_user_role(user_id: &str, new_role: &str, ui: &MainWindow) {
+    info!("Changing user {} role to: {}", user_id, new_role);
+    
+    // TODO: Validate role change authorization
+    // TODO: Update database
+    // TODO: Log audit event
+    // TODO: Refresh users list
+}
+
+/// Handle logout on inactivity timeout
+pub fn handle_session_timeout(ui: &MainWindow) {
+    warn!("Session timeout triggered");
+    ui.set_notification("Your session has expired. Please log in again.".into());
+    handle_logout_action(ui);
+}
+
+/// Dispatch generic actions from UI
+pub fn dispatch_action(action: &str, params: Option<&str>, ui: &MainWindow) {
+    match action {
+        "navigate_dashboard" => navigate_to_dashboard(ui),
+        "navigate_users" => navigate_to_users(ui),
+        "navigate_audit" => navigate_to_audit_logs(ui),
+        "logout" => handle_logout_action(ui),
+        "refresh" => {
+            let view = params.unwrap_or("dashboard");
+            refresh_data(view);
         }
-
-        // Wrap it back into a Slint compatible shared vector model pointer structure
-        let new_model = Rc::new(VecModel::from(updated_vector));
-        
-        // Re-inject the data right back into the UI. The grid updates on screen immediately!
-        ui.set_table_data(new_model.into());
-        
-        // Unselect the row panel and push a success message down to the console status bar
-        ui.set_selected_row_index(-1);
-        ui.set_status_text("SUCCESS: Modifications committed to memory model.".into());
-    });
-
-    // 2. Legacy Empty Callback Bindings to maintain module integrity
-    app.on_execute_11g_action(|_, _| {});
-    app.on_execute_12c_action(|_, _| {});
+        _ => warn!("Unknown action: {}", action),
+    }
 }

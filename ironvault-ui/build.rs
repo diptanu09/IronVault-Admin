@@ -1,7 +1,9 @@
-// =========================================================================
-// IronVault Slint UI Build Compiler Hook (build.rs)
-// =========================================================================
+// Build script for Slint UI compilation
 
 fn main() {
-    slint_build::compile("ui/main.slint").unwrap();
+    let config = slint_build::CompilerConfiguration::new()
+        .with_style("fluent-dark".into());
+    
+    slint_build::compile_with_config("ui/main.slint", config)
+        .expect("Failed to compile Slint UI");
 }

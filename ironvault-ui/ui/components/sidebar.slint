@@ -1,0 +1,184 @@
+// Sidebar component - Navigation and app info
+
+import { Theme } from "theme.slint";
+
+export component Sidebar {
+    in property <string> app_version;
+    in property <string> copyright_text;
+    in property <string> current_view;
+    
+    callback navigate_view(string);
+    callback logout;
+    
+    width: 240px;
+    background: Theme.bg_surface;
+    border_right_width: 2px;
+    border_right_color: Theme.primary;
+    
+    VerticalLayout {
+        spacing: 0;
+        padding: Theme.spacing_lg;
+        
+        // App Logo/Title
+        Rectangle {
+            height: 60px;
+            margin_bottom: Theme.spacing_lg;
+            
+            VerticalLayout {
+                alignment: center;
+                Text {
+                    text: "IRONVAULT";
+                    color: Theme.primary;
+                    font_size: Theme.font_size_xlarge;
+                    font_weight: 900;
+                    letter_spacing: 2px;
+                }
+            }
+        }
+        
+        // Navigation Menu
+        VerticalLayout {
+            spacing: Theme.spacing_md;
+            
+            // Dashboard
+            Rectangle {
+                height: 44px;
+                background: current_view == "dashboard" ? Theme.primary_dark : transparent;
+                border_radius: Theme.radius_md;
+                
+                HorizontalLayout {
+                    alignment: start;
+                    padding: Theme.spacing_md;
+                    
+                    Text {
+                        text: "📊 Dashboard";
+                        color: current_view == "dashboard" ? Theme.primary : Theme.text_secondary;
+                        font_size: Theme.font_size_base;
+                        vertical_alignment: center;
+                    }
+                }
+                
+                TouchArea {
+                    clicked => root.navigate_view("dashboard");
+                }
+            }
+            
+            // Users
+            Rectangle {
+                height: 44px;
+                background: current_view == "users" ? Theme.primary_dark : transparent;
+                border_radius: Theme.radius_md;
+                
+                HorizontalLayout {
+                    alignment: start;
+                    padding: Theme.spacing_md;
+                    
+                    Text {
+                        text: "👥 Users";
+                        color: current_view == "users" ? Theme.primary : Theme.text_secondary;
+                        font_size: Theme.font_size_base;
+                        vertical_alignment: center;
+                    }
+                }
+                
+                TouchArea {
+                    clicked => root.navigate_view("users");
+                }
+            }
+            
+            // Audit Logs
+            Rectangle {
+                height: 44px;
+                background: current_view == "audit" ? Theme.primary_dark : transparent;
+                border_radius: Theme.radius_md;
+                
+                HorizontalLayout {
+                    alignment: start;
+                    padding: Theme.spacing_md;
+                    
+                    Text {
+                        text: "📝 Audit Logs";
+                        color: current_view == "audit" ? Theme.primary : Theme.text_secondary;
+                        font_size: Theme.font_size_base;
+                        vertical_alignment: center;
+                    }
+                }
+                
+                TouchArea {
+                    clicked => root.navigate_view("audit");
+                }
+            }
+            
+            // Settings
+            Rectangle {
+                height: 44px;
+                background: current_view == "settings" ? Theme.primary_dark : transparent;
+                border_radius: Theme.radius_md;
+                
+                HorizontalLayout {
+                    alignment: start;
+                    padding: Theme.spacing_md;
+                    
+                    Text {
+                        text: "⚙️ Settings";
+                        color: current_view == "settings" ? Theme.primary : Theme.text_secondary;
+                        font_size: Theme.font_size_base;
+                        vertical_alignment: center;
+                    }
+                }
+                
+                TouchArea {
+                    clicked => root.navigate_view("settings");
+                }
+            }
+        }
+        
+        // Spacer
+        Rectangle { }
+        
+        // Footer Info
+        VerticalLayout {
+            spacing: Theme.spacing_sm;
+            padding_top: Theme.spacing_lg;
+            border_top_width: 1px;
+            border_top_color: Theme.primary_dark;
+            
+            Text {
+                text: @"v{app_version}";
+                color: Theme.text_tertiary;
+                font_size: Theme.font_size_small;
+                horizontal_alignment: center;
+            }
+            
+            Text {
+                text: root.copyright_text;
+                color: Theme.text_tertiary;
+                font_size: Theme.font_size_small;
+                horizontal_alignment: center;
+                wrap: word_wrap;
+            }
+            
+            // Logout button
+            Rectangle {
+                height: 40px;
+                background: Theme.error;
+                border_radius: Theme.radius_md;
+                margin_top: Theme.spacing_md;
+                
+                HorizontalLayout {
+                    alignment: center;
+                    Text {
+                        text: "🚪 Logout";
+                        color: white;
+                        font_weight: 600;
+                        vertical_alignment: center;
+                    }
+                }
+                
+                TouchArea {
+                    clicked => root.logout();
+                }
+            }
+        }
+    }
+}

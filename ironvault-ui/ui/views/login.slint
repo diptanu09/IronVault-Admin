@@ -1,0 +1,171 @@
+// Login view - Secure authentication form
+
+import { Theme, NeonButton, NeonInput, NeonCard } from "theme.slint";
+
+export component LoginView {
+    callback login_clicked(string, string); // username, password
+    callback navigate_register;
+    
+    property <string> username_input: "";
+    property <string> password_input: "";
+    property <string> error_message: "";
+    
+    background: Theme.bg_primary;
+    
+    VerticalLayout {
+        alignment: center;
+        
+        HorizontalLayout {
+            alignment: center;
+            
+            VerticalLayout {
+                spacing: Theme.spacing_lg;
+                width: 400px;
+                height: 500px;
+                
+                // Title
+                VerticalLayout {
+                    alignment: center;
+                    height: 80px;
+                    
+                    Text {
+                        text: "IRONVAULT";
+                        color: Theme.primary;
+                        font_size: Theme.font_size_2xlarge;
+                        font_weight: 900;
+                        letter_spacing: 3px;
+                    }
+                    
+                    Text {
+                        text: "Enterprise Security Admin";
+                        color: Theme.text_secondary;
+                        font_size: Theme.font_size_base;
+                        letter_spacing: 1px;
+                    }
+                }
+                
+                // Error message
+                if error_message != "" {
+                    Rectangle {
+                        background: Theme.error;
+                        height: 40px;
+                        border_radius: Theme.radius_md;
+                        
+                        HorizontalLayout {
+                            alignment: center;
+                            Text {
+                                text: root.error_message;
+                                color: white;
+                                vertical_alignment: center;
+                            }
+                        }
+                    }
+                }
+                
+                // Username field
+                Rectangle {
+                    height: 45px;
+                    background: Theme.bg_surface;
+                    border_radius: Theme.radius_md;
+                    border_width: 1px;
+                    border_color: Theme.primary_dark;
+                    
+                    HorizontalLayout {
+                        padding: Theme.spacing_md;
+                        
+                        TextInput {
+                            text: <=> root.username_input;
+                            placeholder_text: "Username or Email";
+                            color: Theme.text_primary;
+                            font_size: Theme.font_size_base;
+                            input_type: InputType.text;
+                        }
+                    }
+                }
+                
+                // Password field
+                Rectangle {
+                    height: 45px;
+                    background: Theme.bg_surface;
+                    border_radius: Theme.radius_md;
+                    border_width: 1px;
+                    border_color: Theme.primary_dark;
+                    
+                    HorizontalLayout {
+                        padding: Theme.spacing_md;
+                        
+                        TextInput {
+                            text: <=> root.password_input;
+                            placeholder_text: "Password";
+                            color: Theme.text_primary;
+                            font_size: Theme.font_size_base;
+                            input_type: InputType.password;
+                        }
+                    }
+                }
+                
+                // Spacer
+                Rectangle { }
+                
+                // Login button
+                Rectangle {
+                    height: 45px;
+                    background: Theme.primary;
+                    border_radius: Theme.radius_md;
+                    border_width: 2px;
+                    border_color: Theme.primary;
+                    
+                    HorizontalLayout {
+                        alignment: center;
+                        Text {
+                            text: "🔐 LOGIN";
+                            color: Theme.bg_primary;
+                            font_weight: 700;
+                            font_size: Theme.font_size_base;
+                            letter_spacing: 1px;
+                            vertical_alignment: center;
+                        }
+                    }
+                    
+                    TouchArea {
+                        clicked => {
+                            root.login_clicked(root.username_input, root.password_input);
+                        }
+                    }
+                }
+                
+                // Register link
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: Theme.spacing_sm;
+                    
+                    Text {
+                        text: "Don't have an account?";
+                        color: Theme.text_secondary;
+                        font_size: Theme.font_size_base;
+                    }
+                    
+                    Rectangle {
+                        background: transparent;
+                        width: 80px;
+                        height: 20px;
+                        
+                        HorizontalLayout {
+                            alignment: center;
+                            Text {
+                                text: "Sign up";
+                                color: Theme.secondary_light;
+                                font_size: Theme.font_size_base;
+                                font_weight: 600;
+                            }
+                        }
+                        
+                        TouchArea {
+                            clicked => root.navigate_register();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

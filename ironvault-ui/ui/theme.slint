@@ -1,38 +1,134 @@
-export struct Palette {
-    background: color,
-    surface: color,
-    surface-hover: color,
-    primary: color,
-    primary-hover: color,
-    text: color,
-    text-muted: color,
-    success: color,
-    error: color,
-    border: color,
+// Futuristic theme with color palettes and font definitions
+
+// Color Palette - Dark Neon
+export global Theme {
+    // Primary colors
+    in-out property <color> primary: #00d4ff;        // Cyan
+    in-out property <color> primary_dark: #0099cc;   // Darker cyan
+    in-out property <color> secondary: #ff00ff;      // Magenta
+    in-out property <color> secondary_light: #ff66ff;
+    
+    // Backgrounds
+    in-out property <color> bg_primary: #0a0e27;     // Very dark blue
+    in-out property <color> bg_secondary: #1a1f3a;   // Dark blue
+    in-out property <color> bg_tertiary: #2d3561;    // Medium blue
+    in-out property <color> bg_surface: #151a32;     // Darkest
+    
+    // Text colors
+    in-out property <color> text_primary: #ffffff;   // White
+    in-out property <color> text_secondary: #a8afcc; // Light gray
+    in-out property <color> text_tertiary: #6b7494;  // Medium gray
+    
+    // Status colors
+    in-out property <color> success: #00ff41;        // Neon green
+    in-out property <color> warning: #ffb700;        // Orange
+    in-out property <color> error: #ff0033;          // Red
+    in-out property <color> info: #00d4ff;           // Cyan
+    
+    // Accents
+    in-out property <color> accent_border: #00d4ff;
+    in-out property <color> accent_hover: #ff00ff;
+    
+    // Typography
+    in-out property <length> font_size_small: 12px;
+    in-out property <length> font_size_base: 14px;
+    in-out property <length> font_size_large: 16px;
+    in-out property <length> font_size_xlarge: 20px;
+    in-out property <length> font_size_2xlarge: 24px;
+    
+    // Spacing
+    in-out property <length> spacing_xs: 4px;
+    in-out property <length> spacing_sm: 8px;
+    in-out property <length> spacing_md: 16px;
+    in-out property <length> spacing_lg: 24px;
+    in-out property <length> spacing_xl: 32px;
+    
+    // Border radius
+    in-out property <length> radius_sm: 4px;
+    in-out property <length> radius_md: 8px;
+    in-out property <length> radius_lg: 16px;
+    
+    // Shadow
+    in-out property <length> shadow_blur: 8px;
+    in-out property <color> shadow_color: #000000;
 }
 
-export global Theme {
-    in-out property <string> font-family: "Segoe UI, Inter, sans-serif";
-    in-out property <string> mono-font: "Consolas, Courier New, monospace";
+// Export common styles for reuse
+export component NeonButton {
+    in-out property <string> text;
+    in-out property <bool> primary;
     
-    out property <Palette> colors: {
-        background: #0B0F19,      // Deep space black
-        surface: #161F30,         // Dark slate container
-        surface-hover: #1E293B,   // Hover state accent
-        primary: #38BDF8,         // Electric neon blue
-        primary-hover: #0EA5E9,   // Deep blue focus
-        text: #F8FAFC,            // Near-white text
-        text-muted: #94A3B8,      // Muted slate gray
-        success: #10B981,         // Emerald green
-        error: #EF4444,           // Coral red
-        border: #334155,          // Tactical outline border
-    };
+    callback clicked;
+    
+    Rectangle {
+        background: primary ? Theme.primary : Theme.secondary;
+        border_radius: Theme.radius_md;
+        border_width: 2px;
+        border_color: primary ? Theme.primary : Theme.secondary;
+        
+        HorizontalLayout {
+            alignment: center;
+            Text {
+                text: root.text;
+                color: Theme.bg_primary;
+                font_weight: 700;
+            }
+        }
+        
+        TouchArea {
+            clicked => root.clicked();
+        }
+    }
+}
 
-    out property <length> space-xs: 4px;
-    out property <length> space-sm: 8px;
-    out property <length> space-md: 16px;
-    out property <length> space-lg: 24px;
-    out property <length> space-xl: 32px;  // Re-introduced to satisfy layout calculations
+export component NeonInput {
+    in-out property <string> placeholder_text;
+    in-out property <string> input_value;
+    in-out property <bool> is_password;
     
-    out property <length> border-radius: 8px;
+    Rectangle {
+        background: Theme.bg_surface;
+        border_radius: Theme.radius_md;
+        border_width: 1px;
+        border_color: Theme.accent_border;
+        
+        TextInput {
+            text: <=> root.input_value;
+            placeholder_text: root.placeholder_text;
+            color: Theme.text_primary;
+            input_type: root.is_password ? InputType.password : InputType.text;
+            font_size: Theme.font_size_base;
+            
+            padding_left: Theme.spacing_md;
+            padding_top: Theme.spacing_sm;
+            padding_bottom: Theme.spacing_sm;
+        }
+    }
+}
+
+export component NeonCard {
+    in-out property <string> title;
+    
+    Rectangle {
+        background: Theme.bg_secondary;
+        border_radius: Theme.radius_lg;
+        border_width: 1px;
+        border_color: Theme.primary_dark;
+        
+        VerticalLayout {
+            spacing: Theme.spacing_md;
+            padding: Theme.spacing_lg;
+            
+            if title != "" {
+                Text {
+                    text: root.title;
+                    color: Theme.text_primary;
+                    font_size: Theme.font_size_large;
+                    font_weight: 600;
+                }
+            }
+            
+            Rectangle {}
+        }
+    }
 }

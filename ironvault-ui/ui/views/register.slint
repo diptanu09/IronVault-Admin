@@ -1,0 +1,210 @@
+// Register view - New user onboarding
+
+import { Theme, NeonButton, NeonInput } from "theme.slint";
+
+export component RegisterView {
+    callback register_clicked(string, string, string); // name, email, password
+    callback navigate_login;
+    
+    property <string> name_input: "";
+    property <string> email_input: "";
+    property <string> password_input: "";
+    property <string> confirm_password_input: "";
+    property <string> error_message: "";
+    
+    background: Theme.bg_primary;
+    
+    VerticalLayout {
+        alignment: center;
+        
+        HorizontalLayout {
+            alignment: center;
+            
+            VerticalLayout {
+                spacing: Theme.spacing_lg;
+                width: 420px;
+                
+                // Title
+                VerticalLayout {
+                    alignment: center;
+                    height: 80px;
+                    
+                    Text {
+                        text: "CREATE ACCOUNT";
+                        color: Theme.secondary_light;
+                        font_size: Theme.font_size_2xlarge;
+                        font_weight: 900;
+                        letter_spacing: 2px;
+                    }
+                    
+                    Text {
+                        text: "Join IronVault Security Platform";
+                        color: Theme.text_secondary;
+                        font_size: Theme.font_size_base;
+                        letter_spacing: 1px;
+                    }
+                }
+                
+                // Error message
+                if error_message != "" {
+                    Rectangle {
+                        background: Theme.error;
+                        height: 40px;
+                        border_radius: Theme.radius_md;
+                        
+                        HorizontalLayout {
+                            alignment: center;
+                            Text {
+                                text: root.error_message;
+                                color: white;
+                                vertical_alignment: center;
+                            }
+                        }
+                    }
+                }
+                
+                // Name field
+                Rectangle {
+                    height: 45px;
+                    background: Theme.bg_surface;
+                    border_radius: Theme.radius_md;
+                    border_width: 1px;
+                    border_color: Theme.primary_dark;
+                    
+                    HorizontalLayout {
+                        padding: Theme.spacing_md;
+                        TextInput {
+                            text: <=> root.name_input;
+                            placeholder_text: "Full Name";
+                            color: Theme.text_primary;
+                            font_size: Theme.font_size_base;
+                        }
+                    }
+                }
+                
+                // Email field
+                Rectangle {
+                    height: 45px;
+                    background: Theme.bg_surface;
+                    border_radius: Theme.radius_md;
+                    border_width: 1px;
+                    border_color: Theme.primary_dark;
+                    
+                    HorizontalLayout {
+                        padding: Theme.spacing_md;
+                        TextInput {
+                            text: <=> root.email_input;
+                            placeholder_text: "Email Address";
+                            color: Theme.text_primary;
+                            font_size: Theme.font_size_base;
+                            input_type: InputType.email;
+                        }
+                    }
+                }
+                
+                // Password field
+                Rectangle {
+                    height: 45px;
+                    background: Theme.bg_surface;
+                    border_radius: Theme.radius_md;
+                    border_width: 1px;
+                    border_color: Theme.primary_dark;
+                    
+                    HorizontalLayout {
+                        padding: Theme.spacing_md;
+                        TextInput {
+                            text: <=> root.password_input;
+                            placeholder_text: "Password";
+                            color: Theme.text_primary;
+                            font_size: Theme.font_size_base;
+                            input_type: InputType.password;
+                        }
+                    }
+                }
+                
+                // Confirm Password field
+                Rectangle {
+                    height: 45px;
+                    background: Theme.bg_surface;
+                    border_radius: Theme.radius_md;
+                    border_width: 1px;
+                    border_color: Theme.primary_dark;
+                    
+                    HorizontalLayout {
+                        padding: Theme.spacing_md;
+                        TextInput {
+                            text: <=> root.confirm_password_input;
+                            placeholder_text: "Confirm Password";
+                            color: Theme.text_primary;
+                            font_size: Theme.font_size_base;
+                            input_type: InputType.password;
+                        }
+                    }
+                }
+                
+                // Register button
+                Rectangle {
+                    height: 45px;
+                    background: Theme.secondary;
+                    border_radius: Theme.radius_md;
+                    border_width: 2px;
+                    border_color: Theme.secondary;
+                    
+                    HorizontalLayout {
+                        alignment: center;
+                        Text {
+                            text: "✨ CREATE ACCOUNT";
+                            color: Theme.bg_primary;
+                            font_weight: 700;
+                            font_size: Theme.font_size_base;
+                            letter_spacing: 1px;
+                            vertical_alignment: center;
+                        }
+                    }
+                    
+                    TouchArea {
+                        clicked => {
+                            root.register_clicked(
+                                root.name_input,
+                                root.email_input,
+                                root.password_input
+                            );
+                        }
+                    }
+                }
+                
+                // Login link
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: Theme.spacing_sm;
+                    
+                    Text {
+                        text: "Already have an account?";
+                        color: Theme.text_secondary;
+                        font_size: Theme.font_size_base;
+                    }
+                    
+                    Rectangle {
+                        background: transparent;
+                        width: 60px;
+                        height: 20px;
+                        
+                        HorizontalLayout {
+                            alignment: center;
+                            Text {
+                                text: "Sign in";
+                                color: Theme.primary;
+                                font_size: Theme.font_size_base;
+                                font_weight: 600;
+                            }
+                        }
+                        
+                        TouchArea {
+                            clicked => root.navigate_login();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

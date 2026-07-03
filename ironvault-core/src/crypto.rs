@@ -1,78 +1,92 @@
-// =========================================================================
-// IronVault Cryptographic & Machine Binding Engine (crypto.rs)
-// =========================================================================
+//! Cryptographic operations for payload encryption and decryption
+//!
+//! Uses AES-256-GCM for authenticated encryption
 
-use sha2::{Sha256, Digest};
-use std::process::Command;
+use aes_gcm::{
+    Aes256Gcm, Key, Nonce,
+    aead::{Aead, KeyInit, Payload},
+};
+use rand::RngCore;
+use serde::{Deserialize, Serialize};
 
-/// Generates a platform-independent hardware fingerprint hash.
-/// Queries motherboard UUIDs on Windows/Linux or IOPlatformExpertDevice on macOS.
-pub fn get_machine_hardware_id() -> String {
-    let raw_uuid = if cfg!(target_os = "windows") {
-        let output = Command::new("cmd")
-            .args(&["/C", "wmic csproduct get uuid"])
-            .output();
-        match output {
-            Ok(out) => {
-                let text = String::from_utf8_lossy(&out.stdout);
-                text.lines()
-                    .nth(1)
-                    .map(|s| s.trim().to_string())
-                    .unwrap_or_else(|| "win-fallback-hardware".to_string())
-            }
-            Err(_) => "win-fail-hardware".to_string(),
-        }
-    } else if cfg!(target_os = "macos") {
-        let output = Command::new("sh")
-            .args(&["-c", "ioreg -rd1 -c IOPlatformExpertDevice | grep IOPlatformUUID"])
-            .output();
-        match output {
-            Ok(out) => {
-                let text = String::from_utf8_lossy(&out.stdout);
-                text.split('"')
-                    .nth(3)
-                    .map(|s| s.to_string())
-                    .unwrap_or_else(|| "mac-fallback-hardware".to_string())
-            }
-            Err(_) => "mac-fail-hardware".to_string(),
-        }
-    } else {
-        // Linux Systems
-        let output = std::fs::read_to_string("/sys/class/dmi/id/product_uuid");
-        match output {
-            Ok(uuid) => uuid.trim().to_string(),
-            Err(_) => "linux-fallback-hardware".to_string(),
-        }
-    };
-
-    // Hash the raw hardware identifier with SHA-256 for secure data transmission
-    let mut hasher = Sha256::new();
-    hasher.update(raw_uuid.as_bytes());
-    format!("{:02x}", hasher.finalize())[0..32].to_string().to_uppercase()
+/// Encryptor for securing payloads
+pub struct Encryptor {
+    key: Key<Aes256Gcm>,
 }
 
-/// Performs SHA-256 salting and peppering of candidate administrative passwords.
-pub fn secure_hash_password(password: &str, username: &str) -> String {
-    let system_pepper = "STILLWATER_PEPPER_SECURE_VAL_2026_##";
-    let mut hasher = Sha256::new();
-    hasher.update(password.as_bytes());
-    hasher.update(username.as_bytes()); // Unique Salt
-    hasher.update(system_pepper.as_bytes()); // Global system pepper
-    
-    hex::encode(&hasher.finalize())
+/// Decryptor for recovering encrypted payloads
+pub struct Decryptor {
+    key: Key<Aes256Gcm>,
 }
 
-/// Mock helper evaluating hexadecimal keys for the supervisor approval gates
-pub fn verify_authority_signature(raw_hex_key: &str) -> bool {
-    let key_trimmed = raw_hex_key.trim();
-    if key_trimmed.len() < 32 {
-        return false;
+/// Encrypted payload wrapper
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EncryptedPayload {
+    pub nonce: Vec<u8>,
+    pub ciphertext: Vec<u8>,
+    pub aad: Vec<u8>,
+}
+
+impl Encryptor {
+    /// Create a new encryptor with a 32-byte key
+    pub fn new(key_bytes: &[u8; 32]) -> Self {
+        Encryptor {
+            key: Key::<Aes256Gcm>::from(*key_bytes),
+        }
     }
-    key_trimmed.chars().all(|c| c.is_ascii_hexdigit())
+
+    /// Encrypt plaintext with optional additional authenticated data (AAD)
+    pub fn encrypt(&self, plaintext: &[u8], aad: Option<&[u8]>) -> Result<EncryptedPayload, CryptoError> {
+        let mut nonce_bytes = [0u8; 12];
+        rand::thread_rng().fill_bytes(&mut nonce_bytes);
+        let nonce = Nonce::from(nonce_bytes);
+
+        let cipher = Aes256Gcm::new(&self.key);
+        let payload = Payload {
+            msg: plaintext,
+            aad: aad.unwrap_or(b""),
+        };
+
+        let ciphertext = cipher
+            .encrypt(&nonce, payload)
+            .map_err(|_| CryptoError::EncryptionFailed)?;
+
+        Ok(EncryptedPayload {
+            nonce: nonce_bytes.to_vec(),
+            ciphertext,
+            aad: aad.unwrap_or(&[]).to_vec(),
+        })
+    }
 }
 
-mod hex {
-    pub fn encode(bytes: &[u8]) -> String {
-        bytes.iter().map(|b| format!("{:02x}", b)).collect()
+impl Decryptor {
+    /// Create a new decryptor with a 32-byte key
+    pub fn new(key_bytes: &[u8; 32]) -> Self {
+        Decryptor {
+            key: Key::<Aes256Gcm>::from(*key_bytes),
+        }
     }
+
+    /// Decrypt an encrypted payload
+    pub fn decrypt(&self, payload: &EncryptedPayload) -> Result<Vec<u8>, CryptoError> {
+        let nonce = Nonce::from_slice(&payload.nonce);
+        let cipher = Aes256Gcm::new(&self.key);
+        
+        let decrypt_payload = Payload {
+            msg: &payload.ciphertext,
+            aad: &payload.aad,
+        };
+
+        cipher
+            .decrypt(nonce, decrypt_payload)
+            .map_err(|_| CryptoError::DecryptionFailed)
+    }
+}
+
+/// Cryptographic errors
+#[derive(Debug)]
+pub enum CryptoError {
+    EncryptionFailed,
+    DecryptionFailed,
+    InvalidKeySize,
 }

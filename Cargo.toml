@@ -5,3 +5,10 @@ members = [
     "ironvault-ui"
 ]
 resolver = "2"
+
+[profile.release]
+opt-level = 3
+lto = "fat"       # Link Time Optimization (destroys function boundaries)
+codegen-units = 1 # Maximizes binary optimization
+panic = "abort"   # Removes panic unrolling data (harder to reverse-engineer)
+strip = "symbols" # Removes all variable and function names from the binary

@@ -1,9 +1,22 @@
 [package]
 name = "ironvault-db"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
 
 [dependencies]
-ironvault-core = { path = "../ironvault-core" }
-tokio-postgres = { version = "0.7", features = ["runtime"] }
-oracle = "0.6"
+tokio = { version = "1.35", features = ["full"] }
+sqlx = { version = "0.7", features = ["runtime-tokio-native-tls", "postgres", "uuid", "chrono", "json"] }
+postgres = "0.19"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+uuid = { version = "1.6", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "1.0"
+log = "0.4"
+env_logger = "0.11"
+async-trait = "0.1"
+
+[dev-dependencies]
+tokio-test = "0.4"

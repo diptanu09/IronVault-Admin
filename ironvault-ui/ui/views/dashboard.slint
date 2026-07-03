@@ -1,0 +1,280 @@
+// Dashboard view - Primary data metrics and information
+
+import { Theme } from "theme.slint";
+
+export component DashboardView {
+    background: Theme.bg_primary;
+    
+    VerticalLayout {
+        spacing: Theme.spacing_lg;
+        padding: Theme.spacing_lg;
+        
+        // Dashboard Title
+        Text {
+            text: "Dashboard";
+            color: Theme.primary;
+            font_size: Theme.font_size_2xlarge;
+            font_weight: 900;
+            letter_spacing: 1px;
+        }
+        
+        // Metrics Grid
+        HorizontalLayout {
+            spacing: Theme.spacing_lg;
+            
+            // Active Users Card
+            Rectangle {
+                background: Theme.bg_secondary;
+                border_radius: Theme.radius_lg;
+                border_width: 1px;
+                border_color: Theme.primary_dark;
+                
+                VerticalLayout {
+                    alignment: center;
+                    padding: Theme.spacing_lg;
+                    spacing: Theme.spacing_md;
+                    
+                    Text {
+                        text: "👥";
+                        font_size: Theme.font_size_xlarge;
+                    }
+                    
+                    Text {
+                        text: "Active Users";
+                        color: Theme.text_secondary;
+                        font_size: Theme.font_size_base;
+                    }
+                    
+                    Text {
+                        text: "127";
+                        color: Theme.success;
+                        font_size: Theme.font_size_2xlarge;
+                        font_weight: 700;
+                    }
+                }
+            }
+            
+            // Security Status Card
+            Rectangle {
+                background: Theme.bg_secondary;
+                border_radius: Theme.radius_lg;
+                border_width: 1px;
+                border_color: Theme.primary_dark;
+                
+                VerticalLayout {
+                    alignment: center;
+                    padding: Theme.spacing_lg;
+                    spacing: Theme.spacing_md;
+                    
+                    Text {
+                        text: "🛡️";
+                        font_size: Theme.font_size_xlarge;
+                    }
+                    
+                    Text {
+                        text: "Security Status";
+                        color: Theme.text_secondary;
+                        font_size: Theme.font_size_base;
+                    }
+                    
+                    Text {
+                        text: "SECURE";
+                        color: Theme.success;
+                        font_size: Theme.font_size_xlarge;
+                        font_weight: 700;
+                        letter_spacing: 2px;
+                    }
+                }
+            }
+            
+            // License Status Card
+            Rectangle {
+                background: Theme.bg_secondary;
+                border_radius: Theme.radius_lg;
+                border_width: 1px;
+                border_color: Theme.primary_dark;
+                
+                VerticalLayout {
+                    alignment: center;
+                    padding: Theme.spacing_lg;
+                    spacing: Theme.spacing_md;
+                    
+                    Text {
+                        text: "📋";
+                        font_size: Theme.font_size_xlarge;
+                    }
+                    
+                    Text {
+                        text: "License Valid";
+                        color: Theme.text_secondary;
+                        font_size: Theme.font_size_base;
+                    }
+                    
+                    Text {
+                        text: "345 Days";
+                        color: Theme.info;
+                        font_size: Theme.font_size_xlarge;
+                        font_weight: 700;
+                    }
+                }
+            }
+        }
+        
+        // Recent Activity Section
+        VerticalLayout {
+            spacing: Theme.spacing_md;
+            
+            Text {
+                text: "Recent Activity";
+                color: Theme.text_primary;
+                font_size: Theme.font_size_large;
+                font_weight: 600;
+            }
+            
+            Rectangle {
+                background: Theme.bg_secondary;
+                border_radius: Theme.radius_lg;
+                border_width: 1px;
+                border_color: Theme.primary_dark;
+                height: 200px;
+                
+                VerticalLayout {
+                    padding: Theme.spacing_lg;
+                    spacing: Theme.spacing_md;
+                    
+                    // Activity item 1
+                    HorizontalLayout {
+                        spacing: Theme.spacing_md;
+                        
+                        Rectangle {
+                            width: 8px;
+                            background: Theme.success;
+                            border_radius: Theme.radius_sm;
+                        }
+                        
+                        VerticalLayout {
+                            spacing: 4px;
+                            
+                            Text {
+                                text: "User 'john.doe' logged in successfully";
+                                color: Theme.text_primary;
+                                font_size: Theme.font_size_base;
+                            }
+                            
+                            Text {
+                                text: "2 minutes ago";
+                                color: Theme.text_tertiary;
+                                font_size: Theme.font_size_small;
+                            }
+                        }
+                    }
+                    
+                    // Activity item 2
+                    HorizontalLayout {
+                        spacing: Theme.spacing_md;
+                        
+                        Rectangle {
+                            width: 8px;
+                            background: Theme.info;
+                            border_radius: Theme.radius_sm;
+                        }
+                        
+                        VerticalLayout {
+                            spacing: 4px;
+                            
+                            Text {
+                                text: "Database backup completed";
+                                color: Theme.text_primary;
+                                font_size: Theme.font_size_base;
+                            }
+                            
+                            Text {
+                                text: "15 minutes ago";
+                                color: Theme.text_tertiary;
+                                font_size: Theme.font_size_small;
+                            }
+                        }
+                    }
+                    
+                    // Activity item 3
+                    HorizontalLayout {
+                        spacing: Theme.spacing_md;
+                        
+                        Rectangle {
+                            width: 8px;
+                            background: Theme.warning;
+                            border_radius: Theme.radius_sm;
+                        }
+                        
+                        VerticalLayout {
+                            spacing: 4px;
+                            
+                            Text {
+                                text: "Security audit initiated";
+                                color: Theme.text_primary;
+                                font_size: Theme.font_size_base;
+                            }
+                            
+                            Text {
+                                text: "1 hour ago";
+                                color: Theme.text_tertiary;
+                                font_size: Theme.font_size_small;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Quick Actions
+        HorizontalLayout {
+            spacing: Theme.spacing_md;
+            
+            // Refresh button
+            Rectangle {
+                height: 40px;
+                background: Theme.primary;
+                border_radius: Theme.radius_md;
+                
+                HorizontalLayout {
+                    alignment: center;
+                    Text {
+                        text: "🔄 Refresh";
+                        color: Theme.bg_primary;
+                        font_weight: 600;
+                        vertical_alignment: center;
+                    }
+                }
+                
+                TouchArea {
+                    clicked => {
+                        debug("Refresh data");
+                    }
+                }
+            }
+            
+            // Export button
+            Rectangle {
+                height: 40px;
+                background: Theme.secondary;
+                border_radius: Theme.radius_md;
+                
+                HorizontalLayout {
+                    alignment: center;
+                    Text {
+                        text: "📥 Export Report";
+                        color: Theme.bg_primary;
+                        font_weight: 600;
+                        vertical_alignment: center;
+                    }
+                }
+                
+                TouchArea {
+                    clicked => {
+                        debug("Export report");
+                    }
+                }
+            }
+        }
+    }
+}

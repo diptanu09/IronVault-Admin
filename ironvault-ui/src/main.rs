@@ -10,80 +10,88 @@ slint::include_modules!();
 use slint::ComponentHandle;
 use ironvault_core::audit::AuditLogger;
 use ironvault_core::auth::User;
+use ironvault_db::DbClient;
+use std::sync::Arc;
 
-fn main() -> Result<(), slint::PlatformError> {
+#[tokio::main] // Run main event loop using an async tokio framework thread pool
+async fn main() -> Result<(), slint::PlatformError> {
     println!("[BOOT] Engaging IronVault Core Security...");
     
-    // 1. Enforce Hardware Anti-Debug Protection
     ironvault_core::security::enforce_anti_debug();
-    
-    // 2. Generate Irreversible Hardware ID
     let hwid = ironvault_core::licensing::generate_hwid();
     println!("[SECURITY] Computed System HWID: {}", hwid);
 
-    // 3. Initialize Immutable Secure Audit Ledger Engine
-    let audit_logger = AuditLogger::new("ironvault.audit.log");
+    let audit_logger = Arc::new(AuditLogger::new("ironvault.audit.log"));
 
-    // 4. Launch UI
-    let app = AppWindow::new()?;
+    // Connect to PostgreSQL database container
+    println!("[PGSQL] Connecting to data target host server cluster...");
+    let db_url = "postgres://ironvault:P@ssw()rd123@localhost:5432/ironvault"; // Customize URL to match parameters
     
-    // Inject HWID to UI
+    let db = match DbClient::connect(db_url).await {
+        Ok(client) => Arc::new(client),
+        Err(err) => {
+            eprintln!("[FATAL DATABASE ACCESS ERROR]: {}", err);
+            std::process::exit(1);
+        }
+    };
+    println!("[SUCCESS] Database connections established. Schemas bound safely.");
+
+    let app = AppWindow::new()?;
     app.set_hwid_string(format!("HWID: {}", hwid).into());
     
-    // 5. Handle Secure Login Requests with Audit Ledger Binding
+    // Bind event hooks to the asynchronous runtime environment
     let app_weak = app.as_weak();
+    let db_login_clone = Arc::clone(&db);
+    let audit_login_clone = Arc::clone(&audit_logger);
+    
     app.on_request_authentication(move |username, password| {
         let ui = app_weak.unwrap();
+        let db = Arc::clone(&db_login_clone);
+        let audit = Arc::clone(&audit_login_clone);
         
-        match ironvault_db::verify_login(&username, &password) {
-            Ok(session) => {
-                ui.set_login_error("".into());
-                
-                // Construct a true core User struct model for logging serialization bounds
-                let runtime_user = User {
-                    id: "IV-USR-001".to_string(),
-                    username: session.username.clone(),
-                    role: ironvault_core::auth::Role::SuperAdmin,
-                    last_login: session.last_login.clone(),
-                };
+        // Block and safely resolve async futures from inside the synchronous Slint UI loop handle context
+        tokio::spawn(async move {
+            match db.authenticate_user(&username, &password).await {
+                Ok(user) => {
+                    slint::invoke_from_event_loop(move || {
+                        ui.set_login_error("".into());
+                        ui.set_current_user_name(user.username.clone().into());
+                        ui.set_current_user_role(user.role.to_string().into());
+                        ui.set_last_login(user.last_login.into());
+                        ui.set_is_logged_in(true);
+                    }).unwrap();
 
-                // Commit explicit CRITICAL confirmation event straight to the immutable file ledger
-                if let Err(err) = audit_logger.log_action(
-                    &runtime_user, 
-                    "OPERATOR_AUTHENTICATION_SUCCESS // WORKSPACE SECURE ESCROW ACCESS GRANTED", 
-                    "CRITICAL"
-                ) {
-                    eprintln!("[LEDFER_FAULT] Failed to write secure log line: {}", err);
+                    audit.log_action(&user, "OPERATOR_DB_LOGIN_SUCCESS", "CRITICAL").ok();
                 }
-
-                ui.set_current_user_name(session.username.clone().into());
-                ui.set_current_user_role("Super Admin".into());
-                ui.set_last_login(session.last_login.into());
-                ui.set_is_logged_in(true);
-                
-                println!("[AUTH] System Unlocked for {}", session.username);
-            }
-            Err(e) => {
-                ui.set_login_error(e.into());
-                
-                // Construct a fallback guest entry trace to ledger anonymous breach attempts
-                let failed_user = User {
-                    id: "IV-USR-ANON".to_string(),
-                    username: username.to_string(),
-                    role: ironvault_core::auth::Role::Viewer,
-                    last_login: "ACCESS_DENIED".to_string(),
-                };
-
-                // Record warning trace to disk regarding rejected credentials
-                if let Err(err) = audit_logger.log_action(
-                    &failed_user, 
-                    &format!("REJECTED_AUTHENTICATION_ATTEMPT // UNREGISTERED OPERATOR ID: {}", username), 
-                    "WARNING"
-                ) {
-                    eprintln!("[LEDGER_FAULT] Failed to write breach attempt log line: {}", err);
+                Err(err) => {
+                    slint::invoke_from_event_loop(move || {
+                        ui.set_login_error(err.into());
+                    }).unwrap();
                 }
             }
-        }
+        });
+    });
+
+    let app_weak_reg = app.as_weak();
+    let db_reg_clone = Arc::clone(&db);
+    app.on_request_registration(move |username, password, role| {
+        let ui = app_weak_reg.unwrap();
+        let db = Arc::clone(&db_reg_clone);
+        
+        tokio::spawn(async move {
+            match db.register_user(&username, &password, &role).await {
+                Ok(_) => {
+                    slint::invoke_from_event_loop(move || {
+                        ui.set_login_error("Account Registered Successfully! Toggle view to sign in.".into());
+                    }).unwrap();
+                }
+                Err(err) => {
+                    slint::invoke_from_event_loop(move || {
+                        ui.set_login_error(err.into());
+                    }).unwrap();
+                }
+            }
+        });
     });
 
     app.run()

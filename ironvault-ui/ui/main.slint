@@ -19,10 +19,12 @@ export component AppWindow inherits Window {
     in-out property <string> login_error: "";
     
     callback request_authentication(string, string);
-    
+    callback request_registration(string, string, string); // Add this callback definition
+
     if !is_logged_in : LoginView {
-        error_message: root.login_error;
-        login_requested(user, pass) => { root.request_authentication(user, pass); }
+    error_message: root.login_error;
+    login_requested(user, pass) => { root.request_authentication(user, pass); }
+    registration_requested(user, pass, role) => { root.request_registration(user, pass, role); } // Bind it here
     }
     
     if is_logged_in : HorizontalBox {

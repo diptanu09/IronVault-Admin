@@ -7,7 +7,8 @@ import { Button, LineEdit, VerticalBox, HorizontalBox, ScrollView } from "std-wi
 
 component NavItem inherits Rectangle {
     in property <string> text;
-    in property <string> icon;
+    // UPDATED: Changed from a text string emoji to an image path asset pointer
+    in property <image> icon_source;
     in property <bool> active;
     in property <color> base_color: #9CA3AF;
     in property <color> active_color: #3B82F6;
@@ -21,12 +22,17 @@ component NavItem inherits Rectangle {
 
     HorizontalBox {
         padding-left: 14px; padding-right: 14px; spacing: 14px;
-        Text { 
-            text: root.icon; 
-            font-size: 16px; 
-            color: root.active ? root.active_color : root.base_color;
-            vertical-alignment: center; 
+        
+        // FIXED: Using a real Image widget instead of Text to avoid Windows font glitches
+        Image {
+            source: root.icon_source;
+            width: 18px;
+            height: 18px;
+            vertical-alignment: center;
+            // Dynamic color modulation overlay depending on state token
+            colorize: root.active ? root.active_color : root.base_color;
         }
+        
         Text { 
             text: root.text; 
             font-size: 14px; 
@@ -51,6 +57,9 @@ export component AppWindow inherits Window {
     width: 1280px; 
     height: 760px;
     background: #09090B; 
+    
+    // FIXED: Appends your brand application icon to the titlebar framework window natively!
+    icon: @image-url("assets/app_icon.png");
 
     in-out property <string> hwid_string: "HWID: UNKNOWN";
     in-out property <string> current_user_name: "GUEST";
@@ -104,20 +113,21 @@ export component AppWindow inherits Window {
                 
                 Rectangle { height: 1px; background: #1F2937; }
 
+                // FIXED: Routing directly to absolute local PNG relative source maps
                 NavItem {
-                    text: "Dashboard"; icon: "📊"; 
+                    text: "Dashboard"; icon_source: @image-url("assets/dashboard.png"); 
                     active: root.active_tab == "overview";
                     clicked => { root.active_tab = "overview"; }
                 }
                 
                 if (root.current_user_role == "SuperAdmin" || root.current_user_role == "super_admin") : NavItem {
-                    text: "Access Requests"; icon: "🛡️"; 
+                    text: "Access Requests"; icon_source: @image-url("assets/requests.png"); 
                     active: root.active_tab == "approvals";
                     clicked => { root.active_tab = "approvals"; }
                 }
 
                 if (root.current_user_role == "SuperAdmin" || root.current_user_role == "super_admin") : NavItem {
-                    text: "Operator Matrix"; icon: "👥"; 
+                    text: "Operator Matrix"; icon_source: @image-url("assets/matrix.png"); 
                     active: root.active_tab == "users";
                     clicked => { root.active_tab = "users"; root.load_users_list(); }
                 }
@@ -126,8 +136,9 @@ export component AppWindow inherits Window {
 
                 Rectangle { height: 1px; background: #1F2937; }
 
+                // FIXED: Terminate text asset vector path mapping
                 NavItem {
-                    text: "Terminate Session"; icon: "⏻"; 
+                    text: "Terminate Session"; icon_source: @image-url("assets/logout.png"); 
                     active: false;
                     base_color: #EF4444; 
                     clicked => { root.request_logout(); }
@@ -293,7 +304,6 @@ export component AppWindow inherits Window {
                         VerticalBox {
                             padding: 24px; spacing: 0px;
                             
-                            // TABLE HEADER
                             HorizontalBox {
                                 padding-bottom: 16px; spacing: 20px;
                                 Text { text: "OPERATOR IDENT"; width: 200px; font-size: 12px; font-weight: 800; color: #6B7280; letter-spacing: 1px; }
@@ -305,7 +315,6 @@ export component AppWindow inherits Window {
                             Rectangle { height: 1px; background: #27272A; }
                             Rectangle { height: 16px; background: transparent; }
 
-                            // FIXED: Added an explicit height to the ScrollView to wrap everything perfectly inside the glass container!
                             ScrollView {
                                 width: 100%; 
                                 height: 420px; 

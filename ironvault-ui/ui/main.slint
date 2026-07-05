@@ -1,41 +1,57 @@
 // Master window with sidebar + content router
 // Main entry point for the Slint UI
 
-import { Button, LineEdit, VerticalBox, HorizontalBox, ScrollView } from "std-widgets.slint";
+import { Button, LineEdit, ScrollView } from "std-widgets.slint";
 import { Theme } from "theme.slint";
 import { RegisterView, RegisterFormFields } from "views/register.slint";
 
+// --- UPGRADED PREMIUM NAV ITEM ---
 component NavItem inherits Rectangle {
     in property <string> text;
     in property <image> icon_source;
     in property <bool> active;
-    in property <bool> collapsed; // Tracks sidebar toggle profile
+    in property <bool> collapsed;
     callback clicked();
     
     height: 42px;
     border-radius: 8px;
+    
+    // Smooth background hover and active state transitions
     background: ta.pressed ? #27272A : (ta.has-hover ? #1F2937 : (active ? #1E293B : transparent));
     border-width: active ? 1px : 0px;
     border-color: Theme.brand-primary;
+    
+    animate background { duration: 150ms; }
 
-    HorizontalBox {
-        padding-left: 14px; padding-right: 14px; spacing: root.collapsed ? 0px : 14px;
+    HorizontalLayout {
+        // Strict geometric padding to ensure perfect centering when collapsed
+        padding-left: root.collapsed ? 0px : 14px;
+        padding-right: root.collapsed ? 0px : 14px;
         alignment: root.collapsed ? LayoutAlignment.center : LayoutAlignment.start;
+        spacing: 14px;
         
-        Image {
-            source: root.icon_source;
-            width: 18px; height: 18px;
-            vertical-alignment: center;
-            colorize: root.active ? Theme.brand-primary : Theme.text-secondary;
+        VerticalLayout {
+            alignment: center;
+            Image {
+                source: root.icon_source;
+                width: 22px; height: 22px;
+                image-fit: contain; // Prevents icon warping
+                
+                // Using opacity instead of colorize preserves complex PNG beauty
+                opacity: root.active ? 1.0 : 0.5;
+                animate opacity { duration: 200ms; }
+            }
         }
         
-        // Dynamically drops visibility if sidebar is collapsed
-        if (!root.collapsed) : Text { 
-            text: root.text; 
-            font-size: 14px; 
-            font-weight: root.active ? 800 : 600; 
-            color: root.active ? Theme.brand-primary : Theme.text-secondary; 
-            vertical-alignment: center; 
+        if (!root.collapsed) : VerticalLayout {
+            alignment: center;
+            Text { 
+                text: root.text; 
+                font-size: 14px; 
+                font-weight: root.active ? 800 : 600; 
+                color: root.active ? Theme.text-primary : Theme.text-secondary; 
+                animate color { duration: 200ms; }
+            }
         }
     }
     ta := TouchArea { clicked => { root.clicked(); } }
@@ -61,7 +77,6 @@ export component AppWindow inherits Window {
     background: Theme.bg-main; 
     icon: @image-url("assets/app_icon.png");
 
-    // Dynamic Sidebar configuration properties
     in-out property <bool> sidebar_collapsed: false;
 
     in-out property <string> hwid_string: "HWID: UNKNOWN";
@@ -97,36 +112,35 @@ export component AppWindow inherits Window {
     callback extend_user_lease(string, string, string);
     callback ban_user(string);
 
-    HorizontalBox {
+    HorizontalLayout {
         padding: 0px; spacing: 0px;
 
         if (root.is_logged_in) : Rectangle {
-            // Smoothly transitions sidebar width from 260px down to 68px
-            width: root.sidebar_collapsed ? 68px : 260px;
+            // 74px provides the exact mathematical space for a perfect 42x42 centered square button
+            width: root.sidebar_collapsed ? 74px : 260px;
             background: Theme.bg-sidebar;
             border-width: 1px; border-color: Theme.border-dark;
             drop-shadow-blur: 15px; drop-shadow-color: #00000099;
-            animate width { duration: 180ms; easing: ease-in-out; }
+            animate width { duration: 200ms; easing: ease-in-out; }
 
-            VerticalBox {
+            VerticalLayout {
                 padding: 16px; spacing: 10px; alignment: start;
                 
-                // Header Area containing system state & quick collapse toggle
-                HorizontalBox {
+                HorizontalLayout {
                     alignment: root.sidebar_collapsed ? LayoutAlignment.center : LayoutAlignment.space-between;
                     padding-bottom: 12px;
                     
-                    if (!root.sidebar_collapsed) : VerticalBox {
-                        spacing: 2px;
+                    if (!root.sidebar_collapsed) : VerticalLayout {
+                        spacing: 2px; alignment: center;
                         Text { text: "❖ IRONVAULT"; font-size: 16px; font-weight: 900; color: Theme.brand-primary; letter-spacing: 1px; }
                         Text { text: "COMMAND CENTER"; font-size: 9px; font-weight: 700; color: Theme.text-muted; letter-spacing: 1px; }
                     }
                     
-                    // The dynamic collapse button
                     Rectangle {
                         width: 32px; height: 32px;
-                        border-radius: 4px;
+                        border-radius: 6px;
                         background: toggle_ta.has-hover ? #1F2937 : transparent;
+                        animate background { duration: 150ms; }
                         
                         Text {
                             text: root.sidebar_collapsed ? "»" : "«";
@@ -143,7 +157,9 @@ export component AppWindow inherits Window {
                 }
                 
                 if (!root.sidebar_collapsed) : Text { text: root.hwid_string; font-size: 9px; color: Theme.text-dark; padding-bottom: 8px; }
+                
                 Rectangle { height: 1px; background: Theme.border-dark; }
+                Rectangle { height: 8px; }
 
                 NavItem {
                     text: "Dashboard"; icon_source: @image-url("assets/dashboard.png"); 
@@ -167,7 +183,10 @@ export component AppWindow inherits Window {
                 }
 
                 Rectangle { vertical-stretch: 1; }
+                
+                Rectangle { height: 8px; }
                 Rectangle { height: 1px; background: Theme.border-dark; }
+                Rectangle { height: 8px; }
 
                 NavItem {
                     text: "Terminate Session"; icon_source: @image-url("assets/logout.png"); 
@@ -182,9 +201,9 @@ export component AppWindow inherits Window {
             horizontal-stretch: 1;
             background: @linear-gradient(135deg, #09090B 0%, #111827 100%); 
             
-            if (!root.is_logged_in) : VerticalBox {
+            if (!root.is_logged_in) : VerticalLayout {
                 alignment: center;
-                HorizontalBox {
+                HorizontalLayout {
                     alignment: center;
                     
                     Rectangle {
@@ -193,10 +212,10 @@ export component AppWindow inherits Window {
                         drop-shadow-blur: 30px; drop-shadow-color: #000000B3;
                         animate width { duration: 250ms; easing: ease-in-out; }
 
-                        VerticalBox {
+                        VerticalLayout {
                             padding: 40px; spacing: 16px;
 
-                            VerticalBox {
+                            VerticalLayout {
                                 alignment: center; spacing: 5px; padding-bottom: 5px;
                                 Text { text: "❖ IRONVAULT"; font-size: 28px; font-weight: 900; color: Theme.brand-primary; horizontal-alignment: center; }
                                 if (root.auth_screen_state == "landing") : Text { text: "CORE PLATFORM ROUTER"; font-size: 11px; font-weight: 700; color: Theme.text-muted; horizontal-alignment: center; letter-spacing: 2px; }
@@ -206,7 +225,7 @@ export component AppWindow inherits Window {
                             
                             Rectangle { height: 1px; background: Theme.border-color; }
 
-                            if (root.auth_screen_state == "landing") : VerticalBox {
+                            if (root.auth_screen_state == "landing") : VerticalLayout {
                                 spacing: 16px; padding-top: 10px;
                                 Button {
                                     text: "🔒 Access Terminal Login"; height: 45px;
@@ -218,25 +237,25 @@ export component AppWindow inherits Window {
                                 }
                             }
 
-                            if (root.auth_screen_state == "login") : VerticalBox {
+                            if (root.auth_screen_state == "login") : VerticalLayout {
                                 spacing: 14px;
                                 
-                                VerticalBox {
+                                VerticalLayout {
                                     spacing: 4px;
                                     Text { text: "OPERATOR IDENTITY ACCOUNT"; font-size: 10px; color: Theme.text-secondary; font-weight: 800; }
                                     LineEdit { text <=> root.form_user; placeholder_text: "Enter identity sequence..."; height: 34px; }
                                 }
                                 
-                                VerticalBox {
+                                VerticalLayout {
                                     spacing: 4px;
                                     Text { text: "CRYPTOGRAPHIC ACCESS SIGNATURE"; font-size: 10px; color: Theme.text-secondary; font-weight: 800; }
                                     LineEdit { text <=> root.form_pass; placeholder_text: "Enter token secret..."; input-type: password; height: 34px; }
                                 }
                                 
-                                VerticalBox {
+                                VerticalLayout {
                                     spacing: 4px;
                                     Text { text: "SECURITY CHALLENGE MATRIX"; font-size: 10px; color: Theme.text-secondary; font-weight: 800; }
-                                    HorizontalBox {
+                                    HorizontalLayout {
                                         spacing: 12px;
                                         Rectangle {
                                             background: Theme.border-color; border-radius: 4px; horizontal-stretch: 1; height: 36px;
@@ -248,10 +267,10 @@ export component AppWindow inherits Window {
 
                                 if (root.login_error != "") : Rectangle {
                                     background: #7F1D1D33; border-radius: 6px; border-width: 1px; border-color: Theme.brand-danger;
-                                    HorizontalBox { padding: 8px; Text { text: root.login_error; color: #FCA5A5; font-size: 12px; font-weight: 600; wrap: word-wrap; horizontal-alignment: center; } }
+                                    HorizontalLayout { padding: 8px; Text { text: root.login_error; color: #FCA5A5; font-size: 12px; font-weight: 600; wrap: word-wrap; horizontal-alignment: center; } }
                                 }
 
-                                HorizontalBox {
+                                HorizontalLayout {
                                     spacing: 14px; padding-top: 18px; 
                                     Button {
                                         text: "Authenticate Access"; height: Theme.button-height; horizontal-stretch: 1;
@@ -297,10 +316,10 @@ export component AppWindow inherits Window {
                 }
             }
 
-            if (root.is_logged_in) : VerticalBox {
+            if (root.is_logged_in) : VerticalLayout {
                 padding: 40px; spacing: 25px;
 
-                if (root.active_tab == "overview") : VerticalBox {
+                if (root.active_tab == "overview") : VerticalLayout {
                     spacing: 20px;
                     Text { text: "Security Command Dashboard"; font-size: 28px; font-weight: 800; color: Theme.text-primary; }
                     
@@ -308,9 +327,9 @@ export component AppWindow inherits Window {
                         background: Theme.bg-card; border-radius: 12px; border-width: 1px; border-color: Theme.border-color;
                         drop-shadow-blur: 10px; drop-shadow-color: #00000040;
                         
-                        VerticalBox {
+                        VerticalLayout {
                             padding: 25px; spacing: 15px;
-                            HorizontalBox {
+                            HorizontalLayout {
                                 spacing: 15px;
                                 Text { text: "⚙️"; font-size: 24px; vertical-alignment: center; }
                                 Text { text: "Active Node Diagnostics"; font-size: 18px; font-weight: 700; color: Theme.brand-success; vertical-alignment: center; } 
@@ -323,21 +342,21 @@ export component AppWindow inherits Window {
                     }
                 }
 
-                if (root.active_tab == "approvals") : VerticalBox {
+                if (root.active_tab == "approvals") : VerticalLayout {
                     spacing: 20px;
                     Text { text: "Pending Access Router"; font-size: 28px; font-weight: 800; color: Theme.text-primary; }
                     
                     Rectangle {
                         background: Theme.bg-card; border-radius: 12px; border-width: 1px; border-color: Theme.border-color;
                         
-                        VerticalBox {
+                        VerticalLayout {
                             padding: 30px; spacing: 20px;
-                            if (root.pending_notification_name != "NONE") : VerticalBox {
+                            if (root.pending_notification_name != "NONE") : VerticalLayout {
                                 spacing: 15px;
                                 Text { text: "⚠️ Incoming Authorization Request Intercepted"; font-size: 16px; color: Theme.brand-warning; font-weight: 800; } 
                                 Text { text: "Target Account: " + root.pending_notification_name; font-size: 18px; font-weight: 700; color: Theme.text-primary; }
                                 
-                                HorizontalBox {
+                                HorizontalLayout {
                                     spacing: 15px;
                                     role_selector := LineEdit { text: "Operator"; placeholder_text: "Assign role"; width: 200px; height: 35px; }
                                     Button { text: "Grant Authorization"; clicked => { root.approve_pending_operator(root.pending_notification_name, role_selector.text); } }
@@ -352,10 +371,10 @@ export component AppWindow inherits Window {
                     }
                 }
 
-                if (root.active_tab == "users") : VerticalBox {
+                if (root.active_tab == "users") : VerticalLayout {
                     spacing: 20px; vertical-stretch: 1;
                     
-                    VerticalBox {
+                    VerticalLayout {
                         spacing: 8px;
                         Text { text: "Active Operator Control Matrix"; font-size: 28px; font-weight: 800; color: Theme.text-primary; }
                         Text { text: "Live administration node. Access leases auto-enforce system lockdowns outside validity parameters."; font-size: 14px; color: Theme.text-secondary; }
@@ -366,10 +385,10 @@ export component AppWindow inherits Window {
                         drop-shadow-blur: 10px; drop-shadow-color: #00000040;
                         vertical-stretch: 1;
                         
-                        VerticalBox {
+                        VerticalLayout {
                             padding: 24px; spacing: 0px;
                             
-                            HorizontalBox {
+                            HorizontalLayout {
                                 padding-bottom: 16px; spacing: 15px;
                                 Text { text: "OPERATOR / NAME"; width: 180px; font-size: 12px; font-weight: 800; color: Theme.text-muted; letter-spacing: 1px; }
                                 Text { text: "DESIGNATION"; width: 160px; font-size: 12px; font-weight: 800; color: Theme.text-muted; letter-spacing: 1px; }
@@ -385,13 +404,13 @@ export component AppWindow inherits Window {
                             ScrollView {
                                 width: 100%; vertical-stretch: 1;
                                 
-                                VerticalBox {
+                                VerticalLayout {
                                     spacing: 14px; alignment: start; padding-bottom: 20px;
                                     
-                                    for user in root.active_users_list : HorizontalBox {
+                                    for user in root.active_users_list : HorizontalLayout {
                                         spacing: 15px;
                                         
-                                        VerticalBox {
+                                        VerticalLayout {
                                             width: 180px; spacing: 2px; alignment: center;
                                             Text { text: "👤 " + user.username; color: #F3F4F6; font-size: 14px; font-weight: 700; overflow: elide; }
                                             Text { text: user.full_name; color: Theme.text-muted; font-size: 11px; font-weight: 600; overflow: elide; }

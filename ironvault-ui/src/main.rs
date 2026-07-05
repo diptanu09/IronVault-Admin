@@ -310,6 +310,47 @@ async fn main() -> Result<(), slint::PlatformError> {
             }
         });
     });
+    // --- SECURE TCP COMMAND CENTER LISTENER ---
+    // Derive a master 32-byte AES key for node communication
+    let network_secret = ironvault_core::crypto::derive_key("IronVault_Master_Node_Key_2026", "Salt_Secure_Comm");
+    let decryptor = Arc::new(ironvault_core::crypto::Decryptor::new(&network_secret));
+    let encryptor = Arc::new(ironvault_core::crypto::Encryptor::new(&network_secret));
+
+    tokio::spawn(async move {
+        // Bind the server to port 8080
+        match tokio::net::TcpListener::bind("0.0.0.0:9443").await {
+            Ok(listener) => {
+                println!("[NETWORK] TCP Command Center actively listening for encrypted nodes on port 9443");
+                
+                loop {
+                    if let Ok((mut socket, addr)) = listener.accept().await {
+                        println!("[NETWORK] Connection intercepted from node IP: {}", addr);
+                        let dec = Arc::clone(&decryptor);
+                        let enc = Arc::clone(&encryptor);
+
+                        tokio::spawn(async move {
+                            // 1. Attempt to receive and decrypt an incoming command
+                            match ironvault_core::network::receive_secure_payload::<ironvault_core::network::NodeCommand>(&mut socket, &dec).await {
+                                Ok(command) => {
+                                    println!("[NETWORK] Validated Secure Payload from {}: {:?}", addr, command);
+
+                                    // 2. Transmit an encrypted status response back to the node
+                                    let response = ironvault_core::network::NodeResponse::StatusData("Command execution authorized by Matrix.".to_string());
+                                    if let Err(e) = ironvault_core::network::send_secure_payload(&mut socket, &enc, &response).await {
+                                        println!("[NETWORK] Failed to transmit secure response: {}", e);
+                                    }
+                                }
+                                Err(e) => {
+                                    println!("[SECURITY FAULT] Handshake failed or payload expired from {}: {}", addr, e);
+                                }
+                            }
+                        });
+                    }
+                }
+            }
+            Err(e) => println!("[NETWORK FAULT] Could not bind to TCP port 9443: {}", e),
+        }
+    });
 
     app.run()
 }

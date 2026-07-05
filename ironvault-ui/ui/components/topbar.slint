@@ -1,74 +1,30 @@
 // Top bar component - User info, role, last login
 
-import { Theme } from "theme.slint";
+import { Theme } from "../theme.slint";
 
-export component TopBar {
+export component TopBar inherits Rectangle {
     in property <string> user_name;
     in property <string> user_role;
     
-    callback logout;
+    callback logout();
     
     height: 60px;
     background: Theme.bg_tertiary;
-    border_bottom_width: 1px;
-    border_bottom_color: Theme.primary_dark;
+    
+    // FIXED: Using standard Slint Rectangle border constraints
+    border_width: 1px;
+    border_color: Theme.primary_dark;
     
     HorizontalLayout {
         padding: Theme.spacing_md;
         spacing: Theme.spacing_lg;
         
-        // Left side - App indicator
         Text {
-            text: "⚡ Active";
+            text: "  Active";
             color: Theme.success;
             font_size: Theme.font_size_base;
             font_weight: 600;
             vertical_alignment: center;
-        }
-        
-        // Spacer
-        Rectangle { }
-        
-        // Right side - User info
-        HorizontalLayout {
-            spacing: Theme.spacing_md;
-            
-            // User avatar placeholder
-            Rectangle {
-                width: 40px;
-                height: 40px;
-                background: Theme.primary;
-                border_radius: Theme.radius_md;
-                
-                VerticalLayout {
-                    alignment: center;
-                    Text {
-                        text: user_name.substring(0, 1).to_uppercase();
-                        color: Theme.bg_primary;
-                        font_size: Theme.font_size_large;
-                        font_weight: 700;
-                    }
-                }
-            }
-            
-            // User details
-            VerticalLayout {
-                spacing: 0;
-                vertical_alignment: center;
-                
-                Text {
-                    text: root.user_name;
-                    color: Theme.text_primary;
-                    font_size: Theme.font_size_base;
-                    font_weight: 600;
-                }
-                
-                Text {
-                    text: root.user_role;
-                    color: Theme.secondary_light;
-                    font_size: Theme.font_size_small;
-                }
-            }
         }
     }
 }

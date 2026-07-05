@@ -11,11 +11,13 @@ rand = "0.8"
 
 # Data Serialization & Logging
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0" # Added to fix the audit scope serialization error
+serde_json = "1.0"
 uuid = { version = "1.8", features = ["v4"] }
 chrono = "0.4"
 log = "0.4"
 
-# Windows OS Native APIs for Anti-Tampering
+# Networking & Async
+tokio = { version = "1.35", features = ["full"] }
+
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { version = "0.52", features = ["Win32_System_Diagnostics_Debug", "Win32_Foundation"] }

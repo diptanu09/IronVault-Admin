@@ -1,209 +1,113 @@
 // Register view - New user onboarding
 
-import { Theme, NeonButton, NeonInput } from "theme.slint";
+import { Button, LineEdit, VerticalBox, HorizontalBox } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
 
-export component RegisterView {
-    callback register_clicked(string, string, string); // name, email, password
-    callback navigate_login;
+export struct RegisterFormFields {
+    username: string,
+    secret: string,
+    first-name: string,
+    middle-name: string,
+    last-name: string,
+    designation: string,
+    section: string,
+    captcha-result: string,
+}
+
+export component RegisterView inherits Rectangle {
+    in property <string> captcha-question;
+    in property <string> operational-error;
     
-    property <string> name_input: "";
-    property <string> email_input: "";
-    property <string> password_input: "";
-    property <string> confirm_password_input: "";
-    property <string> error_message: "";
+    // Two-way exposed structural state interface data map
+    in-out property <RegisterFormFields> form-data;
     
-    background: Theme.bg_primary;
-    
-    VerticalLayout {
-        alignment: center;
+    callback submit-registration();
+    callback cancel-registration();
+
+    background: transparent;
+
+    VerticalBox {
+        padding: 0px;
+        spacing: 16px;
+
+        // Section A: Human Profile Entry Matrix
+        VerticalBox {
+            spacing: 14px;
+            HorizontalBox {
+                spacing: 12px;
+                VerticalBox { 
+                    spacing: 4px; horizontal-stretch: 1; 
+                    Text { text: "FIRST NAME"; font-size: 9px; color: Theme.text-secondary; font-weight: 800; } 
+                    LineEdit { text <=> root.form-data.first-name; placeholder_text: "First"; height: Theme.input-height; } 
+                }
+                VerticalBox { 
+                    spacing: 4px; horizontal-stretch: 1; 
+                    Text { text: "MIDDLE NAME"; font-size: 9px; color: Theme.text-secondary; font-weight: 800; } 
+                    LineEdit { text <=> root.form-data.middle-name; placeholder_text: "Middle"; height: Theme.input-height; } 
+                }
+                VerticalBox { 
+                    spacing: 4px; horizontal-stretch: 1; 
+                    Text { text: "LAST NAME"; font-size: 9px; color: Theme.text-secondary; font-weight: 800; } 
+                    LineEdit { text <=> root.form-data.last-name; placeholder_text: "Last"; height: Theme.input-height; } 
+                }
+            }
+            HorizontalBox {
+                spacing: 12px;
+                VerticalBox { 
+                    spacing: 4px; horizontal-stretch: 1; 
+                    Text { text: "OFFICIAL DESIGNATION"; font-size: 9px; color: Theme.text-secondary; font-weight: 800; } 
+                    LineEdit { text <=> root.form-data.designation; placeholder_text: "e.g., Lead Engineer"; height: Theme.input-height; } 
+                }
+                VerticalBox { 
+                    spacing: 4px; horizontal-stretch: 1; 
+                    Text { text: "WORKSPACE SECTION"; font-size: 9px; color: Theme.text-secondary; font-weight: 800; } 
+                    LineEdit { text <=> root.form-data.section; placeholder_text: "e.g., Threat Intel"; height: Theme.input-height; } 
+                }
+            }
+        }
+
+        // Section B: Account Credentials
+        VerticalBox {
+            spacing: 4px;
+            Text { text: "OPERATOR IDENTITY ACCOUNT"; font-size: 10px; color: Theme.text-secondary; font-weight: 800; }
+            LineEdit { text <=> root.form-data.username; placeholder_text: "Enter identity sequence..."; height: 36px; }
+        }
         
-        HorizontalLayout {
-            alignment: center;
-            
-            VerticalLayout {
-                spacing: Theme.spacing_lg;
-                width: 420px;
-                
-                // Title
-                VerticalLayout {
-                    alignment: center;
-                    height: 80px;
-                    
-                    Text {
-                        text: "CREATE ACCOUNT";
-                        color: Theme.secondary_light;
-                        font_size: Theme.font_size_2xlarge;
-                        font_weight: 900;
-                        letter_spacing: 2px;
-                    }
-                    
-                    Text {
-                        text: "Join IronVault Security Platform";
-                        color: Theme.text_secondary;
-                        font_size: Theme.font_size_base;
-                        letter_spacing: 1px;
-                    }
-                }
-                
-                // Error message
-                if error_message != "" {
-                    Rectangle {
-                        background: Theme.error;
-                        height: 40px;
-                        border_radius: Theme.radius_md;
-                        
-                        HorizontalLayout {
-                            alignment: center;
-                            Text {
-                                text: root.error_message;
-                                color: white;
-                                vertical_alignment: center;
-                            }
-                        }
-                    }
-                }
-                
-                // Name field
+        VerticalBox {
+            spacing: 4px;
+            Text { text: "CRYPTOGRAPHIC ACCESS SIGNATURE"; font-size: 10px; color: Theme.text-secondary; font-weight: 800; }
+            LineEdit { text <=> root.form-data.secret; placeholder_text: "Enter token secret..."; input-type: password; height: 36px; }
+        }
+        
+        // Section C: Challenge Matrix verification field
+        VerticalBox {
+            spacing: 4px;
+            Text { text: "SECURITY CHALLENGE MATRIX"; font-size: 10px; color: Theme.text-secondary; font-weight: 800; }
+            HorizontalBox {
+                spacing: 12px;
                 Rectangle {
-                    height: 45px;
-                    background: Theme.bg_surface;
-                    border_radius: Theme.radius_md;
-                    border_width: 1px;
-                    border_color: Theme.primary_dark;
-                    
-                    HorizontalLayout {
-                        padding: Theme.spacing_md;
-                        TextInput {
-                            text: <=> root.name_input;
-                            placeholder_text: "Full Name";
-                            color: Theme.text_primary;
-                            font_size: Theme.font_size_base;
-                        }
-                    }
+                    background: Theme.border-color; border-radius: 4px; horizontal-stretch: 1; height: 36px;
+                    Text { text: "Solve Sequence: " + root.captcha-question; font-size: 12px; font-weight: 700; color: Theme.text-primary; vertical-alignment: center; horizontal-alignment: center; }
                 }
-                
-                // Email field
-                Rectangle {
-                    height: 45px;
-                    background: Theme.bg_surface;
-                    border_radius: Theme.radius_md;
-                    border_width: 1px;
-                    border_color: Theme.primary_dark;
-                    
-                    HorizontalLayout {
-                        padding: Theme.spacing_md;
-                        TextInput {
-                            text: <=> root.email_input;
-                            placeholder_text: "Email Address";
-                            color: Theme.text_primary;
-                            font_size: Theme.font_size_base;
-                            input_type: InputType.email;
-                        }
-                    }
-                }
-                
-                // Password field
-                Rectangle {
-                    height: 45px;
-                    background: Theme.bg_surface;
-                    border_radius: Theme.radius_md;
-                    border_width: 1px;
-                    border_color: Theme.primary_dark;
-                    
-                    HorizontalLayout {
-                        padding: Theme.spacing_md;
-                        TextInput {
-                            text: <=> root.password_input;
-                            placeholder_text: "Password";
-                            color: Theme.text_primary;
-                            font_size: Theme.font_size_base;
-                            input_type: InputType.password;
-                        }
-                    }
-                }
-                
-                // Confirm Password field
-                Rectangle {
-                    height: 45px;
-                    background: Theme.bg_surface;
-                    border_radius: Theme.radius_md;
-                    border_width: 1px;
-                    border_color: Theme.primary_dark;
-                    
-                    HorizontalLayout {
-                        padding: Theme.spacing_md;
-                        TextInput {
-                            text: <=> root.confirm_password_input;
-                            placeholder_text: "Confirm Password";
-                            color: Theme.text_primary;
-                            font_size: Theme.font_size_base;
-                            input_type: InputType.password;
-                        }
-                    }
-                }
-                
-                // Register button
-                Rectangle {
-                    height: 45px;
-                    background: Theme.secondary;
-                    border_radius: Theme.radius_md;
-                    border_width: 2px;
-                    border_color: Theme.secondary;
-                    
-                    HorizontalLayout {
-                        alignment: center;
-                        Text {
-                            text: "✨ CREATE ACCOUNT";
-                            color: Theme.bg_primary;
-                            font_weight: 700;
-                            font_size: Theme.font_size_base;
-                            letter_spacing: 1px;
-                            vertical_alignment: center;
-                        }
-                    }
-                    
-                    TouchArea {
-                        clicked => {
-                            root.register_clicked(
-                                root.name_input,
-                                root.email_input,
-                                root.password_input
-                            );
-                        }
-                    }
-                }
-                
-                // Login link
-                HorizontalLayout {
-                    alignment: center;
-                    spacing: Theme.spacing_sm;
-                    
-                    Text {
-                        text: "Already have an account?";
-                        color: Theme.text_secondary;
-                        font_size: Theme.font_size_base;
-                    }
-                    
-                    Rectangle {
-                        background: transparent;
-                        width: 60px;
-                        height: 20px;
-                        
-                        HorizontalLayout {
-                            alignment: center;
-                            Text {
-                                text: "Sign in";
-                                color: Theme.primary;
-                                font_size: Theme.font_size_base;
-                                font_weight: 600;
-                            }
-                        }
-                        
-                        TouchArea {
-                            clicked => root.navigate_login();
-                        }
-                    }
-                }
+                LineEdit { text <=> root.form-data.captcha-result; width: 110px; height: 36px; placeholder_text: "Result"; }
+            }
+        }
+
+        if (root.operational-error != "") : Rectangle {
+            background: #7F1D1D33; border-radius: 6px; border-width: 1px; border-color: Theme.brand-danger;
+            HorizontalBox { padding: 8px; Text { text: root.operational-error; color: #FCA5A5; font-size: 12px; font-weight: 600; wrap: word-wrap; horizontal-alignment: center; } }
+        }
+
+        // Section D: Form Dispatch and Routing Triggers
+        HorizontalBox {
+            spacing: 14px; padding-top: 18px; 
+            Button {
+                text: "Commit Enrollment"; height: Theme.button-height; horizontal-stretch: 1;
+                clicked => { root.submit-registration(); }
+            }
+            Button {
+                text: "Return to Gateway"; height: Theme.button-height; horizontal-stretch: 1;
+                clicked => { root.cancel-registration(); }
             }
         }
     }

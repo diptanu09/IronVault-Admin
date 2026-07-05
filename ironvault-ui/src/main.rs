@@ -20,7 +20,6 @@ async fn main() -> Result<(), slint::PlatformError> {
     ironvault_core::security::enforce_core_security_checks(&hwid);
     
     println!("[SECURITY] Computed System HWID: {}", hwid);
-
     let audit_logger = Arc::new(AuditLogger::new("ironvault.audit.log"));
 
     println!("[PGSQL] Connecting to data target host server cluster... ");
@@ -50,12 +49,12 @@ async fn main() -> Result<(), slint::PlatformError> {
     app.set_login_error("".into());
     app.set_auth_screen_state("landing".into());
 
+    // --- REAL-TIME POLLING BACKGROUND TIMEOUT LOOP ---
     let app_weak_poll = app.as_weak();
     let db_poll_clone = Arc::clone(&db);
     tokio::spawn(async move {
         loop {
             tokio::time::sleep(tokio::time::Duration::from_millis(2500)).await;
-
             let db_result = db_poll_clone.fetch_next_pending_user().await;
             let app_weak_inner = app_weak_poll.clone();
 
@@ -85,6 +84,7 @@ async fn main() -> Result<(), slint::PlatformError> {
         }
     });
 
+    // --- AUTHENTICATION DISPATCHER ---
     let app_weak_login = app.as_weak();
     let db_login_clone = Arc::clone(&db);
     let audit_login_clone = Arc::clone(&audit_logger);
@@ -119,7 +119,6 @@ async fn main() -> Result<(), slint::PlatformError> {
                         role: user.role.clone().into(),
                         last_login: user.last_login.clone(),
                     };
-
                     audit.log_action(&core_user, "OPERATOR_DB_LOGIN_SUCCESS", "CRITICAL").ok();
                 }
                 Err(err) => {
@@ -131,6 +130,7 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
+    // --- STRUCT-BASED REGISTRATION PROCESSOR ---
     let app_weak_reg = app.as_weak();
     let db_reg_clone = Arc::clone(&db);
     let current_hwid_reg = hwid.clone();
@@ -153,9 +153,12 @@ async fn main() -> Result<(), slint::PlatformError> {
                         let ui = ui_weak.unwrap();
                         ui.set_auth_screen_state("landing".into()); 
                         ui.set_login_error("Registration submitted! Awaiting SuperAdmin verification approval.".into());
+                        
+                        // FIXED: Safely purge the correctly named memory tokens
                         ui.set_form_user("".into());
                         ui.set_form_pass("".into());
-                        ui.set_form_captcha("".into());
+                        ui.set_form_captcha_login("".into());
+                        ui.set_registration_fields(RegisterFormFields::default());
                     }).unwrap();
                 }
                 Err(err) => {
@@ -167,6 +170,7 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
+    // --- SUPERADMIN OPERATOR APPROVAL MATRIX ---
     let app_weak_appr = app.as_weak();
     let db_appr_clone = Arc::clone(&db);
     
@@ -190,6 +194,7 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
+    // --- SUPERADMIN OPERATOR DENIAL DISPATCHER ---
     let app_weak_deny = app.as_weak();
     let db_deny_clone = Arc::clone(&db);
     
@@ -213,6 +218,7 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
+    // --- INTERFACE OPERATOR LOG OUT CHANNEL ---
     let app_weak_logout = app.as_weak();
     app.on_request_logout(move || {
         if let Some(ui) = app_weak_logout.upgrade() {
@@ -223,9 +229,11 @@ async fn main() -> Result<(), slint::PlatformError> {
             ui.set_login_error("".into());
             ui.set_auth_screen_state("landing".into());
             
+            // FIXED: Safely purge the correctly named memory tokens
             ui.set_form_user("".into());
             ui.set_form_pass("".into());
-            ui.set_form_captcha("".into());
+            ui.set_form_captcha_login("".into());
+            ui.set_registration_fields(RegisterFormFields::default());
 
             let mut fresh_rng = rand::thread_rng();
             let v1 = fresh_rng.gen_range(5..20);
@@ -237,6 +245,7 @@ async fn main() -> Result<(), slint::PlatformError> {
         }
     });
 
+    // --- OPERATOR USER MANAGEMENT TAB MATRIX LOGIC ROUTERS ---
     let app_weak_users = app.as_weak();
     let db_users_clone = Arc::clone(&db);
     
@@ -267,6 +276,7 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
+    // --- EXTEND ACCESS LEASE AND ASSIGN PRIVILEGE ---
     let app_weak_lease = app.as_weak();
     let db_lease_clone = Arc::clone(&db);
 
@@ -290,6 +300,7 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
+    // --- BAN USER PURGE CONTROL MATRIX CHANNEL ---
     let app_weak_ban = app.as_weak();
     let db_ban_clone = Arc::clone(&db);
 
@@ -310,14 +321,13 @@ async fn main() -> Result<(), slint::PlatformError> {
             }
         });
     });
+
     // --- SECURE TCP COMMAND CENTER LISTENER ---
-    // Derive a master 32-byte AES key for node communication
     let network_secret = ironvault_core::crypto::derive_key("IronVault_Master_Node_Key_2026", "Salt_Secure_Comm");
     let decryptor = Arc::new(ironvault_core::crypto::Decryptor::new(&network_secret));
     let encryptor = Arc::new(ironvault_core::crypto::Encryptor::new(&network_secret));
 
     tokio::spawn(async move {
-        // Bind the server to port 8080
         match tokio::net::TcpListener::bind("0.0.0.0:9443").await {
             Ok(listener) => {
                 println!("[NETWORK] TCP Command Center actively listening for encrypted nodes on port 9443");
@@ -329,12 +339,10 @@ async fn main() -> Result<(), slint::PlatformError> {
                         let enc = Arc::clone(&encryptor);
 
                         tokio::spawn(async move {
-                            // 1. Attempt to receive and decrypt an incoming command
                             match ironvault_core::network::receive_secure_payload::<ironvault_core::network::NodeCommand>(&mut socket, &dec).await {
                                 Ok(command) => {
                                     println!("[NETWORK] Validated Secure Payload from {}: {:?}", addr, command);
 
-                                    // 2. Transmit an encrypted status response back to the node
                                     let response = ironvault_core::network::NodeResponse::StatusData("Command execution authorized by Matrix.".to_string());
                                     if let Err(e) = ironvault_core::network::send_secure_payload(&mut socket, &enc, &response).await {
                                         println!("[NETWORK] Failed to transmit secure response: {}", e);

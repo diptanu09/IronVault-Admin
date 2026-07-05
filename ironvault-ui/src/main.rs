@@ -48,8 +48,8 @@ async fn main() -> Result<(), slint::PlatformError> {
     app.set_captcha_q_main(format!("{} + {}", val1, val2).into());
     app.set_captcha_a_main((val1 + val2).to_string().into());
     app.set_login_error("".into());
+    app.set_auth_screen_state("landing".into());
 
-    // --- REAL-TIME POLLING BACKGROUND TIMEOUT LOOP ---
     let app_weak_poll = app.as_weak();
     let db_poll_clone = Arc::clone(&db);
     tokio::spawn(async move {
@@ -85,7 +85,6 @@ async fn main() -> Result<(), slint::PlatformError> {
         }
     });
 
-    // --- AUTHENTICATION DISPATCHER ---
     let app_weak_login = app.as_weak();
     let db_login_clone = Arc::clone(&db);
     let audit_login_clone = Arc::clone(&audit_logger);
@@ -132,7 +131,6 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    // --- REGISTRATION REQUEST ROUTER WITH EXTENDED PROFILE ---
     let app_weak_reg = app.as_weak();
     let db_reg_clone = Arc::clone(&db);
     let current_hwid_reg = hwid.clone();
@@ -153,8 +151,11 @@ async fn main() -> Result<(), slint::PlatformError> {
                 Ok(_) => {
                     slint::invoke_from_event_loop(move || {
                         let ui = ui_weak.unwrap();
-                        ui.set_is_registration_view(false);
+                        ui.set_auth_screen_state("landing".into()); 
                         ui.set_login_error("Registration submitted! Awaiting SuperAdmin verification approval.".into());
+                        ui.set_form_user("".into());
+                        ui.set_form_pass("".into());
+                        ui.set_form_captcha("".into());
                     }).unwrap();
                 }
                 Err(err) => {
@@ -166,7 +167,6 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    // --- SUPERADMIN OPERATOR APPROVAL MATRIX ---
     let app_weak_appr = app.as_weak();
     let db_appr_clone = Arc::clone(&db);
     
@@ -190,7 +190,6 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    // --- SUPERADMIN OPERATOR DENIAL DISPATCHER ---
     let app_weak_deny = app.as_weak();
     let db_deny_clone = Arc::clone(&db);
     
@@ -214,7 +213,6 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    // --- INTERFACE OPERATOR LOG OUT CHANNEL ---
     let app_weak_logout = app.as_weak();
     app.on_request_logout(move || {
         if let Some(ui) = app_weak_logout.upgrade() {
@@ -223,6 +221,11 @@ async fn main() -> Result<(), slint::PlatformError> {
             ui.set_current_user_role("UNAUTHORIZED".into());
             ui.set_pending_notification_name("NONE".into());
             ui.set_login_error("".into());
+            ui.set_auth_screen_state("landing".into());
+            
+            ui.set_form_user("".into());
+            ui.set_form_pass("".into());
+            ui.set_form_captcha("".into());
 
             let mut fresh_rng = rand::thread_rng();
             let v1 = fresh_rng.gen_range(5..20);
@@ -234,7 +237,6 @@ async fn main() -> Result<(), slint::PlatformError> {
         }
     });
 
-    // --- OPERATOR USER MANAGEMENT TAB MATRIX LOGIC ROUTERS ---
     let app_weak_users = app.as_weak();
     let db_users_clone = Arc::clone(&db);
     
@@ -258,15 +260,13 @@ async fn main() -> Result<(), slint::PlatformError> {
                 
                 slint::invoke_from_event_loop(move || {
                     if let Some(ui) = ui_weak.upgrade() {
-                        let model = Rc::new(VecModel::from(slint_users));
-                        ui.set_active_users_list(ModelRc::from(model));
+                        ui.set_active_users_list(ModelRc::from(Rc::new(VecModel::from(slint_users))));
                     }
                 }).unwrap();
             }
         });
     });
 
-    // --- EXTEND ACCESS LEASE AND ASSIGN PRIVILEGE ---
     let app_weak_lease = app.as_weak();
     let db_lease_clone = Arc::clone(&db);
 

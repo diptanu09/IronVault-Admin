@@ -46,8 +46,9 @@ impl DbClient {
     }
 
     pub async fn authenticate_user(&self, username: &str, _pass: &str, hwid: &str) -> Result<DbUser, String> {
+        // FIXED: Added TO_CHAR to format the timestamp cleanly
         let row = sqlx::query(
-            "SELECT username, role, COALESCE(last_login_at::text, 'NEVER') as last_login \
+            "SELECT username, role, COALESCE(TO_CHAR(last_login_at, 'YYYY-MM-DD HH24:MI'), 'NEVER') as last_login \
              FROM ironvault.users \
              WHERE username = $1 AND status = 'ACTIVE' AND hardware_fingerprint = $2 \
              AND (role = 'SuperAdmin' OR role = 'super_admin' OR expires_at IS NULL OR expires_at > NOW())"
@@ -143,10 +144,13 @@ impl DbClient {
     }
 
     pub async fn get_active_users(&self) -> Result<Vec<ActiveUser>, String> {
+        // FIXED: Formatted both login and expiration dates directly inside the query
         let rows = sqlx::query(
-            "SELECT username, role, COALESCE(last_login_at::text, 'NEVER') as last_login, \
-             COALESCE(full_name, 'NOT SET') as full_name, COALESCE(designation, 'NOT SET') as designation, \
-             COALESCE(expires_at::text, 'LIFETIME') as expires_at \
+            "SELECT username, role, \
+             COALESCE(TO_CHAR(last_login_at, 'YYYY-MM-DD HH24:MI'), 'NEVER') as last_login, \
+             COALESCE(full_name, 'NOT SET') as full_name, \
+             COALESCE(designation, 'NOT SET') as designation, \
+             COALESCE(TO_CHAR(expires_at, 'YYYY-MM-DD HH24:MI'), 'LIFETIME') as expires_at \
              FROM ironvault.users WHERE status = 'ACTIVE' ORDER BY role, username"
         )
         .fetch_all(&self.pool)

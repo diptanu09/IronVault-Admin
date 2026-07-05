@@ -2,23 +2,27 @@
 
 // Color Palette - Dark Neon
 export global Theme {
-    // --- OUR NEW MASTER THEME TOKENS ---
-    in-out property <color> brand-primary: #3B82F6;
-    in-out property <color> brand-success: #10B981;
-    in-out property <color> brand-warning: #F59E0B;
-    in-out property <color> brand-danger: #EF4444;
+    // --- VIBRANT PREMIUM BRAND TOKENS ---
+    in-out property <color> brand-primary: #00E5FF; // High-energy Neon Cyan
+    in-out property <color> brand-success: #00FF9D; // Bright Mint Green
+    in-out property <color> brand-warning: #FFB800; // Vivid Gold
+    in-out property <color> brand-danger: #FF3366;  // Punchy Crimson
     
-    in-out property <color> bg-main: #09090B;
-    in-out property <color> bg-card: #18181B;
-    in-out property <color> bg-sidebar: #111827;
+    // --- DEEP RICH BACKGROUNDS ---
+    in-out property <color> bg-main: #050507;       // Deepest Void Black
+    in-out property <color> bg-sidebar: #0B0D12;    // Distinct Edge Material
+    in-out property <color> bg-card: #11141A;       // Elevated Surface
+    in-out property <color> bg-card-hover: #1A1E26; // Interactive Surface Glow
     
-    in-out property <color> border-color: #27272A;
-    in-out property <color> border-dark: #1F2937;
+    // --- CRISP HIGH-CONTRAST BORDERS ---
+    in-out property <color> border-color: #242938;
+    in-out property <color> border-dark: #181C26;
     
-    in-out property <color> text-primary: #FFFFFF;
-    in-out property <color> text-secondary: #9CA3AF;
-    in-out property <color> text-muted: #6B7280;
-    in-out property <color> text-dark: #4B5563;
+    // --- ILLUMINATED TYPOGRAPHY ---
+    in-out property <color> text-primary: #FFFFFF;   // Pure White
+    in-out property <color> text-secondary: #E2E8F0; // Very Light Crisp Gray
+    in-out property <color> text-muted: #94A3B8;     // Clean Mid-Gray
+    in-out property <color> text-dark: #64748B;
 
     in-out property <length> input-height: 34px;
     in-out property <length> button-height: 42px;
@@ -81,7 +85,6 @@ export component NeonInput {
         border_width: 1px;
         border_color: Theme.accent_border;
         
-        // FIXED: Slint native placeholder logic handling
         if (root.input_value == "") : Text {
             text: root.placeholder_text;
             color: Theme.text_secondary;
@@ -89,7 +92,6 @@ export component NeonInput {
             x: 10px;
         }
         
-        // FIXED: Removed the unsupported `placeholder_text` property from TextInput
         TextInput {
             text <=> root.input_value;
             color: Theme.text_primary;

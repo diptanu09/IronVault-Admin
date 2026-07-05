@@ -9,6 +9,7 @@ component NavItem inherits Rectangle {
     in property <string> text;
     in property <image> icon_source;
     in property <bool> active;
+    in property <bool> collapsed; // Tracks sidebar toggle profile
     callback clicked();
     
     height: 42px;
@@ -18,14 +19,18 @@ component NavItem inherits Rectangle {
     border-color: Theme.brand-primary;
 
     HorizontalBox {
-        padding-left: 14px; padding-right: 14px; spacing: 14px;
+        padding-left: 14px; padding-right: 14px; spacing: root.collapsed ? 0px : 14px;
+        alignment: root.collapsed ? LayoutAlignment.center : LayoutAlignment.start;
+        
         Image {
             source: root.icon_source;
             width: 18px; height: 18px;
             vertical-alignment: center;
             colorize: root.active ? Theme.brand-primary : Theme.text-secondary;
         }
-        Text { 
+        
+        // Dynamically drops visibility if sidebar is collapsed
+        if (!root.collapsed) : Text { 
             text: root.text; 
             font-size: 14px; 
             font-weight: root.active ? 800 : 600; 
@@ -48,7 +53,6 @@ export struct UserData {
 export component AppWindow inherits Window {
     title: "IronVault Operator Administration Console";
     
-    // FIXED: Swapped fixed dimensions to preferred and minimums to unlock maximizing and responsive dynamic scaling
     preferred-width: 1280px; 
     preferred-height: 760px;
     min-width: 1024px;
@@ -56,6 +60,9 @@ export component AppWindow inherits Window {
     
     background: Theme.bg-main; 
     icon: @image-url("assets/app_icon.png");
+
+    // Dynamic Sidebar configuration properties
+    in-out property <bool> sidebar_collapsed: false;
 
     in-out property <string> hwid_string: "HWID: UNKNOWN";
     in-out property <string> current_user_name: "GUEST";
@@ -93,41 +100,69 @@ export component AppWindow inherits Window {
     HorizontalBox {
         padding: 0px; spacing: 0px;
 
-        // Sidebar naturally maintains its 260px width while the main content stretches
         if (root.is_logged_in) : Rectangle {
-            width: 260px;
+            // Smoothly transitions sidebar width from 260px down to 68px
+            width: root.sidebar_collapsed ? 68px : 260px;
             background: Theme.bg-sidebar;
             border-width: 1px; border-color: Theme.border-dark;
             drop-shadow-blur: 15px; drop-shadow-color: #00000099;
+            animate width { duration: 180ms; easing: ease-in-out; }
 
             VerticalBox {
-                padding: 24px; spacing: 10px; alignment: start;
+                padding: 16px; spacing: 10px; alignment: start;
                 
-                VerticalBox {
-                    spacing: 4px; padding-bottom: 20px;
-                    Text { text: "❖ IRONVAULT"; font-size: 18px; font-weight: 900; color: Theme.brand-primary; letter-spacing: 1px; }
-                    Text { text: "COMMAND CENTER"; font-size: 10px; font-weight: 700; color: Theme.text-muted; letter-spacing: 2px; }
-                    Rectangle { height: 5px; background: transparent; }
-                    Text { text: root.hwid_string; font-size: 9px; color: Theme.text-dark; }
+                // Header Area containing system state & quick collapse toggle
+                HorizontalBox {
+                    alignment: root.sidebar_collapsed ? LayoutAlignment.center : LayoutAlignment.space-between;
+                    padding-bottom: 12px;
+                    
+                    if (!root.sidebar_collapsed) : VerticalBox {
+                        spacing: 2px;
+                        Text { text: "❖ IRONVAULT"; font-size: 16px; font-weight: 900; color: Theme.brand-primary; letter-spacing: 1px; }
+                        Text { text: "COMMAND CENTER"; font-size: 9px; font-weight: 700; color: Theme.text-muted; letter-spacing: 1px; }
+                    }
+                    
+                    // The dynamic collapse button
+                    Rectangle {
+                        width: 32px; height: 32px;
+                        border-radius: 4px;
+                        background: toggle_ta.has-hover ? #1F2937 : transparent;
+                        
+                        Text {
+                            text: root.sidebar_collapsed ? "»" : "«";
+                            font-size: 18px;
+                            font-weight: 900;
+                            color: Theme.brand-primary;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                        toggle_ta := TouchArea {
+                            clicked => { root.sidebar_collapsed = !root.sidebar_collapsed; }
+                        }
+                    }
                 }
                 
+                if (!root.sidebar_collapsed) : Text { text: root.hwid_string; font-size: 9px; color: Theme.text-dark; padding-bottom: 8px; }
                 Rectangle { height: 1px; background: Theme.border-dark; }
 
                 NavItem {
                     text: "Dashboard"; icon_source: @image-url("assets/dashboard.png"); 
                     active: root.active_tab == "overview";
+                    collapsed: root.sidebar_collapsed;
                     clicked => { root.active_tab = "overview"; }
                 }
                 
                 if (root.current_user_role == "SuperAdmin" || root.current_user_role == "super_admin") : NavItem {
                     text: "Access Requests"; icon_source: @image-url("assets/requests.png"); 
                     active: root.active_tab == "approvals";
+                    collapsed: root.sidebar_collapsed;
                     clicked => { root.active_tab = "approvals"; }
                 }
 
                 if (root.current_user_role == "SuperAdmin" || root.current_user_role == "super_admin") : NavItem {
                     text: "Operator Matrix"; icon_source: @image-url("assets/matrix.png"); 
                     active: root.active_tab == "users";
+                    collapsed: root.sidebar_collapsed;
                     clicked => { root.active_tab = "users"; root.load_users_list(); }
                 }
 
@@ -137,12 +172,12 @@ export component AppWindow inherits Window {
                 NavItem {
                     text: "Terminate Session"; icon_source: @image-url("assets/logout.png"); 
                     active: false;
+                    collapsed: root.sidebar_collapsed;
                     clicked => { root.request_logout(); }
                 }
             }
         }
 
-        // Main content pane absorbs all dynamically maximized window space
         Rectangle {
             horizontal-stretch: 1;
             background: @linear-gradient(135deg, #09090B 0%, #111827 100%); 
@@ -368,7 +403,6 @@ export component AppWindow inherits Window {
                                         role_input := LineEdit { text: user.role; width: 120px; height: 34px; }
                                         days_input := LineEdit { text: "30"; placeholder_text: "Days"; width: 60px; height: 34px; }
                                         
-                                        // FIXED: Buttons placed directly in the main layout row to guarantee perfect baseline alignment
                                         Button {
                                             text: "Save"; width: 70px; height: 34px;
                                             clicked => { root.extend_user_lease(user.username, role_input.text, days_input.text); }
@@ -378,7 +412,6 @@ export component AppWindow inherits Window {
                                             clicked => { root.ban_user(user.username); }
                                         }
                                         
-                                        // FIXED: Empty dynamic rectangle to smoothly absorb any extra horizontal space when the screen is maximized!
                                         Rectangle { horizontal-stretch: 1; }
                                     }
                                 }

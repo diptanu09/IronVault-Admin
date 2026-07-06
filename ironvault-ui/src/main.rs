@@ -22,14 +22,11 @@ async fn main() -> Result<(), slint::PlatformError> {
     println!("[SECURITY] Computed System HWID: {}", hwid);
     let audit_logger = Arc::new(AuditLogger::new("ironvault.audit.log"));
 
-    println!("[PGSQL] Connecting to data target host server cluster... ");
-    let db = match DbClient::connect_with_credentials(
-        "localhost",
-        5432,
-        "AsstPro",
-        "egpf_app_user",
-        "P@ssw()rd123",
-    ).await {
+    // Connect to PostgreSQL database container
+    println!("[PGSQL] Connecting to data target host server cluster...");
+    let db_url = "postgres://ironvault:P@ssw()rd123@localhost:5432/ironvault"; // Customize URL to match parameters
+    
+    let db = match DbClient::connect(db_url).await {
         Ok(client) => Arc::new(client),
         Err(err) => {
             eprintln!("[FATAL DATABASE ACCESS ERROR]: {}", err);

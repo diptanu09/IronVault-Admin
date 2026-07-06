@@ -1,6 +1,8 @@
 //! IronVault Database Access Layer
-//!
 //! Provides ORM and database operations for PostgreSQL and Oracle
+
+pub mod oracle;
+pub use oracle::OracleConnection; // Exposes connection struct cleanly to the UI workspace layer
 
 use sqlx::{PgPool, postgres::PgPoolOptions, Row};
 
@@ -27,6 +29,11 @@ pub struct DbClient {
 }
 
 impl DbClient {
+    /// Public getter mapping to expose the underlying PgPool reference safely
+    pub fn get_pool(&self) -> &sqlx::PgPool {
+        &self.pool
+    }
+
     pub async fn connect_with_credentials(
         host: &str,
         port: u16,
@@ -35,23 +42,22 @@ impl DbClient {
         pass: &str,
     ) -> Result<Self, String> {
         let database_url = format!("postgres://{}:{}@{}:{}/{}", user, pass, host, port, db_name);
-        
+                 
         let pool = PgPoolOptions::new()
             .max_connections(5)
             .connect(&database_url)
             .await
             .map_err(|e| format!("Database cluster handshake failed: {}", e))?;
-            
+                     
         Ok(Self { pool })
     }
 
     pub async fn authenticate_user(&self, username: &str, _pass: &str, hwid: &str) -> Result<DbUser, String> {
-        // FIXED: Added TO_CHAR to format the timestamp cleanly
         let row = sqlx::query(
             "SELECT username, role, COALESCE(TO_CHAR(last_login_at, 'YYYY-MM-DD HH24:MI'), 'NEVER') as last_login \
              FROM ironvault.users \
              WHERE username = $1 AND status = 'ACTIVE' AND hardware_fingerprint = $2 \
-             AND (role = 'SuperAdmin' OR role = 'super_admin' OR expires_at IS NULL OR expires_at > NOW())"
+             AND (role = 'SuperAdmin' OR role = 'super_admin' OR role = 'Super Admin' OR expires_at IS NULL OR expires_at > NOW())"
         )
         .bind(username)
         .bind(hwid)
@@ -65,7 +71,6 @@ impl DbClient {
                 .execute(&self.pool)
                 .await
                 .ok();
-
             Ok(DbUser {
                 username: r.get("username"),
                 role: r.get("role"),
@@ -92,7 +97,6 @@ impl DbClient {
         } else {
             format!("{} {} {}", first.trim(), middle.trim(), last.trim())
         };
-
         sqlx::query(
             "INSERT INTO ironvault.users (username, password, role, status, hardware_fingerprint, first_name, middle_name, last_name, full_name, designation, section, expires_at) \
              VALUES ($1, $2, 'Operator', 'PENDING', $3, $4, $5, $6, $7, $8, $9, NOW() + '30 days'::INTERVAL) ON CONFLICT DO NOTHING"
@@ -117,7 +121,7 @@ impl DbClient {
             .fetch_optional(&self.pool)
             .await
             .map_err(|e| e.to_string())?;
-            
+                     
         Ok(row.map(|r| r.get("username")))
     }
 
@@ -144,7 +148,6 @@ impl DbClient {
     }
 
     pub async fn get_active_users(&self) -> Result<Vec<ActiveUser>, String> {
-        // FIXED: Formatted both login and expiration dates directly inside the query
         let rows = sqlx::query(
             "SELECT username, role, \
              COALESCE(TO_CHAR(last_login_at, 'YYYY-MM-DD HH24:MI'), 'NEVER') as last_login, \
@@ -165,7 +168,6 @@ impl DbClient {
             designation: r.get("designation"),
             expires_at: r.get("expires_at"),
         }).collect();
-
         Ok(users)
     }
 

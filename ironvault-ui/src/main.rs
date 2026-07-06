@@ -3,11 +3,10 @@
 //! to the core security and database layers
 
 slint::include_modules!();
-
 use slint::ComponentHandle;
 use slint::{ModelRc, VecModel};
 use ironvault_core::audit::AuditLogger;
-use ironvault_db::DbClient;
+use ironvault_db::{DbClient, OracleConnection};
 use std::sync::Arc;
 use std::rc::Rc;
 use rand::Rng;
@@ -22,6 +21,9 @@ async fn main() -> Result<(), slint::PlatformError> {
     println!("[SECURITY] Computed System HWID: {}", hwid);
     let audit_logger = Arc::new(AuditLogger::new("ironvault.audit.log"));
 
+    // =========================================================================
+    // STAGE 1: POSTGRESQL PRIMARY CONNECTION
+    // =========================================================================
     println!("[PGSQL] Connecting to data target host server cluster... ");
     let db = match DbClient::connect_with_credentials(
         "localhost",
@@ -38,6 +40,57 @@ async fn main() -> Result<(), slint::PlatformError> {
     };
     println!("[SUCCESS] Database connections established. Schemas bound safely.");
 
+    // =========================================================================
+    // STAGE 2: ORACLE 11g LEGACY INFRASTRUCTURE
+    // =========================================================================
+    println!("[ORACLE 11g] Spawning integration connection pipeline to target network infrastructure...");
+    let oracle_client = match OracleConnection::new("gpfpf/gpffp@192.168.100.247:1521/db11g") {
+        Ok(client) => {
+            println!("[SUCCESS] Oracle 11g legacy connection pool initialized.");
+            Arc::new(client)
+        },
+        Err(e) => {
+            eprintln!("[FATAL] Oracle connection engine failed to bind parameters: {:?}", e);
+            std::process::exit(1);
+        }
+    };
+
+    // =========================================================================
+    // STAGE 3: DETACH BACKGROUND HANDSHAKE & MIGRATION PIPELINE
+    // =========================================================================
+    let pg_pool_clone = db.get_pool().clone(); 
+    let oracle_clone = Arc::clone(&oracle_client);
+
+    tokio::spawn(async move {
+        println!("[DIAGNOSTIC] Testing link visibility to remote node at 192.168.100.247...");
+        
+        // Brief sleep ensures Slint UI loop renders first
+        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+
+        match oracle_clone.health_check().await {
+            Ok(()) => {
+                println!("[SUCCESS] Handshake verified with Oracle 11g via DUAL query engine.");
+                
+                if let Ok(version) = oracle_clone.validate_version().await {
+                    println!("[INFO] Remote system matrix: {}", version);
+                }
+
+                println!("[MIGRATION CONTAINER] Commencing automated database record synchronization...");
+                match oracle_clone.migrate_to_postgres(&pg_pool_clone).await {
+                    Ok(()) => println!("[SUCCESS] Cross-engine user synchronization pass complete. Legacy entities unified!"),
+                    Err(e) => eprintln!("[ERROR] Migration pipeline runtime failure: {:?}", e),
+                }
+            },
+            Err(e) => {
+                eprintln!("[ERROR] Remote Oracle database server at 192.168.100.247 is currently unreachable!");
+                eprintln!("[DETAILS] {:?}", e);
+            }
+        }
+    });
+
+    // =========================================================================
+    // STAGE 4: INITIALIZE SLINT UI ENGINE & CONTROLLER WIREUP
+    // =========================================================================
     let app = AppWindow::new()?;
     app.set_hwid_string(format!("HWID: {}", hwid).into());
     
@@ -57,12 +110,12 @@ async fn main() -> Result<(), slint::PlatformError> {
             tokio::time::sleep(tokio::time::Duration::from_millis(2500)).await;
             let db_result = db_poll_clone.fetch_next_pending_user().await;
             let app_weak_inner = app_weak_poll.clone();
-
+            
             slint::invoke_from_event_loop(move || {
                 if let Some(ui) = app_weak_inner.upgrade() {
                     let role = ui.get_current_user_role().to_string().to_lowercase();
                     let is_superadmin = role.contains("super") && role.contains("admin");
-
+                    
                     if ui.get_is_logged_in() && is_superadmin {
                         match db_result {
                             Ok(Some(pending_name)) => {
@@ -102,7 +155,7 @@ async fn main() -> Result<(), slint::PlatformError> {
                     let ui_username = user.username.clone();
                     let ui_role = user.role.to_string();
                     let ui_last_login = user.last_login.clone();
-
+                    
                     slint::invoke_from_event_loop(move || {
                         let ui = ui_weak.unwrap();
                         ui.set_login_error("".into());
@@ -112,8 +165,8 @@ async fn main() -> Result<(), slint::PlatformError> {
                         ui.set_is_logged_in(true);
                         ui.set_active_tab("overview".into());
                     }).unwrap();
-
-                    let core_user = ironvault_core::User {
+                    
+                    let core_user = ironvault_core::auth::User {
                         id: Default::default(),
                         username: user.username.clone(),
                         role: user.role.clone().into(),
@@ -151,9 +204,9 @@ async fn main() -> Result<(), slint::PlatformError> {
                 Ok(_) => {
                     slint::invoke_from_event_loop(move || {
                         let ui = ui_weak.unwrap();
-                        ui.set_auth_screen_state("landing".into()); 
-                        ui.set_login_error("Registration submitted! Awaiting SuperAdmin verification approval.".into());                        
-                        // Safely purge the correctly named memory tokens
+                        ui.set_auth_screen_state("landing".into());
+                        ui.set_login_error("Registration submitted! Awaiting SuperAdmin verification approval.".into());
+                        
                         ui.set_form_user("".into());
                         ui.set_form_pass("".into());
                         ui.set_form_captcha_login("".into());
@@ -172,23 +225,22 @@ async fn main() -> Result<(), slint::PlatformError> {
     // --- SUPERADMIN OPERATOR APPROVAL MATRIX ---
     let app_weak_appr = app.as_weak();
     let db_appr_clone = Arc::clone(&db);
+    let admin_name = app.get_current_user_name().to_string();
     
     app.on_approve_pending_operator(move |target_user, assigned_role| {
         let ui_weak = app_weak_appr.clone();
         let db = Arc::clone(&db_appr_clone);
-        let admin_name = ui_weak.unwrap().get_current_user_name().to_string();
+        let admin = admin_name.clone();
         
         tokio::spawn(async move {
-            match db.approve_user(&admin_name, &target_user, &assigned_role).await {
+            match db.approve_user(&admin, &target_user, &assigned_role).await {
                 Ok(_) => {
                     slint::invoke_from_event_loop(move || {
                         let ui = ui_weak.unwrap();
                         ui.set_pending_notification_name("NONE".into());
                     }).unwrap();
                 }
-                Err(err) => {
-                    println!("[ERROR] Admin validation fail: {}", err);
-                }
+                Err(err) => println!("[ERROR] Admin validation fail: {}", err),
             }
         });
     });
@@ -196,23 +248,22 @@ async fn main() -> Result<(), slint::PlatformError> {
     // --- SUPERADMIN OPERATOR DENIAL DISPATCHER ---
     let app_weak_deny = app.as_weak();
     let db_deny_clone = Arc::clone(&db);
+    let admin_name_deny = app.get_current_user_name().to_string();
     
     app.on_deny_pending_operator(move |target_user| {
         let ui_weak = app_weak_deny.clone();
         let db = Arc::clone(&db_deny_clone);
-        let admin_name = ui_weak.unwrap().get_current_user_name().to_string();
+        let admin = admin_name_deny.clone();
         
         tokio::spawn(async move {
-            match db.deny_user(&admin_name, &target_user).await {
+            match db.deny_user(&admin, &target_user).await {
                 Ok(_) => {
                     slint::invoke_from_event_loop(move || {
                         let ui = ui_weak.unwrap();
                         ui.set_pending_notification_name("NONE".into());
                     }).unwrap();
                 }
-                Err(err) => {
-                    println!("[ERROR] Admin denial execution fail: {}", err);
-                }
+                Err(err) => println!("[ERROR] Admin denial execution fail: {}", err),
             }
         });
     });
@@ -226,13 +277,13 @@ async fn main() -> Result<(), slint::PlatformError> {
             ui.set_current_user_role("UNAUTHORIZED".into());
             ui.set_pending_notification_name("NONE".into());
             ui.set_login_error("".into());
-            ui.set_auth_screen_state("landing".into());            
-            // Safely purge the correctly named memory tokens
+            ui.set_auth_screen_state("landing".into());
+            
             ui.set_form_user("".into());
             ui.set_form_pass("".into());
             ui.set_form_captcha_login("".into());
             ui.set_registration_fields(RegisterFormFields::default());
-
+            
             let mut fresh_rng = rand::thread_rng();
             let v1 = fresh_rng.gen_range(5..20);
             let v2 = fresh_rng.gen_range(2..10);
@@ -277,7 +328,6 @@ async fn main() -> Result<(), slint::PlatformError> {
     // --- EXTEND ACCESS LEASE AND ASSIGN PRIVILEGE ---
     let app_weak_lease = app.as_weak();
     let db_lease_clone = Arc::clone(&db);
-
     app.on_extend_user_lease(move |target_user, new_role, days_string| {
         let ui_weak = app_weak_lease.clone();
         let db = Arc::clone(&db_lease_clone);
@@ -285,7 +335,6 @@ async fn main() -> Result<(), slint::PlatformError> {
         let target_str = target_user.to_string();
         let role_str = new_role.to_string();
         let days_valid: i32 = days_string.to_string().parse().unwrap_or(30);
-
         tokio::spawn(async move {
             if db.update_user_lease(&target_str, &role_str, days_valid).await.is_ok() {
                 println!("[SECURITY] Access lease updated for operator {}: Assigned to {}, extended by {} days.", target_str, role_str, days_valid);
@@ -301,13 +350,11 @@ async fn main() -> Result<(), slint::PlatformError> {
     // --- BAN USER PURGE CONTROL MATRIX CHANNEL ---
     let app_weak_ban = app.as_weak();
     let db_ban_clone = Arc::clone(&db);
-
     app.on_ban_user(move |target_user| {
         let ui_weak = app_weak_ban.clone();
         let db = Arc::clone(&db_ban_clone);
         let admin_name = ui_weak.unwrap().get_current_user_name().to_string();
         let target_str = target_user.to_string();
-
         tokio::spawn(async move {
             if db.ban_user(&admin_name, &target_str).await.is_ok() {
                 println!("[SECURITY] Operator {} has BANNED user {}", admin_name, target_str);
@@ -324,7 +371,7 @@ async fn main() -> Result<(), slint::PlatformError> {
     let network_secret = ironvault_core::crypto::derive_key("IronVault_Master_Node_Key_2026", "Salt_Secure_Comm");
     let decryptor = Arc::new(ironvault_core::crypto::Decryptor::new(&network_secret));
     let encryptor = Arc::new(ironvault_core::crypto::Encryptor::new(&network_secret));
-
+    
     tokio::spawn(async move {
         match tokio::net::TcpListener::bind("0.0.0.0:9443").await {
             Ok(listener) => {
@@ -335,12 +382,11 @@ async fn main() -> Result<(), slint::PlatformError> {
                         println!("[NETWORK] Connection intercepted from node IP: {}", addr);
                         let dec = Arc::clone(&decryptor);
                         let enc = Arc::clone(&encryptor);
-
+                        
                         tokio::spawn(async move {
                             match ironvault_core::network::receive_secure_payload::<ironvault_core::network::NodeCommand>(&mut socket, &dec).await {
                                 Ok(command) => {
                                     println!("[NETWORK] Validated Secure Payload from {}: {:?}", addr, command);
-
                                     let response = ironvault_core::network::NodeResponse::StatusData("Command execution authorized by Matrix.".to_string());
                                     if let Err(e) = ironvault_core::network::send_secure_payload(&mut socket, &enc, &response).await {
                                         println!("[NETWORK] Failed to transmit secure response: {}", e);
@@ -358,5 +404,6 @@ async fn main() -> Result<(), slint::PlatformError> {
         }
     });
 
-    app.run()
+    app.run()?;
+    Ok(())
 }

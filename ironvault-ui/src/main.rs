@@ -44,7 +44,7 @@ async fn main() -> Result<(), slint::PlatformError> {
     // STAGE 2: ORACLE 11g LEGACY INFRASTRUCTURE
     // =========================================================================
     println!("[ORACLE 11g] Spawning integration connection pipeline to target network infrastructure...");
-    let oracle_client = match OracleConnection::new("gpfpf/gpffp@192.168.100.247:1521/db11g") {
+    let oracle_client = match OracleConnection::new("gpffp/gpffp@192.168.100.247:1521/db11g") {
         Ok(client) => {
             println!("[SUCCESS] Oracle 11g legacy connection pool initialized.");
             Arc::new(client)
@@ -56,33 +56,23 @@ async fn main() -> Result<(), slint::PlatformError> {
     };
 
     // =========================================================================
-    // STAGE 3: DETACH BACKGROUND HANDSHAKE & MIGRATION PIPELINE
+    // STAGE 3: DETACH BACKGROUND HANDSHAKE
     // =========================================================================
-    let pg_pool_clone = db.get_pool().clone(); 
     let oracle_clone = Arc::clone(&oracle_client);
-
     tokio::spawn(async move {
         println!("[DIAGNOSTIC] Testing link visibility to remote node at 192.168.100.247...");
-        
-        // Brief sleep ensures Slint UI loop renders first
         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
         match oracle_clone.health_check().await {
             Ok(()) => {
                 println!("[SUCCESS] Handshake verified with Oracle 11g via DUAL query engine.");
-                
                 if let Ok(version) = oracle_clone.validate_version().await {
                     println!("[INFO] Remote system matrix: {}", version);
                 }
-
-                println!("[MIGRATION CONTAINER] Commencing automated database record synchronization...");
-                match oracle_clone.migrate_to_postgres(&pg_pool_clone).await {
-                    Ok(()) => println!("[SUCCESS] Cross-engine user synchronization pass complete. Legacy entities unified!"),
-                    Err(e) => eprintln!("[ERROR] Migration pipeline runtime failure: {:?}", e),
-                }
+                println!("[ORACLE LINK] Operational readiness confirmed. Awaiting terminal commands...");
             },
             Err(e) => {
-                eprintln!("[ERROR] Remote Oracle database server at 192.168.100.247 is currently unreachable!");
+                eprintln!("[ERROR] Remote Oracle database server is currently unreachable!");
                 eprintln!("[DETAILS] {:?}", e);
             }
         }
@@ -225,15 +215,14 @@ async fn main() -> Result<(), slint::PlatformError> {
     // --- SUPERADMIN OPERATOR APPROVAL MATRIX ---
     let app_weak_appr = app.as_weak();
     let db_appr_clone = Arc::clone(&db);
-    let admin_name = app.get_current_user_name().to_string();
     
     app.on_approve_pending_operator(move |target_user, assigned_role| {
         let ui_weak = app_weak_appr.clone();
         let db = Arc::clone(&db_appr_clone);
-        let admin = admin_name.clone();
+        let admin_name = ui_weak.unwrap().get_current_user_name().to_string();
         
         tokio::spawn(async move {
-            match db.approve_user(&admin, &target_user, &assigned_role).await {
+            match db.approve_user(&admin_name, &target_user, &assigned_role).await {
                 Ok(_) => {
                     slint::invoke_from_event_loop(move || {
                         let ui = ui_weak.unwrap();
@@ -248,15 +237,14 @@ async fn main() -> Result<(), slint::PlatformError> {
     // --- SUPERADMIN OPERATOR DENIAL DISPATCHER ---
     let app_weak_deny = app.as_weak();
     let db_deny_clone = Arc::clone(&db);
-    let admin_name_deny = app.get_current_user_name().to_string();
     
     app.on_deny_pending_operator(move |target_user| {
         let ui_weak = app_weak_deny.clone();
         let db = Arc::clone(&db_deny_clone);
-        let admin = admin_name_deny.clone();
+        let admin_name_deny = ui_weak.unwrap().get_current_user_name().to_string();
         
         tokio::spawn(async move {
-            match db.deny_user(&admin, &target_user).await {
+            match db.deny_user(&admin_name_deny, &target_user).await {
                 Ok(_) => {
                     slint::invoke_from_event_loop(move || {
                         let ui = ui_weak.unwrap();
@@ -363,6 +351,122 @@ async fn main() -> Result<(), slint::PlatformError> {
                         ui.invoke_load_users_list();
                     }
                 }).unwrap();
+            }
+        });
+    });
+
+    // =========================================================================
+    // ORACLE OPERATIONS CALLBACKS
+    // =========================================================================
+
+    // 1. Delete Full Case
+    let app_weak_op1 = app.as_weak();
+    let oracle_op1 = Arc::clone(&oracle_client);
+    app.on_request_delete_full_case(move |regd_no, series_id, account_no| {
+        let ui_weak = app_weak_op1.clone();
+        let oracle = Arc::clone(&oracle_op1);
+        let r_no = regd_no.to_string();
+        let s_id = series_id.to_string();
+        let a_no = account_no.to_string();
+
+        if r_no.is_empty() || s_id.is_empty() || a_no.is_empty() {
+            let ui = ui_weak.unwrap();
+            ui.set_op_is_error(true);
+            ui.set_op_status_msg("Validation Error: REGD_NO, SERIES_ID, and ACCOUNT_NO are required.".into());
+            return;
+        }
+
+        tokio::spawn(async move {
+            match oracle.delete_full_case(&r_no, &s_id, &a_no).await {
+                Ok(_) => {
+                    slint::invoke_from_event_loop(move || {
+                        let ui = ui_weak.unwrap();
+                        ui.set_op_is_error(false);
+                        ui.set_op_status_msg(format!("SUCCESS: Full Case deleted for REGD_NO: {}", r_no).into());
+                        ui.set_op_regd_no("".into());
+                        ui.set_op_series_id("".into());
+                        ui.set_op_account_no("".into());
+                    }).unwrap();
+                }
+                Err(e) => {
+                    slint::invoke_from_event_loop(move || {
+                        let ui = ui_weak.unwrap();
+                        ui.set_op_is_error(true);
+                        ui.set_op_status_msg(format!("TRANSACTION FAILED: {}", e).into());
+                    }).unwrap();
+                }
+            }
+        });
+    });
+
+    // 2. Delete Application
+    let app_weak_op2 = app.as_weak();
+    let oracle_op2 = Arc::clone(&oracle_client);
+    app.on_request_delete_application(move |regd_no| {
+        let ui_weak = app_weak_op2.clone();
+        let oracle = Arc::clone(&oracle_op2);
+        let r_no = regd_no.to_string();
+
+        if r_no.is_empty() {
+            let ui = ui_weak.unwrap();
+            ui.set_op_is_error(true);
+            ui.set_op_status_msg("Validation Error: REGD_NO is required.".into());
+            return;
+        }
+
+        tokio::spawn(async move {
+            match oracle.delete_from_application(&r_no).await {
+                Ok(_) => {
+                    slint::invoke_from_event_loop(move || {
+                        let ui = ui_weak.unwrap();
+                        ui.set_op_is_error(false);
+                        ui.set_op_status_msg(format!("SUCCESS: Application data deleted for REGD_NO: {}", r_no).into());
+                        ui.set_op_regd_no("".into());
+                    }).unwrap();
+                }
+                Err(e) => {
+                    slint::invoke_from_event_loop(move || {
+                        let ui = ui_weak.unwrap();
+                        ui.set_op_is_error(true);
+                        ui.set_op_status_msg(format!("TRANSACTION FAILED: {}", e).into());
+                    }).unwrap();
+                }
+            }
+        });
+    });
+
+    // 3. Delete Pre-Calculation
+    let app_weak_op3 = app.as_weak();
+    let oracle_op3 = Arc::clone(&oracle_client);
+    app.on_request_delete_precalc(move |regd_no| {
+        let ui_weak = app_weak_op3.clone();
+        let oracle = Arc::clone(&oracle_op3);
+        let r_no = regd_no.to_string();
+
+        if r_no.is_empty() {
+            let ui = ui_weak.unwrap();
+            ui.set_op_is_error(true);
+            ui.set_op_status_msg("Validation Error: REGD_NO is required.".into());
+            return;
+        }
+
+        tokio::spawn(async move {
+            match oracle.delete_from_pre_calculation(&r_no).await {
+                Ok(_) => {
+                    slint::invoke_from_event_loop(move || {
+                        let ui = ui_weak.unwrap();
+                        ui.set_op_is_error(false);
+                        ui.set_op_status_msg(format!("SUCCESS: Pre-Calculation cleared for REGD_NO: {}", r_no).into());
+                        ui.set_op_regd_no("".into());
+                    }).unwrap();
+                }
+                Err(e) => {
+                    slint::invoke_from_event_loop(move || {
+                        let ui = ui_weak.unwrap();
+                        ui.set_op_is_error(true);
+                        ui.set_op_status_msg(format!("TRANSACTION FAILED: {}", e).into());
+                    }).unwrap();
+                }
             }
         });
     });

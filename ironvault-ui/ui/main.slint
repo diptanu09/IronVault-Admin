@@ -41,7 +41,7 @@ component NavItem inherits Rectangle {
                     // Slint-native scaling: animate width/height directly
                     width: ta.has-hover ? 25px : 22px;
                     height: ta.has-hover ? 25px : 22px;
-                    image-fit: contain; 
+                    image-fit: contain;
                     opacity: root.active ? 1.0 : (ta.has-hover ? 0.9 : 0.6);
                     
                     animate opacity { duration: 150ms; }
@@ -86,7 +86,6 @@ export component AppWindow inherits Window {
     icon: @image-url("assets/app_icon.png");
 
     in-out property <bool> sidebar_collapsed: false;
-
     in-out property <string> hwid_string: "HWID: UNKNOWN";
     in-out property <string> current_user_name: "GUEST";
     in-out property <string> current_user_role: "UNAUTHORIZED";
@@ -99,16 +98,21 @@ export component AppWindow inherits Window {
     in-out property <string> captcha_q_main: "0 + 0";
     in-out property <string> captcha_a_main: "0";
     in-out property <string> login_error: "";
-
     in-out property <string> form_user: "";
     in-out property <string> form_pass: "";
     in-out property <string> form_captcha_login: "";
     
     in-out property <RegisterFormFields> registration_fields;
-
     in-out property <string> pending_notification_name: "NONE";
     in-out property <string> polling_error_msg: "";
     in-out property <[UserData]> active_users_list: [];
+
+    // Operations Properties
+    in-out property <string> op_regd_no: "";
+    in-out property <string> op_series_id: "";
+    in-out property <string> op_account_no: "";
+    in-out property <string> op_status_msg: "";
+    in-out property <bool> op_is_error: false;
 
     callback request_authentication(string, string);
     callback request_registration(string, string, string, string, string, string, string);
@@ -120,6 +124,11 @@ export component AppWindow inherits Window {
     callback extend_user_lease(string, string, string);
     callback ban_user(string);
 
+    // Oracle Callbacks
+    callback request_delete_full_case(string, string, string);
+    callback request_delete_application(string);
+    callback request_delete_precalc(string);
+
     HorizontalLayout {
         padding: 0px; spacing: 0px;
 
@@ -128,12 +137,12 @@ export component AppWindow inherits Window {
             background: Theme.bg-sidebar;
             border-width: 1px; border-color: Theme.border-dark;
             drop-shadow-blur: 20px; drop-shadow-color: #000000D9;
+
             animate width { duration: 220ms; easing: ease-in-out; }
 
             VerticalLayout {
                 padding: 16px; spacing: 10px; alignment: start;
                 
-                // --- THE LOGO MASTER HEADER WITH ACCENT ANIMATION ---
                 HorizontalLayout {
                     alignment: root.sidebar_collapsed ? LayoutAlignment.center : LayoutAlignment.start;
                     padding-bottom: 16px;
@@ -145,7 +154,6 @@ export component AppWindow inherits Window {
                         background: logo_ta.has-hover ? Theme.bg-card : transparent;
                         animate background { duration: 150ms; }
                         
-                        // USER EXPERIENCE ANIMATION: Dynamic sizing instead of scale
                         Image {
                             source: @image-url("assets/app_icon.png");
                             width: logo_ta.has-hover ? 26px : 24px;
@@ -180,6 +188,14 @@ export component AppWindow inherits Window {
                     active: root.active_tab == "overview";
                     collapsed: root.sidebar_collapsed;
                     clicked => { root.active_tab = "overview"; }
+                }
+
+                // NEW: Operations Tab
+                NavItem {
+                    text: "Operations Matrix"; icon_source: @image-url("assets/matrix.png"); 
+                    active: root.active_tab == "operations";
+                    collapsed: root.sidebar_collapsed;
+                    clicked => { root.active_tab = "operations"; root.op_status_msg = ""; }
                 }
                 
                 if (root.current_user_role == "SuperAdmin" || root.current_user_role == "super_admin" || root.current_user_role == "Super Admin") : NavItem {
@@ -231,7 +247,7 @@ export component AppWindow inherits Window {
 
                             VerticalLayout {
                                 alignment: center; spacing: 5px; padding-bottom: 5px;
-                                Text { text: "❖ IRONVAULT"; font-size: 32px; font-weight: 900; color: Theme.brand-primary; horizontal-alignment: center; }
+                                Text { text: "  IRONVAULT"; font-size: 32px; font-weight: 900; color: Theme.brand-primary; horizontal-alignment: center; }
                                 if (root.auth_screen_state == "landing") : Text { text: "CORE PLATFORM ROUTER"; font-size: 11px; font-weight: 700; color: Theme.text-muted; horizontal-alignment: center; letter-spacing: 2px; }
                                 if (root.auth_screen_state == "login") : Text { text: "SECURE OPERATOR LOGIN"; font-size: 11px; font-weight: 700; color: Theme.text-secondary; horizontal-alignment: center; letter-spacing: 2px; }
                                 if (root.auth_screen_state == "register") : Text { text: "NODE INITIALIZATION DEPLOYMENT"; font-size: 11px; font-weight: 700; color: Theme.text-secondary; horizontal-alignment: center; letter-spacing: 2px; }
@@ -241,14 +257,8 @@ export component AppWindow inherits Window {
 
                             if (root.auth_screen_state == "landing") : VerticalLayout {
                                 spacing: 16px; padding-top: 10px;
-                                Button {
-                                    text: "🔒 Access Terminal Login"; height: 45px;
-                                    clicked => { root.auth_screen_state = "login"; root.login_error = ""; }
-                                }
-                                Button {
-                                    text: "🛰️ Enroll New Node Profile"; height: 45px;
-                                    clicked => { root.auth_screen_state = "register"; root.login_error = ""; }
-                                }
+                                Button { text: "  Access Terminal Login"; height: 45px; clicked => { root.auth_screen_state = "login"; root.login_error = ""; } }
+                                Button { text: "  Enroll New Node Profile"; height: 45px; clicked => { root.auth_screen_state = "register"; root.login_error = ""; } }
                             }
 
                             if (root.auth_screen_state == "login") : VerticalLayout {
@@ -286,17 +296,8 @@ export component AppWindow inherits Window {
 
                                 HorizontalLayout {
                                     spacing: 14px; padding-top: 18px; 
-                                    Button {
-                                        text: "Authenticate Access"; height: Theme.button-height; horizontal-stretch: 1;
-                                        clicked => {
-                                            if (root.form_captcha_login == root.captcha_a_main) { root.request_authentication(root.form_user, root.form_pass); }
-                                            else { root.login_error = "Validation Fault: Challenge mismatch."; }
-                                        }
-                                    }
-                                    Button {
-                                        text: "Return to Gateway"; height: Theme.button-height; horizontal-stretch: 1;
-                                        clicked => { root.auth_screen_state = "landing"; root.login_error = ""; }
-                                    }
+                                    Button { text: "Authenticate Access"; height: Theme.button-height; horizontal-stretch: 1; clicked => { if (root.form_captcha_login == root.captcha_a_main) { root.request_authentication(root.form_user, root.form_pass); } else { root.login_error = "Validation Fault: Challenge mismatch."; } } }
+                                    Button { text: "Return to Gateway"; height: Theme.button-height; horizontal-stretch: 1; clicked => { root.auth_screen_state = "landing"; root.login_error = ""; } }
                                 }
                             }
 
@@ -307,23 +308,12 @@ export component AppWindow inherits Window {
                                 
                                 submit-registration => {
                                     if (root.registration_fields.captcha-result == root.captcha_a_main) {
-                                        root.request_registration(
-                                            root.registration_fields.username,
-                                            root.registration_fields.secret,
-                                            root.registration_fields.first-name,
-                                            root.registration_fields.middle-name,
-                                            root.registration_fields.last-name,
-                                            root.registration_fields.designation,
-                                            root.registration_fields.section
-                                        );
+                                        root.request_registration(root.registration_fields.username, root.registration_fields.secret, root.registration_fields.first-name, root.registration_fields.middle-name, root.registration_fields.last-name, root.registration_fields.designation, root.registration_fields.section);
                                     } else {
                                         root.login_error = "Validation Fault: Challenge mismatch.";
                                     }
                                 }
-                                cancel-registration => {
-                                    root.auth_screen_state = "landing";
-                                    root.login_error = "";
-                                }
+                                cancel-registration => { root.auth_screen_state = "landing"; root.login_error = ""; }
                             }
                         }
                     }
@@ -345,13 +335,73 @@ export component AppWindow inherits Window {
                             padding: 30px; spacing: 15px;
                             HorizontalLayout {
                                 spacing: 15px;
-                                Text { text: "⛑️"; font-size: 24px; vertical-alignment: center; }
+                                Text { text: " "; font-size: 24px; vertical-alignment: center; }
                                 Text { text: "Active Node Diagnostics"; font-size: 20px; font-weight: 800; color: Theme.brand-success; vertical-alignment: center; } 
                             }
                             Rectangle { height: 1px; background: Theme.border-color; }
                             Text { text: "Operator Identity:  " + root.current_user_name; color: Theme.text-primary; font-size: 16px; font-weight: 600;}
                             Text { text: "Authority Class:    " + root.current_user_role; color: Theme.brand-primary; font-size: 16px; font-weight: 800;}
                             Text { text: "Database Binding:   " + root.last_login; color: Theme.text-secondary; font-size: 14px; }
+                        }
+                    }
+                }
+
+                // NEW OPERATIONS TAB
+                if (root.active_tab == "operations") : VerticalLayout {
+                    spacing: 20px;
+                    Text { text: "Oracle Operations Matrix"; font-size: 32px; font-weight: 800; color: Theme.text-primary; letter-spacing: -0.5px; }
+                    
+                    Rectangle {
+                        background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.border-color;
+                        drop-shadow-blur: 15px; drop-shadow-color: #00000066;
+                        
+                        VerticalLayout {
+                            padding: 30px; spacing: 20px;
+                            
+                            HorizontalLayout {
+                                spacing: 15px;
+                                VerticalLayout {
+                                    spacing: 4px; horizontal-stretch: 1;
+                                    Text { text: "REGD NO"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; }
+                                    LineEdit { text <=> root.op_regd_no; placeholder_text: "Enter REGD_NO"; height: 38px; }
+                                }
+                                VerticalLayout {
+                                    spacing: 4px; horizontal-stretch: 1;
+                                    Text { text: "SERIES ID"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; }
+                                    LineEdit { text <=> root.op_series_id; placeholder_text: "Enter SERIES_ID (For Full Case)"; height: 38px; }
+                                }
+                                VerticalLayout {
+                                    spacing: 4px; horizontal-stretch: 1;
+                                    Text { text: "ACCOUNT NO"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; }
+                                    LineEdit { text <=> root.op_account_no; placeholder_text: "Enter ACCOUNT_NO (For Full Case)"; height: 38px; }
+                                }
+                            }
+
+                            if (root.op_status_msg != "") : Rectangle {
+                                background: root.op_is_error ? #7F1D1D33 : #064E3B33; 
+                                border-radius: 6px; border-width: 1px; 
+                                border-color: root.op_is_error ? Theme.brand-danger : Theme.brand-success;
+                                HorizontalLayout { padding: 12px; Text { text: root.op_status_msg; color: root.op_is_error ? #FCA5A5 : #6EE7B7; font-size: 14px; font-weight: 800; wrap: word-wrap; horizontal-alignment: center; } }
+                            }
+
+                            Rectangle { height: 1px; background: Theme.border-color; }
+                            Text { text: "EXECUTION TRIGGERS"; font-size: 11px; font-weight: 800; color: Theme.brand-primary; }
+                            
+                            HorizontalLayout {
+                                spacing: 15px;
+                                Button {
+                                    text: "Delete Full Case"; height: 42px; horizontal-stretch: 1;
+                                    clicked => { root.request_delete_full_case(root.op_regd_no, root.op_series_id, root.op_account_no); }
+                                }
+                                Button {
+                                    text: "Delete Application"; height: 42px; horizontal-stretch: 1;
+                                    clicked => { root.request_delete_application(root.op_regd_no); }
+                                }
+                                Button {
+                                    text: "Delete Pre-Calculation"; height: 42px; horizontal-stretch: 1;
+                                    clicked => { root.request_delete_precalc(root.op_regd_no); }
+                                }
+                            }
                         }
                     }
                 }
@@ -368,7 +418,7 @@ export component AppWindow inherits Window {
                             padding: 30px; spacing: 20px;
                             if (root.pending_notification_name != "NONE") : VerticalLayout {
                                 spacing: 15px;
-                                Text { text: "⚠️ Incoming Authorization Request Intercepted"; font-size: 18px; color: Theme.brand-warning; font-weight: 800; } 
+                                Text { text: "  Incoming Authorization Request Intercepted"; font-size: 18px; color: Theme.brand-warning; font-weight: 800; }
                                 Text { text: "Target Account: " + root.pending_notification_name; font-size: 20px; font-weight: 700; color: Theme.text-primary; }
                                 
                                 HorizontalLayout {
@@ -428,10 +478,8 @@ export component AppWindow inherits Window {
                                         background: row_ta.has-hover ? Theme.bg-card-hover : Theme.bg-sidebar;
                                         border-width: 1px;
                                         border-color: row_ta.has-hover ? Theme.brand-primary : Theme.border-dark;
-                                        
                                         drop-shadow-blur: row_ta.has-hover ? 12px : 0px;
-                                        drop-shadow-color: #00E5FF1A; 
-                                        
+                                        drop-shadow-color: #00E5FF1A;
                                         animate background { duration: 150ms; }
                                         animate border-color { duration: 150ms; }
                                         animate drop-shadow-blur { duration: 150ms; }
@@ -439,18 +487,15 @@ export component AppWindow inherits Window {
                                         row_ta := TouchArea {}
 
                                         HorizontalLayout {
-                                            padding-left: 20px; padding-right: 20px;
-                                            spacing: 15px;
+                                            padding-left: 20px; padding-right: 20px; spacing: 15px;
                                             
                                             VerticalLayout {
                                                 width: 180px; spacing: 2px; alignment: center;
-                                                Text { text: "👤 " + user.username; color: Theme.text-primary; font-size: 15px; font-weight: 800; overflow: elide; }
+                                                Text { text: "  " + user.username; color: Theme.text-primary; font-size: 15px; font-weight: 800; overflow: elide; }
                                                 Text { text: user.full_name; color: Theme.text-muted; font-size: 12px; font-weight: 600; overflow: elide; }
                                             }
-
                                             VerticalLayout { width: 160px; alignment: center; Text { text: user.designation; color: Theme.text-secondary; font-size: 14px; wrap: word-wrap; } }
                                             VerticalLayout { width: 120px; alignment: center; Text { text: user.expires_at; color: (user.expires_at == "LIFETIME" ? Theme.brand-success : Theme.brand-warning); font-size: 12px; font-weight: 800; overflow: elide; } }
-                                            
                                             VerticalLayout { alignment: center; role_input := LineEdit { text: user.role; width: 120px; height: 34px; } }
                                             VerticalLayout { alignment: center; days_input := LineEdit { text: "30"; placeholder_text: "Days"; width: 60px; height: 34px; } }
                                             

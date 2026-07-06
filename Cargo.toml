@@ -12,3 +12,6 @@ lto = "fat"         # Heavy Link-Time Optimization; blends functions across crat
 codegen-units = 1   # Forces single-threaded compilation to allow max cross-functional optimization
 panic = "abort"     # Strips structural landing pads and stack unwind tables (no descriptive panic text)
 strip = true        # Completely removes all symbols, debug information, and function names
+
+[dependencies]
+oracle = "0.6.3" # Native Oracle database connector framework

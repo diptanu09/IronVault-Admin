@@ -152,9 +152,8 @@ async fn main() -> Result<(), slint::PlatformError> {
                     slint::invoke_from_event_loop(move || {
                         let ui = ui_weak.unwrap();
                         ui.set_auth_screen_state("landing".into()); 
-                        ui.set_login_error("Registration submitted! Awaiting SuperAdmin verification approval.".into());
-                        
-                        // FIXED: Safely purge the correctly named memory tokens
+                        ui.set_login_error("Registration submitted! Awaiting SuperAdmin verification approval.".into());                        
+                        // Safely purge the correctly named memory tokens
                         ui.set_form_user("".into());
                         ui.set_form_pass("".into());
                         ui.set_form_captcha_login("".into());
@@ -227,9 +226,8 @@ async fn main() -> Result<(), slint::PlatformError> {
             ui.set_current_user_role("UNAUTHORIZED".into());
             ui.set_pending_notification_name("NONE".into());
             ui.set_login_error("".into());
-            ui.set_auth_screen_state("landing".into());
-            
-            // FIXED: Safely purge the correctly named memory tokens
+            ui.set_auth_screen_state("landing".into());            
+            // Safely purge the correctly named memory tokens
             ui.set_form_user("".into());
             ui.set_form_pass("".into());
             ui.set_form_captcha_login("".into());

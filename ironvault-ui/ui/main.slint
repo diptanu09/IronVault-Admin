@@ -5,10 +5,10 @@ import { Button, LineEdit, ScrollView } from "std-widgets.slint";
 import { Theme } from "theme.slint";
 import { RegisterView, RegisterFormFields } from "views/register.slint";
 
-// --- STRIKING & ANIMATED NAVIGATION NAV ITEM ---
+// --- STRIKING NAV ITEM (POWERED BY LUCIDE VECTOR PATHS) ---
 component NavItem inherits Rectangle {
     in property <string> text;
-    in property <image> icon_source;
+    in property <image> icon_image; 
     in property <bool> active;
     in property <bool> collapsed;
     callback clicked();
@@ -16,7 +16,6 @@ component NavItem inherits Rectangle {
     height: 44px; 
     border-radius: 10px;
     
-    // Smooth background transitions for high-end feel
     background: ta.pressed ? Theme.bg-card-hover : (ta.has-hover ? Theme.bg-card : (active ? #00E5FF13 : transparent));
     border-width: active ? 1px : 0px;
     border-color: Theme.brand-primary;
@@ -35,12 +34,14 @@ component NavItem inherits Rectangle {
             Rectangle {
                 width: 24px; height: 24px;
                 Image { 
-                    source: root.icon_source; 
-                    // Micro-scaling on hover creates a tactile responsive feel
-                    width: ta.has-hover ? 24px : (root.active ? 22px : 20px); 
-                    height: ta.has-hover ? 24px : (root.active ? 22px : 20px); 
+                    source: root.icon_image;
+                    width: ta.has-hover ? 22px : (root.active ? 20px : 18px); 
+                    height: ta.has-hover ? 22px : (root.active ? 20px : 18px); 
                     image-fit: contain;
                     opacity: root.active ? 1.0 : (ta.has-hover ? 0.95 : 0.6);
+                    
+                    // FIXED: Dynamic colorize matrix tinting blocks black fallback states
+                    colorize: root.active ? Theme.brand-primary : (ta.has-hover ? Theme.text-primary : Theme.text-secondary);
                     
                     animate width { duration: 120ms; easing: ease-in-out; }
                     animate height { duration: 120ms; easing: ease-in-out; }
@@ -56,10 +57,33 @@ component NavItem inherits Rectangle {
                 font-size: 14px; 
                 font-weight: root.active ? 800 : 600; 
                 color: root.active ? Theme.brand-primary : Theme.text-secondary;
-                animate color { duration: 150ms; easing: ease-in-out; }
             } 
         }
     }
+    
+    // COLLAPSED SIDEBAR HOVER POPUP INTERCEPT TOOLTIP
+    if (root.collapsed && ta.has-hover) : Rectangle {
+        x: 64px; y: 6px;
+        height: 32px;
+        background: Theme.bg-sidebar;
+        border-width: 1px;
+        border-color: Theme.brand-primary;
+        border-radius: 6px;
+        drop-shadow-blur: 10px;
+        drop-shadow-color: #000000B3;
+        
+        HorizontalLayout {
+            padding-left: 12px; padding-right: 12px; alignment: center;
+            Text {
+                text: root.text;
+                color: Theme.text-primary;
+                font-size: 13px;
+                font-weight: 800;
+                vertical-alignment: center;
+            }
+        }
+    }
+
     ta := TouchArea { clicked => { root.clicked(); } }
 }
 
@@ -148,12 +172,7 @@ export component AppWindow inherits Window {
 
     in-out property <bool> sidebar_collapsed: false;
     in-out property <string> hwid_string: "HWID: UNKNOWN";
-    
-    // Application Production Metadata Properties
-    in property <string> app_name_meta: "IronVault CC";
     in property <string> app_version_meta: "v1.2.4";
-    in property <string> app_build_meta: "2026-07-07 Production";
-    in property <string> app_copyright_meta: "© 2026 IT Cell.";
 
     // Core User Identity Profile
     in-out property <bool> is_logged_in: false;
@@ -207,7 +226,7 @@ export component AppWindow inherits Window {
                     alignment: root.sidebar_collapsed ? LayoutAlignment.center : LayoutAlignment.start; padding-bottom: 16px; spacing: 12px;
                     Rectangle { 
                         width: 38px; height: 38px; border-radius: 8px; background: logo_ta.has-hover ? Theme.bg-card : transparent; 
-                        Image { source: @image-url("assets/app_icon.png"); width: 24px; height: 24px; } 
+                        Text { text: "⚙"; font-size: 20px; color: Theme.brand-primary; horizontal-alignment: center; vertical-alignment: center; }
                         logo_ta := TouchArea { clicked => { root.sidebar_collapsed = !root.sidebar_collapsed; } } 
                     }
                     if (!root.sidebar_collapsed) : VerticalLayout { 
@@ -217,50 +236,48 @@ export component AppWindow inherits Window {
                     }
                 }
                 
-                Rectangle { height: 1px; background: Theme.border-dark; } Rectangle { height: 8px; }
+                Rectangle { height: 1px; background: Theme.border-dark; opacity: 0.5; } Rectangle { height: 8px; }
                 
-                NavItem { text: "Command Dashboard"; icon_source: @image-url("assets/dashboard.png"); active: root.active_tab == "overview"; collapsed: root.sidebar_collapsed; clicked => { root.active_tab = "overview"; } }
-                NavItem { text: "Operations Matrix"; icon_source: @image-url("assets/matrix.png"); active: root.active_tab == "operations"; collapsed: root.sidebar_collapsed; clicked => { root.active_tab = "operations"; root.op_status_msg = ""; } }
-                if (root.current_user_role == "SuperAdmin") : NavItem { text: "Access Requests"; icon_source: @image-url("assets/requests.png"); active: root.active_tab == "approvals"; collapsed: root.sidebar_collapsed; clicked => { root.active_tab = "approvals"; } }
-                if (root.current_user_role == "SuperAdmin") : NavItem { text: "Operator Control"; icon_source: @image-url("assets/matrix.png"); active: root.active_tab == "users"; collapsed: root.sidebar_collapsed; clicked => { root.active_tab = "users"; root.load_users_list(); } }
+                NavItem { text: "Command Dashboard"; icon_image: @image-url("assets/layout-dashboard.svg"); active: root.active_tab == "overview"; collapsed: root.sidebar_collapsed; clicked => { root.active_tab = "overview"; } }
+                NavItem { text: "Operations Matrix"; icon_image: @image-url("assets/database.svg"); active: root.active_tab == "operations"; collapsed: root.sidebar_collapsed; clicked => { root.active_tab = "operations"; root.op_status_msg = ""; } }
+                if (root.current_user_role == "SuperAdmin") : NavItem { text: "Access Requests"; icon_image: @image-url("assets/bell.svg"); active: root.active_tab == "approvals"; collapsed: root.sidebar_collapsed; clicked => { root.active_tab = "approvals"; } }
+                if (root.current_user_role == "SuperAdmin") : NavItem { text: "Operator Control"; icon_image: @image-url("assets/users.svg"); active: root.active_tab == "users"; collapsed: root.sidebar_collapsed; clicked => { root.active_tab = "users"; root.load_users_list(); } }
                 
                 Rectangle { vertical-stretch: 1; }
                 
-                // --- DESIGN REFINEMENT: MINIMAL DISCREET LOW-PROFILE BOTTOM SYSTEM FOOTNOTE ---
+                // --- MINIMAL PRODUCT VERSION BADGE FOOTER ---
                 VerticalLayout {
                     spacing: 4px; padding-left: 4px; padding-right: 4px; padding-bottom: 4px;
                     Rectangle { height: 1px; background: Theme.border-dark; opacity: 0.4; }
-                    Rectangle { height: 2px; }
+                    Rectangle { height: 4px; }
                     
-                    if (!root.sidebar_collapsed) : HorizontalLayout {
-                        alignment: LayoutAlignment.space-between;
-                        Text { text: root.app_name_meta + " // " + root.app_copyright_meta; font-size: 9px; font-weight: 700; color: Theme.text-dark; vertical-alignment: center; }
-                        Rectangle { 
-                            background: #00E5FF1A; border-radius: 4px; border-width: 1px; border-color: #00E5FF33; height: 18px; 
-                            HorizontalLayout { padding-left: 5px; padding-right: 5px; Text { text: root.app_version_meta; font-size: 9px; font-weight: 900; color: Theme.brand-primary; vertical-alignment: center; } }
-                        }
-                    }
-                    
-                    if (root.sidebar_collapsed) : Rectangle {
-                        background: #00E5FF1A; border-radius: 4px; height: 18px; width: 36px; horizontal-stretch: 0;
-                        Text { text: root.app_version_meta; font-size: 9px; font-weight: 900; color: Theme.brand-primary; horizontal-alignment: center; vertical-alignment: center; }
+                    Rectangle {
+                        background: #00E5FF1A; border-radius: 4px; height: 20px;
+                        width: root.sidebar_collapsed ? 36px : 64px;
+                        horizontal-stretch: 0;
+                        Text { text: root.app_version_meta; font-size: 10px; font-weight: 900; color: Theme.brand-primary; horizontal-alignment: center; vertical-alignment: center; }
                     }
                 }
             }
         }
 
-        Rectangle {
-            horizontal-stretch: 1; background: Theme.bg-main; 
-            
-            if (!root.is_logged_in) : VerticalLayout {
-                alignment: center; HorizontalLayout { alignment: center; Rectangle { width: root.auth_screen_state == "register" ? 680px : 440px; background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.border-color; drop-shadow-blur: 40px; drop-shadow-color: #00E5FF1A; animate width { duration: 250ms; easing: ease-in-out; } VerticalLayout { padding: 40px; spacing: 16px; VerticalLayout { alignment: center; spacing: 5px; padding-bottom: 5px; Text { text: "IRONVAULT"; font-size: 32px; font-weight: 900; color: Theme.brand-primary; horizontal-alignment: center; } } Rectangle { height: 1px; background: Theme.border-color; } if (root.auth_screen_state == "landing") : VerticalLayout { spacing: 16px; padding-top: 10px; Button { text: "Access Terminal Login"; height: 45px; clicked => { root.auth_screen_state = "login"; root.login_error = ""; } } Button { text: "Enroll New Node Profile"; height: 45px; clicked => { root.auth_screen_state = "register"; root.login_error = ""; } } } if (root.auth_screen_state == "login") : VerticalLayout { spacing: 14px; LineEdit { text <=> root.form_user; placeholder_text: "Operator ID"; height: 34px; } LineEdit { text <=> root.form_pass; placeholder_text: "Secret Token"; input-type: password; height: 34px; } HorizontalLayout { spacing: 12px; Rectangle { background: Theme.border-color; border-radius: 4px; horizontal-stretch: 1; height: 36px; Text { text: "Solve: " + root.captcha_q_main; font-size: 12px; font-weight: 700; color: Theme.text-primary; horizontal-alignment: center; vertical-alignment: center; } } LineEdit { text <=> root.form_captcha_login; width: 110px; height: 36px; placeholder_text: "Result"; } } if (root.login_error != "") : Rectangle { background: #FF336633; border-radius: 6px; border-width: 1px; border-color: Theme.brand-danger; HorizontalLayout { padding: 8px; Text { text: root.login_error; color: #FFA0B4; font-size: 12px; font-weight: 600; horizontal-alignment: center; } } } HorizontalLayout { spacing: 14px; padding-top: 18px; Button { text: "Authenticate"; height: Theme.button-height; horizontal-stretch: 1; clicked => { if (root.form_captcha_login == root.captcha_a_main) { root.request_authentication(root.form_user, root.form_pass); } else { root.login_error = "Validation Fault: Challenge mismatch."; } } } Button { text: "Gateway"; height: Theme.button-height; horizontal-stretch: 1; clicked => { root.auth_screen_state = "landing"; root.login_error = ""; } } } } if (root.auth_screen_state == "register") : RegisterView { captcha-question: root.captcha_q_main; operational-error: root.login_error; form-data <=> root.registration_fields; submit-registration => { if (root.registration_fields.captcha-result == root.captcha_a_main) { root.request_registration(root.registration_fields.username, root.registration_fields.secret, root.registration_fields.first-name, root.registration_fields.middle-name, root.registration_fields.last-name, root.registration_fields.designation, root.registration_fields.section); } else { root.login_error = "Validation Fault: Challenge mismatch."; } } cancel-registration => { root.auth_screen_state = "landing"; root.login_error = ""; } } } } } }
+        // Main Login Screens Content Area Panel
+        if (!root.is_logged_in) : Rectangle {
+            horizontal-stretch: 1; background: Theme.bg-main;
+            VerticalLayout {
+                alignment: center; HorizontalLayout { alignment: center; Rectangle { width: root.auth_screen_state == "register" ? 680px : 440px; background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.border-color; drop-shadow-blur: 40px; drop-shadow-color: #00E5FF1A; animate width { duration: 250ms; easing: ease-in-out; } VerticalLayout { padding: 40px; spacing: 16px; VerticalLayout { alignment: center; spacing: 5px; padding-bottom: 5px; Text { text: "IRONVAULT"; font-size: 32px; font-weight: 900; color: Theme.brand-primary; horizontal-alignment: center; } } Rectangle { height: 1px; background: Theme.border-color; } if (root.auth_screen_state == "landing") : VerticalLayout { spacing: 16px; padding-top: 10px; Button { text: "🔑  Access Terminal Login"; height: 45px; clicked => { root.auth_screen_state = "login"; root.login_error = ""; } } Button { text: "📝  Enroll New Node Profile"; height: 45px; clicked => { root.auth_screen_state = "register"; root.login_error = ""; } } } if (root.auth_screen_state == "login") : VerticalLayout { spacing: 14px; LineEdit { text <=> root.form_user; placeholder_text: "Operator ID"; height: 34px; } LineEdit { text <=> root.form_pass; placeholder_text: "Secret Token"; input-type: password; height: 34px; } HorizontalLayout { spacing: 12px; Rectangle { background: Theme.border-color; border-radius: 4px; horizontal-stretch: 1; height: 36px; Text { text: "Solve: " + root.captcha_q_main; font-size: 12px; font-weight: 700; color: Theme.text-primary; horizontal-alignment: center; vertical-alignment: center; } } LineEdit { text <=> root.form_captcha_login; width: 110px; height: 36px; placeholder_text: "Result"; } } if (root.login_error != "") : Rectangle { background: #FF336633; border-radius: 6px; border-width: 1px; border-color: Theme.brand-danger; HorizontalLayout { padding: 8px; Text { text: root.login_error; color: #FFA0B4; font-size: 12px; font-weight: 600; horizontal-alignment: center; } } } HorizontalLayout { spacing: 14px; padding-top: 18px; Button { text: "Authenticate Access"; height: Theme.button-height; horizontal-stretch: 1; clicked => { if (root.form_captcha_login == root.captcha_a_main) { root.request_authentication(root.form_user, root.form_pass); } else { root.login_error = "Validation Fault: Challenge mismatch."; } } } Button { text: "Return Gateway"; height: Theme.button-height; horizontal-stretch: 1; clicked => { root.auth_screen_state = "landing"; root.login_error = ""; } } } } if (root.auth_screen_state == "register") : RegisterView { captcha-question: root.captcha_q_main; operational-error: root.login_error; form-data <=> root.registration_fields; submit-registration => { if (root.registration_fields.captcha-result == root.captcha_a_main) { root.request_registration(root.registration_fields.username, root.registration_fields.secret, root.registration_fields.first-name, root.registration_fields.middle-name, root.registration_fields.last-name, root.registration_fields.designation, root.registration_fields.section); } else { root.login_error = "Validation Fault: Challenge mismatch."; } } cancel-registration => { root.auth_screen_state = "landing"; root.login_error = ""; } } } } } }
+        }
 
-            if (root.is_logged_in) : VerticalLayout {
+        // Authenticated Session Content Views Panel 
+        if (root.is_logged_in) : Rectangle {
+            horizontal-stretch: 1; background: Theme.bg-main; 
+            VerticalLayout {
                 padding: 40px; spacing: 25px;
 
-                // --- TAB 1: OPERATOR PROFILE CARD WITH ICON-ONLY HIGHLIGHT TERMINATOR ---
+                // --- TAB 1: OPERATOR PROFILE CARD (LOGOUT ALIGNED PERFECTLY IN CENTER-RIGHT PROFILE CLUSTER) ---
                 if (root.active_tab == "overview") : VerticalLayout {
-                    spacing: 20px; Text { text: "Command Dashboard"; font-size: 32px; font-weight: 800; color: Theme.text-primary; letter-spacing: -0.5px; }
+                    spacing: 20px; 
+                    Text { text: "Command Dashboard"; font-size: 32px; font-weight: 800; color: Theme.text-primary; letter-spacing: -0.5px; }
                     
                     Rectangle {
                         background: Theme.bg-card; border-radius: 12px; border-width: 1px; border-color: Theme.border-color; drop-shadow-blur: 15px; drop-shadow-color: #0000004D;
@@ -280,9 +297,9 @@ export component AppWindow inherits Window {
                                 }
                             }
                             
-                            // Column 2: Identity Stack
+                            // Column 2: Identity Information Stack
                             VerticalLayout {
-                                alignment: center; spacing: 4px; width: 260px;
+                                alignment: center; spacing: 4px; width: 240px;
                                 Text { text: root.current_user_full_name; font-size: 22px; font-weight: 900; color: Theme.brand-primary; overflow: elide; }
                                 Text { text: root.current_user_designation; font-size: 14px; font-weight: 700; color: Theme.text-secondary; }
                                 Text { text: "ID: @" + root.current_user_name; font-size: 13px; font-weight: 800; color: Theme.brand-warning; }
@@ -301,33 +318,40 @@ export component AppWindow inherits Window {
 
                             // Column 4: Assigned Modules
                             VerticalLayout {
-                                alignment: center; spacing: 6px; width: 330px;
+                                alignment: center; spacing: 6px; width: 340px;
                                 Text { text: "AUTHORIZED SCHEMAS"; font-size: 10px; font-weight: 800; color: Theme.text-muted; }
                                 Text { text: root.current_user_schemas_string; font-size: 13px; font-weight: 700; color: Theme.brand-primary; wrap: word-wrap; }
                             }
 
                             Rectangle { width: 1px; background: Theme.border-color; }
 
-                            // COLUMN 5: SLEEK LOGOUT INTERACTION BUTTON MATRIX
+                            // COLUMN 5: POLISHED REPOSITIONED LOGOUT ICON BUTTON (CENTER RIGHT MARGIN ACCENT)
                             VerticalLayout {
-                                alignment: center; horizontal-stretch: 1; padding-left: 10px;
-                                Rectangle {
-                                    width: 44px; height: 44px; border-radius: 22px;
-                                    background: logout_ta.has-hover ? #FF33661A : transparent;
-                                    border-width: 1px; border-color: logout_ta.has-hover ? #FF33664D : transparent;
-                                    animate background { duration: 125ms; } animate border-color { duration: 125ms; }
-                                    
-                                    Image {
-                                        source: @image-url("assets/logout.png");
-                                        width: 22px; height: 22px; image-fit: contain;
-                                        opacity: logout_ta.has-hover ? 1.0 : 0.7;
-                                        animate opacity { duration: 125ms; }
+                                alignment: center; horizontal-stretch: 1; padding-left: 15px;
+                                HorizontalLayout {
+                                    alignment: end;
+                                    Rectangle {
+                                        width: 44px; height: 44px; border-radius: 22px;
+                                        background: logout_ta.has-hover ? #FF33661A : #FFFFFF0A;
+                                        border-width: 1px; border-color: logout_ta.has-hover ? #FF33664D : Theme.border-color;
+                                        animate background { duration: 125ms; } animate border-color { duration: 125ms; }
+                                        
+                                        Image {
+                                            source: @image-url("assets/log-out.svg"); 
+                                            width: 18px; height: 18px; image-fit: contain;
+                                            opacity: logout_ta.has-hover ? 1.0 : 0.7;
+                                            colorize: logout_ta.has-hover ? #FF3366 : Theme.text-secondary; // FIXED: Added vector layout color tinting tracker
+                                            animate opacity { duration: 125ms; }
+                                        }
+                                        logout_ta := TouchArea { clicked => { root.request_logout(); } }
                                     }
-                                    logout_ta := TouchArea { clicked => { root.request_logout(); } }
                                 }
                             }
                         }
                     }
+                    
+                    // FIXED UI/UX: Vertical spacer pins profile summary up top rather than sinking to page baseline
+                    Rectangle { vertical-stretch: 1; }
                 }
 
                 // --- TAB 2: ADVANCED OPERATIONS MATRIX ---
@@ -384,10 +408,8 @@ export component AppWindow inherits Window {
 
                             if (root.op_target_schema != "gpffp") : Rectangle {
                                 height: 160px; background: Theme.bg-sidebar; border-radius: 12px; border-width: 1px; border-color: Theme.border-dark;
-                                VerticalLayout { alignment: center; spacing: 10px; Text { text: "STANDBY CONSOLE: " + root.op_target_schema; font-size: 18px; font-weight: 900; color: Theme.text-primary; horizontal-alignment: center; } Text { text: "Connection verified. Data structures loaded. Awaiting business logic deployment for this schema."; font-italic: true; color: Theme.text-muted; horizontal-alignment: center; font-size: 14px;}
-                                }
+                                VerticalLayout { alignment: center; spacing: 10px; Text { text: "STANDBY CONSOLE: " + root.op_target_schema; font-size: 18px; font-weight: 900; color: Theme.text-primary; horizontal-alignment: center; } Text { text: "Connection verified. Data structures loaded. Awaiting business logic deployment for this schema."; font-italic: true; color: Theme.text-muted; horizontal-alignment: center; font-size: 14px;} }
                             }
-
                             if (root.op_status_msg != "") : Rectangle {
                                 background: root.op_is_error ? #7F1D1D33 : #064E3B33; border-radius: 6px; border-width: 1px; border-color: root.op_is_error ? Theme.brand-danger : Theme.brand-success;
                                 HorizontalLayout { padding: 12px; Text { text: root.op_status_msg; color: root.op_is_error ? #FCA5A5 : #6EE7B7; font-size: 14px; font-weight: 800; horizontal-alignment: center; } }
@@ -404,7 +426,6 @@ export component AppWindow inherits Window {
                 if (root.active_tab == "users") : VerticalLayout {
                     spacing: 24px; vertical-stretch: 1;
                     VerticalLayout { spacing: 8px; Text { text: "Active Operator Control Matrix"; font-size: 32px; font-weight: 800; color: Theme.text-primary; } Text { text: "Institutional Section parameters configured natively. Assign lowercase keys (e.g., gpffp,vlcs) to apply schema security profiles."; font-size: 15px; color: Theme.brand-warning; } }
-
                     Rectangle {
                         background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.border-color; drop-shadow-blur: 20px; drop-shadow-color: #00000080; vertical-stretch: 1;
                         VerticalLayout {
@@ -418,9 +439,7 @@ export component AppWindow inherits Window {
                                 Text { text: "+ DAYS"; width: 60px; font-size: 11px; font-weight: 800; color: Theme.brand-primary; }
                                 Text { text: "ACTIONS"; width: 140px; font-size: 11px; font-weight: 800; color: Theme.brand-primary; }
                             }
-                            Rectangle { height: 1px; background: Theme.border-color; }
-                            Rectangle { height: 16px; }
-
+                            Rectangle { height: 1px; background: Theme.border-color; } Rectangle { height: 16px; }
                             ScrollView {
                                 width: 100%; vertical-stretch: 1;
                                 VerticalLayout {

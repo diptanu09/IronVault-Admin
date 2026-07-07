@@ -2,8 +2,6 @@
 //! Initializes the Slint UI framework and establishes connections
 //! to the core security and database layers
 
-//! IronVault Admin UI - Bootstrapper & Main Thread
-
 slint::include_modules!();
 use slint::ComponentHandle;
 use slint::{ModelRc, VecModel};
@@ -92,6 +90,9 @@ async fn main() -> Result<(), slint::PlatformError> {
                     let ui_username = user.username.clone();
                     let ui_role = user.role.to_string();
                     
+                    // Fixed: Keep path reference thread-safe to avoid Send/Sync constraint failures
+                    let avatar_path = std::path::Path::new("./storage/avatars/").join(format!("{}.png", ui_username));
+
                     slint::invoke_from_event_loop(move || {
                         let ui = ui_weak.unwrap();
                         ui.set_login_error("".into());
@@ -102,6 +103,19 @@ async fn main() -> Result<(), slint::PlatformError> {
                         ui.set_current_user_expires(expires.into());
                         ui.set_current_user_schemas_string(schema_str_display.into());
                         ui.set_schema_access(access);
+                        
+                        // Safely initialize the Slint non-send GUI elements strictly inside the Main GUI Thread Loop Context
+                        if avatar_path.exists() {
+                            if let Ok(slint_img) = slint::Image::load_from_path(&avatar_path) {
+                                ui.set_current_avatar_image(slint_img);
+                                ui.set_current_avatar_loaded(true);
+                            } else {
+                                ui.set_current_avatar_loaded(false);
+                            }
+                        } else {
+                            ui.set_current_avatar_loaded(false);
+                        }
+                        
                         ui.set_is_logged_in(true);
                         ui.set_active_tab("overview".into());
                     }).unwrap();
@@ -114,8 +128,7 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    // --- FIXED UI CALLBACK: USER MANAGEMENT TAB MATRIX ---
-    // Uses TO_CHAR to force Postgres to format the date in SQL, avoiding Rust chrono parsing panics on null/weird data
+    // --- USER MANAGEMENT TAB MATRIX ---
     let app_weak_users = app.as_weak();
     let db_users_clone = Arc::clone(&db);
     app.on_load_users_list(move || {
@@ -161,14 +174,65 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    let _app_weak_pic = app.as_weak(); // Added underscore to silence the compiler warning
+    // --- SECURE AVATAR CARRIER ENGINE ---
+    let app_weak_pic = app.as_weak();
     app.on_request_profile_pic_update(move || {
-        println!("[UI EVENT] User clicked avatar to update picture. File dialog handler to be implemented.");
-        // Note: To implement actual storage, you would use `rfd::FileDialog` here to pick an image, 
-        // convert it to a base64 string or save to disk, and update the Postgres users table.
+        let ui = app_weak_pic.unwrap();
+        let username = ui.get_current_user_name().to_string();
+        
+        println!("[SECURITY] Initializing Native File Dialog intercept for operator: {}", username);
+        
+        let file_picker = rfd::FileDialog::new()
+            .set_title("Select Operator Profile Image")
+            .add_filter("Supported Images (*.png, *.jpg, *.jpeg)", &["png", "jpg", "jpeg"])
+            .pick_file();
+            
+        if let Some(path) = file_picker {
+            if let Ok(metadata) = std::fs::metadata(&path) {
+                let file_size = metadata.len();
+                if file_size > 2 * 1024 * 1024 {
+                    ui.set_op_is_error(true);
+                    ui.set_op_status_msg("Security Fault: File size exceeds maximum 2MB limit.".into());
+                    return;
+                }
+            } else { return; }
+
+            let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
+            if ext != "png" && ext != "jpg" && ext != "jpeg" {
+                ui.set_op_is_error(true);
+                ui.set_op_status_msg("Security Fault: Forbidden image file extension.".into());
+                return;
+            }
+
+            match image::ImageReader::open(&path) {
+                Ok(reader) => {
+                    if let Ok(guessed) = reader.with_guessed_format() {
+                        if guessed.format().is_none() {
+                            ui.set_op_is_error(true);
+                            ui.set_op_status_msg("Security Violation: Malicious file signature matched.".into());
+                            return;
+                        }
+                    }
+                }
+                Err(_) => return,
+            }
+
+            let storage_dir = std::path::Path::new("./storage/avatars/");
+            let _ = std::fs::create_dir_all(storage_dir);
+            let target_destination = storage_dir.join(format!("{}.png", username));
+            
+            if std::fs::copy(&path, &target_destination).is_ok() {
+                if let Ok(slint_img) = slint::Image::load_from_path(&target_destination) {
+                    ui.set_current_avatar_image(slint_img);
+                    ui.set_current_avatar_loaded(true);
+                    ui.set_op_is_error(false);
+                    ui.set_op_status_msg("SUCCESS: Profile picture updated successfully.".into());
+                }
+            }
+        }
     });
 
-    // --- FIXED UI CALLBACK: SECURE LOGOUT ---
+    // --- SECURE LOGOUT SYSTEM CLEANUP ---
     let app_weak_logout = app.as_weak();
     app.on_request_logout(move || {
         if let Some(ui) = app_weak_logout.upgrade() {
@@ -176,12 +240,10 @@ async fn main() -> Result<(), slint::PlatformError> {
             ui.set_current_user_name("GUEST".into()); 
             ui.set_auth_screen_state("landing".into());
             
-            // Scrub forms completely
             ui.set_form_user("".into());
             ui.set_form_pass("".into());
             ui.set_form_captcha_login("".into());
             
-            // Regenerate Math Challenge
             let mut fresh_rng = rand::thread_rng();
             let (new_v1, new_v2) = (fresh_rng.gen_range(5..20), fresh_rng.gen_range(2..10));
             ui.set_captcha_q_main(format!("{} + {}", new_v1, new_v2).into());
@@ -189,7 +251,7 @@ async fn main() -> Result<(), slint::PlatformError> {
         }
     });
 
-    // (GPFFP ORACLE OPERATIONS REMAIN UNCHANGED)
+    // --- GPFFP ORACLE OPERATIONS CHANNEL MATRIX ---
     let app_weak_op1 = app.as_weak(); let oracle_op1 = Arc::clone(&oracle_client);
     app.on_request_delete_full_case(move |regd_no, series_id, account_no| {
         let ui_weak = app_weak_op1.clone(); let oracle = Arc::clone(&oracle_op1); let (r_no, s_id, a_no) = (regd_no.to_string(), series_id.to_string(), account_no.to_string());

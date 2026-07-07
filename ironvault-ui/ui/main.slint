@@ -5,35 +5,69 @@ import { Button, LineEdit, ScrollView } from "std-widgets.slint";
 import { Theme } from "theme.slint";
 import { RegisterView, RegisterFormFields } from "views/register.slint";
 
-// --- ANIMATED NAV ITEM ---
+// --- STRIKING & ANIMATED NAVIGATION NAV ITEM ---
 component NavItem inherits Rectangle {
     in property <string> text;
     in property <image> icon_source;
     in property <bool> active;
     in property <bool> collapsed;
     callback clicked();
-    height: 44px; border-radius: 10px;
-    background: ta.pressed ? Theme.bg-card-hover : (ta.has-hover ? Theme.bg-card : (active ? #00E5FF1A : transparent));
-    border-width: active ? 1px : 0px; border-color: Theme.brand-primary;
-    animate background { duration: 150ms; }
+    
+    height: 44px; 
+    border-radius: 10px;
+    
+    // Smooth background transitions for high-end feel
+    background: ta.pressed ? Theme.bg-card-hover : (ta.has-hover ? Theme.bg-card : (active ? #00E5FF13 : transparent));
+    border-width: active ? 1px : 0px;
+    border-color: Theme.brand-primary;
+    
+    animate background { duration: 150ms; easing: ease-in-out; }
+    animate border-color { duration: 150ms; easing: ease-in-out; }
+
     HorizontalLayout {
-        padding-left: root.collapsed ? 0px : 14px; padding-right: root.collapsed ? 0px : 14px;
-        alignment: root.collapsed ? LayoutAlignment.center : LayoutAlignment.start; spacing: root.collapsed ? 0px : 16px;
+        padding-left: root.collapsed ? 0px : 14px; 
+        padding-right: root.collapsed ? 0px : 14px;
+        alignment: root.collapsed ? LayoutAlignment.center : LayoutAlignment.start; 
+        spacing: root.collapsed ? 0px : 16px;
+        
         VerticalLayout {
             alignment: center;
             Rectangle {
-                width: 26px; height: 26px;
-                Image { source: root.icon_source; width: ta.has-hover ? 25px : 22px; height: ta.has-hover ? 25px : 22px; image-fit: contain; opacity: root.active ? 1.0 : (ta.has-hover ? 0.9 : 0.6); }
+                width: 24px; height: 24px;
+                Image { 
+                    source: root.icon_source; 
+                    // Micro-scaling on hover creates a tactile responsive feel
+                    width: ta.has-hover ? 24px : (root.active ? 22px : 20px); 
+                    height: ta.has-hover ? 24px : (root.active ? 22px : 20px); 
+                    image-fit: contain;
+                    opacity: root.active ? 1.0 : (ta.has-hover ? 0.95 : 0.6);
+                    
+                    animate width { duration: 120ms; easing: ease-in-out; }
+                    animate height { duration: 120ms; easing: ease-in-out; }
+                    animate opacity { duration: 120ms; easing: ease-in-out; }
+                }
             }
         }
-        if (!root.collapsed) : VerticalLayout { alignment: center; Text { text: root.text; font-size: 14px; font-weight: root.active ? 800 : 600; color: root.active ? Theme.brand-primary : Theme.text-secondary; } }
+        
+        if (!root.collapsed) : VerticalLayout { 
+            alignment: center;
+            Text { 
+                text: root.text; 
+                font-size: 14px; 
+                font-weight: root.active ? 800 : 600; 
+                color: root.active ? Theme.brand-primary : Theme.text-secondary;
+                animate color { duration: 150ms; easing: ease-in-out; }
+            } 
+        }
     }
     ta := TouchArea { clicked => { root.clicked(); } }
 }
 
-// --- UPGRADED: INTERACTIVE PROFILE AVATAR ---
+// --- INTERACTIVE PROFILE AVATAR ---
 component Avatar inherits Rectangle {
     in property <string> username: "G";
+    in property <image> avatar_source;
+    in property <bool> has_avatar: false;
     callback clicked();
     
     width: 90px; height: 90px; border-radius: 45px;
@@ -41,14 +75,18 @@ component Avatar inherits Rectangle {
     drop-shadow-blur: 15px; drop-shadow-color: #00E5FF4D;
     clip: true;
 
-    // Default Fallback
-    Text { 
+    if (!has_avatar) : Text { 
         text: username == "" ? "U" : username; 
         font-size: 40px; font-weight: 900; color: Theme.brand-primary; 
         horizontal-alignment: center; vertical-alignment: center; 
     }
 
-    // Upload Overlay on Hover
+    if (has_avatar) : Image {
+        source: avatar_source;
+        width: 100%; height: 100%;
+        image-fit: cover;
+    }
+
     Rectangle {
         background: #00000099;
         opacity: av_ta.has-hover ? 1.0 : 0.0;
@@ -63,7 +101,7 @@ component Avatar inherits Rectangle {
     av_ta := TouchArea { clicked => { root.clicked(); } }
 }
 
-// --- UPGRADED: ENTERPRISE SCHEMA CARD WITH ICONS ---
+// --- ENTERPRISE SCHEMA CARD ---
 component SchemaCard inherits Rectangle {
     in property <string> icon_text;
     in property <string> title;
@@ -95,7 +133,7 @@ component SchemaCard inherits Rectangle {
         VerticalLayout {
             alignment: center; spacing: 2px;
             Text { text: root.title; font-size: 13px; font-weight: 800; color: root.has_access ? Theme.text-primary : Theme.text-muted; }
-            Text { text: !root.has_access ? "AUTHORIZATION REQUIRED" : (root.active ? "SECURE MATRIX ACTIVE" : "SYSTEM READY"); font-size: 9px; font-weight: 800; color: !root.has_access ? Theme.brand-danger : (root.active ? Theme.brand-primary : Theme.brand-success); }
+            Text { text: !root.has_access ? "ACCESS RESTRICTED" : (root.active ? "SECURE MATRIX ACTIVE" : "SYSTEM READY"); font-size: 9px; font-weight: 800; color: !root.has_access ? Theme.brand-danger : (root.active ? Theme.brand-primary : Theme.brand-success); }
         }
     }
     ta := TouchArea { clicked => { if (root.has_access) { root.clicked(); } } }
@@ -111,6 +149,12 @@ export component AppWindow inherits Window {
     in-out property <bool> sidebar_collapsed: false;
     in-out property <string> hwid_string: "HWID: UNKNOWN";
     
+    // Application Production Metadata Properties
+    in property <string> app_name_meta: "IronVault CC";
+    in property <string> app_version_meta: "v1.2.4";
+    in property <string> app_build_meta: "2026-07-07 Production";
+    in property <string> app_copyright_meta: "© 2026 IT Cell.";
+
     // Core User Identity Profile
     in-out property <bool> is_logged_in: false;
     in-out property <string> current_user_name: "GUEST";
@@ -120,10 +164,13 @@ export component AppWindow inherits Window {
     in-out property <string> current_user_expires: "Never";
     in-out property <string> current_user_schemas_string: "None";
     in-out property <SchemaAccessState> schema_access;
-
     in-out property <string> auth_screen_state: "landing"; in-out property <string> active_tab: "overview";
     in-out property <string> captcha_q_main: "0 + 0"; in-out property <string> captcha_a_main: "0"; in-out property <string> login_error: "";
     in-out property <string> form_user: ""; in-out property <string> form_pass: ""; in-out property <string> form_captcha_login: "";
+    
+    // Core Graphic States
+    in-out property <image> current_avatar_image;
+    in-out property <bool> current_avatar_loaded: false;
     
     in-out property <RegisterFormFields> registration_fields;
     in-out property <string> pending_notification_name: "NONE"; in-out property <string> polling_error_msg: "";
@@ -147,24 +194,58 @@ export component AppWindow inherits Window {
     callback request_delete_precalc(string);
 
     HorizontalLayout {
+        padding: 0px; spacing: 0px;
+
         if (root.is_logged_in) : Rectangle {
             width: root.sidebar_collapsed ? 74px : 260px; background: Theme.bg-sidebar; border-width: 1px; border-color: Theme.border-dark; drop-shadow-blur: 20px; drop-shadow-color: #000000D9;
             animate width { duration: 220ms; easing: ease-in-out; }
             VerticalLayout {
                 padding: 16px; spacing: 10px; alignment: start;
+                
+                // Sidebar Header Matrix Group
                 HorizontalLayout {
                     alignment: root.sidebar_collapsed ? LayoutAlignment.center : LayoutAlignment.start; padding-bottom: 16px; spacing: 12px;
-                    Rectangle { width: 38px; height: 38px; border-radius: 8px; background: logo_ta.has-hover ? Theme.bg-card : transparent; Image { source: @image-url("assets/app_icon.png"); width: 24px; height: 24px; } logo_ta := TouchArea { clicked => { root.sidebar_collapsed = !root.sidebar_collapsed; } } }
-                    if (!root.sidebar_collapsed) : VerticalLayout { spacing: 2px; alignment: center; Text { text: "IRONVAULT"; font-size: 18px; font-weight: 900; color: Theme.text-primary; letter-spacing: 2px; } Text { text: "COMMAND CENTER"; font-size: 8px; font-weight: 800; color: Theme.brand-primary; letter-spacing: 1.5px; } }
+                    Rectangle { 
+                        width: 38px; height: 38px; border-radius: 8px; background: logo_ta.has-hover ? Theme.bg-card : transparent; 
+                        Image { source: @image-url("assets/app_icon.png"); width: 24px; height: 24px; } 
+                        logo_ta := TouchArea { clicked => { root.sidebar_collapsed = !root.sidebar_collapsed; } } 
+                    }
+                    if (!root.sidebar_collapsed) : VerticalLayout { 
+                        spacing: 2px; alignment: center; 
+                        Text { text: "IRONVAULT"; font-size: 18px; font-weight: 900; color: Theme.text-primary; letter-spacing: 2px; } 
+                        Text { text: "SECURE ENCLAVE NODE"; font-size: 9px; color: Theme.brand-primary; font-weight: 800; letter-spacing: 0.5px; } 
+                    }
                 }
-                if (!root.sidebar_collapsed) : VerticalLayout { padding-bottom: 8px; Text { text: root.hwid_string; font-size: 9px; color: Theme.text-dark; } }
+                
                 Rectangle { height: 1px; background: Theme.border-dark; } Rectangle { height: 8px; }
+                
                 NavItem { text: "Command Dashboard"; icon_source: @image-url("assets/dashboard.png"); active: root.active_tab == "overview"; collapsed: root.sidebar_collapsed; clicked => { root.active_tab = "overview"; } }
                 NavItem { text: "Operations Matrix"; icon_source: @image-url("assets/matrix.png"); active: root.active_tab == "operations"; collapsed: root.sidebar_collapsed; clicked => { root.active_tab = "operations"; root.op_status_msg = ""; } }
                 if (root.current_user_role == "SuperAdmin") : NavItem { text: "Access Requests"; icon_source: @image-url("assets/requests.png"); active: root.active_tab == "approvals"; collapsed: root.sidebar_collapsed; clicked => { root.active_tab = "approvals"; } }
                 if (root.current_user_role == "SuperAdmin") : NavItem { text: "Operator Control"; icon_source: @image-url("assets/matrix.png"); active: root.active_tab == "users"; collapsed: root.sidebar_collapsed; clicked => { root.active_tab = "users"; root.load_users_list(); } }
+                
                 Rectangle { vertical-stretch: 1; }
-                NavItem { text: "Terminate Session"; icon_source: @image-url("assets/logout.png"); active: false; collapsed: root.sidebar_collapsed; clicked => { root.request_logout(); } }
+                
+                // --- DESIGN REFINEMENT: MINIMAL DISCREET LOW-PROFILE BOTTOM SYSTEM FOOTNOTE ---
+                VerticalLayout {
+                    spacing: 4px; padding-left: 4px; padding-right: 4px; padding-bottom: 4px;
+                    Rectangle { height: 1px; background: Theme.border-dark; opacity: 0.4; }
+                    Rectangle { height: 2px; }
+                    
+                    if (!root.sidebar_collapsed) : HorizontalLayout {
+                        alignment: LayoutAlignment.space-between;
+                        Text { text: root.app_name_meta + " // " + root.app_copyright_meta; font-size: 9px; font-weight: 700; color: Theme.text-dark; vertical-alignment: center; }
+                        Rectangle { 
+                            background: #00E5FF1A; border-radius: 4px; border-width: 1px; border-color: #00E5FF33; height: 18px; 
+                            HorizontalLayout { padding-left: 5px; padding-right: 5px; Text { text: root.app_version_meta; font-size: 9px; font-weight: 900; color: Theme.brand-primary; vertical-alignment: center; } }
+                        }
+                    }
+                    
+                    if (root.sidebar_collapsed) : Rectangle {
+                        background: #00E5FF1A; border-radius: 4px; height: 18px; width: 36px; horizontal-stretch: 0;
+                        Text { text: root.app_version_meta; font-size: 9px; font-weight: 900; color: Theme.brand-primary; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                }
             }
         }
 
@@ -177,48 +258,73 @@ export component AppWindow inherits Window {
             if (root.is_logged_in) : VerticalLayout {
                 padding: 40px; spacing: 25px;
 
-                // --- TAB 1: ULTRA-COMPACT DASHBOARD PROFILE ---
+                // --- TAB 1: OPERATOR PROFILE CARD WITH ICON-ONLY HIGHLIGHT TERMINATOR ---
                 if (root.active_tab == "overview") : VerticalLayout {
-                    spacing: 20px;
-                    Text { text: "Command Dashboard"; font-size: 32px; font-weight: 800; color: Theme.text-primary; letter-spacing: -0.5px; }
+                    spacing: 20px; Text { text: "Command Dashboard"; font-size: 32px; font-weight: 800; color: Theme.text-primary; letter-spacing: -0.5px; }
                     
                     Rectangle {
                         background: Theme.bg-card; border-radius: 12px; border-width: 1px; border-color: Theme.border-color; drop-shadow-blur: 15px; drop-shadow-color: #0000004D;
-                        height: 140px; // Forced compact height
+                        height: 140px;
                         
                         HorizontalLayout {
-                            padding: 24px; spacing: 30px; alignment: start;
+                            padding: 24px; spacing: 25px; alignment: start;
                             
                             // Column 1: Interactive Avatar
                             VerticalLayout {
                                 alignment: center;
-                                Avatar { username: root.current_user_name; clicked => { root.request_profile_pic_update(); } }
+                                Avatar { 
+                                    username: root.current_user_name; 
+                                    avatar_source: root.current_avatar_image;
+                                    has_avatar: root.current_avatar_loaded;
+                                    clicked => { root.request_profile_pic_update(); } 
+                                }
                             }
                             
-                            // Column 2: Core Identity
+                            // Column 2: Identity Stack
                             VerticalLayout {
-                                alignment: center; spacing: 4px; width: 300px;
-                                Text { text: root.current_user_full_name; font-size: 24px; font-weight: 900; color: Theme.brand-primary; overflow: elide; }
+                                alignment: center; spacing: 4px; width: 260px;
+                                Text { text: root.current_user_full_name; font-size: 22px; font-weight: 900; color: Theme.brand-primary; overflow: elide; }
                                 Text { text: root.current_user_designation; font-size: 14px; font-weight: 700; color: Theme.text-secondary; }
                                 Text { text: "ID: @" + root.current_user_name; font-size: 13px; font-weight: 800; color: Theme.brand-warning; }
                             }
 
                             Rectangle { width: 1px; background: Theme.border-color; }
 
-                            // Column 3: Security & Lease
+                            // Column 3: Lease Info
                             VerticalLayout {
-                                alignment: center; spacing: 12px; width: 200px;
+                                alignment: center; spacing: 12px; width: 180px;
                                 VerticalLayout { spacing: 2px; Text { text: "AUTHORITY CLASS"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } Text { text: root.current_user_role; font-size: 15px; font-weight: 800; color: Theme.text-primary; } }
                                 VerticalLayout { spacing: 2px; Text { text: "LEASE EXPIRATION"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } Text { text: root.current_user_expires; font-size: 15px; font-weight: 800; color: Theme.brand-success; } }
                             }
                             
                             Rectangle { width: 1px; background: Theme.border-color; }
 
-                            // Column 4: Assigned Schemas (Wrapping)
+                            // Column 4: Assigned Modules
                             VerticalLayout {
-                                alignment: center; spacing: 6px; horizontal-stretch: 1;
+                                alignment: center; spacing: 6px; width: 330px;
                                 Text { text: "AUTHORIZED SCHEMAS"; font-size: 10px; font-weight: 800; color: Theme.text-muted; }
-                                Text { text: root.current_user_schemas_string; font-size: 14px; font-weight: 700; color: Theme.brand-primary; wrap: word-wrap; }
+                                Text { text: root.current_user_schemas_string; font-size: 13px; font-weight: 700; color: Theme.brand-primary; wrap: word-wrap; }
+                            }
+
+                            Rectangle { width: 1px; background: Theme.border-color; }
+
+                            // COLUMN 5: SLEEK LOGOUT INTERACTION BUTTON MATRIX
+                            VerticalLayout {
+                                alignment: center; horizontal-stretch: 1; padding-left: 10px;
+                                Rectangle {
+                                    width: 44px; height: 44px; border-radius: 22px;
+                                    background: logout_ta.has-hover ? #FF33661A : transparent;
+                                    border-width: 1px; border-color: logout_ta.has-hover ? #FF33664D : transparent;
+                                    animate background { duration: 125ms; } animate border-color { duration: 125ms; }
+                                    
+                                    Image {
+                                        source: @image-url("assets/logout.png");
+                                        width: 22px; height: 22px; image-fit: contain;
+                                        opacity: logout_ta.has-hover ? 1.0 : 0.7;
+                                        animate opacity { duration: 125ms; }
+                                    }
+                                    logout_ta := TouchArea { clicked => { root.request_logout(); } }
+                                }
                             }
                         }
                     }
@@ -240,13 +346,13 @@ export component AppWindow inherits Window {
                                 Text { text: "SERVER HOST: 192.168.100.247 (FINANCE & ADMINISTRATION)"; font-size: 12px; font-weight: 900; color: Theme.text-muted; letter-spacing: 1px; }
                                 HorizontalLayout {
                                     spacing: 12px;
-                                    SchemaCard { icon_text: "₹"; title: "GPF Final Payment System"; has_access: root.schema_access.gpffp; active: root.op_target_schema == "gpffp"; clicked => { root.op_target_schema = "gpffp"; root.op_status_msg = ""; } }
-                                    SchemaCard { icon_text: "📄"; title: "Voucher Level Computerize System"; has_access: root.schema_access.vlcs; active: root.op_target_schema == "vlcs"; clicked => { root.op_target_schema = "vlcs"; root.op_status_msg = ""; } }
+                                    SchemaCard { icon_text: "₹"; title: "gpffp: GPF Final Payment System"; has_access: root.schema_access.gpffp; active: root.op_target_schema == "gpffp"; clicked => { root.op_target_schema = "gpffp"; root.op_status_msg = ""; } }
+                                    SchemaCard { icon_text: "📄"; title: "VLCS: Voucher Level Computerize System"; has_access: root.schema_access.vlcs; active: root.op_target_schema == "vlcs"; clicked => { root.op_target_schema = "vlcs"; root.op_status_msg = ""; } }
                                 }
                                 HorizontalLayout {
                                     spacing: 12px;
-                                    SchemaCard { icon_text: "⚙"; title: "AGT ALL Administration"; has_access: root.schema_access.agtall; active: root.op_target_schema == "agtall"; clicked => { root.op_target_schema = "agtall"; root.op_status_msg = ""; } }
-                                    SchemaCard { icon_text: "✉"; title: "Office DAK Monitoring System"; has_access: root.schema_access.agdak; active: root.op_target_schema == "agdak"; clicked => { root.op_target_schema = "agdak"; root.op_status_msg = ""; } }
+                                    SchemaCard { icon_text: "⚙"; title: "agtall: AGT ALL System Nodes"; has_access: root.schema_access.agtall; active: root.op_target_schema == "agtall"; clicked => { root.op_target_schema = "agtall"; root.op_status_msg = ""; } }
+                                    SchemaCard { icon_text: "✉"; title: "agdak: Office DAK Monitoring System"; has_access: root.schema_access.agdak; active: root.op_target_schema == "agdak"; clicked => { root.op_target_schema = "agdak"; root.op_status_msg = ""; } }
                                 }
                             }
 
@@ -256,9 +362,9 @@ export component AppWindow inherits Window {
                                 Text { text: "SERVER HOST: 192.168.0.140 (PENSION ENGINES)"; font-size: 12px; font-weight: 900; color: Theme.text-muted; letter-spacing: 1px; }
                                 HorizontalLayout {
                                     spacing: 12px;
-                                    SchemaCard { icon_text: "🛡"; title: "P-SAI / Pension Core"; has_access: root.schema_access.sai_agartala; active: root.op_target_schema == "sai_agartala"; clicked => { root.op_target_schema = "sai_agartala"; root.op_status_msg = ""; } }
-                                    SchemaCard { icon_text: "📮"; title: "Pension DAK System"; has_access: root.schema_access.pendak; active: root.op_target_schema == "pendak"; clicked => { root.op_target_schema = "pendak"; root.op_status_msg = ""; } }
-                                    SchemaCard { icon_text: "📊"; title: "Pension Indexing System"; has_access: root.schema_access.penindex; active: root.op_target_schema == "penindex"; clicked => { root.op_target_schema = "penindex"; root.op_status_msg = ""; } }
+                                    SchemaCard { icon_text: "🛡"; title: "sai_agartala: P-SAI Core Pension"; has_access: root.schema_access.sai_agartala; active: root.op_target_schema == "sai_agartala"; clicked => { root.op_target_schema = "sai_agartala"; root.op_status_msg = ""; } }
+                                    SchemaCard { icon_text: "📮"; title: "pendak: Pension DAK System"; has_access: root.schema_access.pendak; active: root.op_target_schema == "pendak"; clicked => { root.op_target_schema = "pendak"; root.op_status_msg = ""; } }
+                                    SchemaCard { icon_text: "📊"; title: "penindex: Pension Indexing System"; has_access: root.schema_access.penindex; active: root.op_target_schema == "penindex"; clicked => { root.op_target_schema = "penindex"; root.op_status_msg = ""; } }
                                 }
                             }
 
@@ -270,33 +376,18 @@ export component AppWindow inherits Window {
                                 VerticalLayout {
                                     padding: 30px; spacing: 20px;
                                     Text { text: "GPF FINAL PAYMENT SYSTEM - COMMAND CONSOLE"; font-size: 16px; font-weight: 900; color: Theme.brand-primary; letter-spacing: 1px; }
-                                    HorizontalLayout {
-                                        spacing: 15px;
-                                        VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "REGD NO"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.op_regd_no; placeholder_text: "Enter REGD_NO"; height: 38px; } }
-                                        VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "SERIES ID"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.op_series_id; placeholder_text: "Enter SERIES_ID"; height: 38px; } }
-                                        VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "ACCOUNT NO"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.op_account_no; placeholder_text: "Enter ACCOUNT_NO"; height: 38px; } }
-                                    }
+                                    HorizontalLayout { spacing: 15px; VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "REGD NO"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.op_regd_no; placeholder_text: "Enter REGD_NO"; height: 38px; } } VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "SERIES ID"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.op_series_id; placeholder_text: "Enter SERIES_ID"; height: 38px; } } VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "ACCOUNT NO"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.op_account_no; placeholder_text: "Enter ACCOUNT_NO"; height: 38px; } } }
                                     Text { text: "TRANSACTIONAL TRIGGERS"; font-size: 11px; font-weight: 800; color: Theme.brand-warning; }
-                                    HorizontalLayout {
-                                        spacing: 15px;
-                                        Button { text: "Delete Full Case"; height: 42px; horizontal-stretch: 1; clicked => { root.request_delete_full_case(root.op_regd_no, root.op_series_id, root.op_account_no); } }
-                                        Button { text: "Delete Application"; height: 42px; horizontal-stretch: 1; clicked => { root.request_delete_application(root.op_regd_no); } }
-                                        Button { text: "Delete Pre-Calculation"; height: 42px; horizontal-stretch: 1; clicked => { root.request_delete_precalc(root.op_regd_no); } }
-                                    }
+                                    HorizontalLayout { spacing: 15px; Button { text: "Delete Full Case"; height: 42px; horizontal-stretch: 1; clicked => { root.request_delete_full_case(root.op_regd_no, root.op_series_id, root.op_account_no); } } Button { text: "Delete Application"; height: 42px; horizontal-stretch: 1; clicked => { root.request_delete_application(root.op_regd_no); } } Button { text: "Delete Pre-Calculation"; height: 42px; horizontal-stretch: 1; clicked => { root.request_delete_precalc(root.op_regd_no); } } }
                                 }
                             }
 
-                            // WORKSPACE: STANDBY
                             if (root.op_target_schema != "gpffp") : Rectangle {
                                 height: 160px; background: Theme.bg-sidebar; border-radius: 12px; border-width: 1px; border-color: Theme.border-dark;
-                                VerticalLayout {
-                                    alignment: center; spacing: 10px;
-                                    Text { text: "STANDBY MODE: " + root.op_target_schema; font-size: 18px; font-weight: 900; color: Theme.text-primary; horizontal-alignment: center; }
-                                    Text { text: "Connection verified. Data structures loaded. Awaiting business logic deployment for this schema."; font-italic: true; color: Theme.text-muted; horizontal-alignment: center; font-size: 14px;}
+                                VerticalLayout { alignment: center; spacing: 10px; Text { text: "STANDBY CONSOLE: " + root.op_target_schema; font-size: 18px; font-weight: 900; color: Theme.text-primary; horizontal-alignment: center; } Text { text: "Connection verified. Data structures loaded. Awaiting business logic deployment for this schema."; font-italic: true; color: Theme.text-muted; horizontal-alignment: center; font-size: 14px;}
                                 }
                             }
 
-                            // RESPONSE MESSAGE
                             if (root.op_status_msg != "") : Rectangle {
                                 background: root.op_is_error ? #7F1D1D33 : #064E3B33; border-radius: 6px; border-width: 1px; border-color: root.op_is_error ? Theme.brand-danger : Theme.brand-success;
                                 HorizontalLayout { padding: 12px; Text { text: root.op_status_msg; color: root.op_is_error ? #FCA5A5 : #6EE7B7; font-size: 14px; font-weight: 800; horizontal-alignment: center; } }
@@ -305,16 +396,14 @@ export component AppWindow inherits Window {
                     }
                 }
 
-                // --- TAB 3: ADMIN APPROVALS ---
                 if (root.active_tab == "approvals") : VerticalLayout {
                     spacing: 20px; Text { text: "Pending Access Router"; font-size: 32px; font-weight: 800; color: Theme.text-primary; }
                     Rectangle { background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.border-color; drop-shadow-blur: 15px; drop-shadow-color: #00000066; VerticalLayout { padding: 30px; spacing: 20px; if (root.pending_notification_name != "NONE") : VerticalLayout { spacing: 15px; Text { text: "Incoming Authorization Request Intercepted"; font-size: 18px; color: Theme.brand-warning; font-weight: 800; } Text { text: "Target Account: " + root.pending_notification_name; font-size: 20px; font-weight: 700; color: Theme.text-primary; } HorizontalLayout { spacing: 15px; role_selector := LineEdit { text: "Operator"; placeholder_text: "Assign role"; width: 200px; height: 38px; } Button { text: "Grant Authorization"; height: 38px; clicked => { root.approve_pending_operator(root.pending_notification_name, role_selector.text); } } Button { text: "Purge Request"; height: 38px; clicked => { root.deny_pending_operator(root.pending_notification_name); } } } } if (root.pending_notification_name == "NONE") : Text { text: "No pending terminal authorization links detected in current cycle buffer."; color: Theme.text-muted; font-size: 16px; font-italic: true; } } }
                 }
 
-                // --- TAB 4: ADVANCED USER CONTROL MATRIX ---
                 if (root.active_tab == "users") : VerticalLayout {
                     spacing: 24px; vertical-stretch: 1;
-                    VerticalLayout { spacing: 8px; Text { text: "Active Operator Control Matrix"; font-size: 32px; font-weight: 800; color: Theme.text-primary; } Text { text: "SuperAdmins assign database access using comma-separated schemas (e.g. gpffp,vlcs,pendak)."; font-size: 15px; color: Theme.brand-warning; } }
+                    VerticalLayout { spacing: 8px; Text { text: "Active Operator Control Matrix"; font-size: 32px; font-weight: 800; color: Theme.text-primary; } Text { text: "Institutional Section parameters configured natively. Assign lowercase keys (e.g., gpffp,vlcs) to apply schema security profiles."; font-size: 15px; color: Theme.brand-warning; } }
 
                     Rectangle {
                         background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.border-color; drop-shadow-blur: 20px; drop-shadow-color: #00000080; vertical-stretch: 1;
@@ -323,9 +412,9 @@ export component AppWindow inherits Window {
                             HorizontalLayout {
                                 padding-left: 20px; padding-bottom: 16px; spacing: 15px;
                                 Text { text: "OPERATOR"; width: 140px; font-size: 11px; font-weight: 800; color: Theme.brand-primary; }
-                                Text { text: "EXPIRES"; width: 90px; font-size: 11px; font-weight: 800; color: Theme.brand-primary; }
-                                Text { text: "ROLE"; width: 110px; font-size: 11px; font-weight: 800; color: Theme.brand-primary; }
-                                Text { text: "ASSIGNED SCHEMAS (COMMA SEPARATED)"; horizontal-stretch: 1; font-size: 11px; font-weight: 800; color: Theme.brand-primary; }
+                                Text { text: "LEASE TERM"; width: 110px; font-size: 11px; font-weight: 800; color: Theme.brand-primary; }
+                                Text { text: "INSTITUTIONAL DIVISION / SECTION"; width: 180px; font-size: 11px; font-weight: 800; color: Theme.brand-primary; }
+                                Text { text: "ASSIGNED DATABASE SECURITY PRIVILEGES (SCHEMAS)"; horizontal-stretch: 1; font-size: 11px; font-weight: 800; color: Theme.brand-primary; }
                                 Text { text: "+ DAYS"; width: 60px; font-size: 11px; font-weight: 800; color: Theme.brand-primary; }
                                 Text { text: "ACTIONS"; width: 140px; font-size: 11px; font-weight: 800; color: Theme.brand-primary; }
                             }
@@ -342,12 +431,12 @@ export component AppWindow inherits Window {
                                         HorizontalLayout {
                                             padding-left: 20px; padding-right: 20px; spacing: 15px;
                                             VerticalLayout { width: 140px; spacing: 2px; alignment: center; Text { text: user.username; color: Theme.text-primary; font-size: 15px; font-weight: 800; overflow: elide; } Text { text: user.full_name; color: Theme.text-muted; font-size: 11px; font-weight: 600; overflow: elide; } }
-                                            VerticalLayout { width: 90px; alignment: center; Text { text: user.expires_at; color: Theme.brand-warning; font-size: 11px; font-weight: 800; } }
-                                            VerticalLayout { width: 110px; alignment: center; role_input := LineEdit { text: user.role; width: 110px; height: 34px; } }
+                                            VerticalLayout { width: 110px; alignment: center; Text { text: user.expires_at; color: Theme.brand-warning; font-size: 12px; font-weight: 800; } }
+                                            VerticalLayout { width: 180px; alignment: center; Rectangle { background: #00E5FF1A; border-radius: 6px; border-width: 1px; border-color: #00E5FF33; height: 32px; Text { text: "IT Cell"; color: Theme.brand-primary; font-size: 12px; font-weight: 800; horizontal-alignment: center; vertical-alignment: center; } } }
                                             VerticalLayout { horizontal-stretch: 1; alignment: center; schema_input := LineEdit { text: user.allowed_schemas; height: 34px; placeholder_text: "e.g., gpffp,vlcs,sai_agartala"; } }
                                             VerticalLayout { width: 60px; alignment: center; days_input := LineEdit { text: "30"; placeholder_text: "Days"; width: 60px; height: 34px; } }
                                             HorizontalLayout { width: 140px; spacing: 10px; alignment: start; 
-                                                VerticalLayout { alignment: center; Button { text: "Save"; width: 70px; height: 34px; clicked => { root.extend_user_lease(user.username, role_input.text, days_input.text, schema_input.text); } } } 
+                                                VerticalLayout { alignment: center; Button { text: "Save"; width: 70px; height: 34px; clicked => { root.extend_user_lease(user.username, user.role, days_input.text, schema_input.text); } } } 
                                                 VerticalLayout { alignment: center; Button { text: "Ban"; width: 60px; height: 34px; clicked => { root.ban_user(user.username); } } } 
                                             }
                                         }

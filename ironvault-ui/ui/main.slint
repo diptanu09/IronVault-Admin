@@ -5,7 +5,36 @@ import { Button, LineEdit, ScrollView } from "std-widgets.slint";
 import { Theme } from "theme.slint";
 import { RegisterView, RegisterFormFields } from "views/register.slint";
 
-// --- STRIKING NAV ITEM (POWERED BY LUCIDE VECTOR PATHS) ---
+export struct GpfCaseDetails {
+    regd_no: string,
+    holder_name: string,
+    series_id: string,
+    account_no: string,
+    balance: string,
+    status: string,
+}
+
+// --- DYNAMIC SCHEMA ACTION TOOLBAR BUTTON ---
+component SchemaAction inherits Rectangle {
+    in property <string> icon_text;
+    in property <string> title;
+    in property <bool> active;
+    callback clicked();
+
+    height: 42px; border-radius: 8px; horizontal-stretch: 1;
+    background: active ? #00E5FF22 : (ta.has-hover ? Theme.bg-card-hover : Theme.bg-sidebar);
+    border-width: 1px; border-color: active ? Theme.brand-primary : Theme.border-dark;
+    
+    animate background { duration: 150ms; } animate border-color { duration: 150ms; }
+
+    HorizontalLayout {
+        padding-left: 14px; padding-right: 14px; spacing: 10px; alignment: center;
+        Text { text: root.icon_text; font-size: 16px; vertical-alignment: center; color: active ? Theme.brand-primary : Theme.text-muted; }
+        Text { text: root.title; font-size: 12px; font-weight: 800; color: active ? Theme.brand-primary : Theme.text-primary; vertical-alignment: center; }
+    }
+    ta := TouchArea { clicked => { root.clicked(); } }
+}
+
 component NavItem inherits Rectangle {
     in property <string> text;
     in property <image> icon_image; 
@@ -39,8 +68,6 @@ component NavItem inherits Rectangle {
                     height: ta.has-hover ? 22px : (root.active ? 20px : 18px); 
                     image-fit: contain;
                     opacity: root.active ? 1.0 : (ta.has-hover ? 0.95 : 0.6);
-                    
-                    // FIXED: Dynamic colorize matrix tinting blocks black fallback states
                     colorize: root.active ? Theme.brand-primary : (ta.has-hover ? Theme.text-primary : Theme.text-secondary);
                     
                     animate width { duration: 120ms; easing: ease-in-out; }
@@ -61,7 +88,6 @@ component NavItem inherits Rectangle {
         }
     }
     
-    // COLLAPSED SIDEBAR HOVER POPUP INTERCEPT TOOLTIP
     if (root.collapsed && ta.has-hover) : Rectangle {
         x: 64px; y: 6px;
         height: 32px;
@@ -74,20 +100,12 @@ component NavItem inherits Rectangle {
         
         HorizontalLayout {
             padding-left: 12px; padding-right: 12px; alignment: center;
-            Text {
-                text: root.text;
-                color: Theme.text-primary;
-                font-size: 13px;
-                font-weight: 800;
-                vertical-alignment: center;
-            }
+            Text { text: root.text; color: Theme.text-primary; font-size: 13px; font-weight: 800; vertical-alignment: center; }
         }
     }
-
     ta := TouchArea { clicked => { root.clicked(); } }
 }
 
-// --- INTERACTIVE PROFILE AVATAR ---
 component Avatar inherits Rectangle {
     in property <string> username: "G";
     in property <image> avatar_source;
@@ -121,11 +139,9 @@ component Avatar inherits Rectangle {
             Text { text: "Update"; font-size: 10px; font-weight: 800; color: white; horizontal-alignment: center; }
         }
     }
-
     av_ta := TouchArea { clicked => { root.clicked(); } }
 }
 
-// --- ENTERPRISE SCHEMA CARD ---
 component SchemaCard inherits Rectangle {
     in property <string> icon_text;
     in property <string> title;
@@ -146,12 +162,7 @@ component SchemaCard inherits Rectangle {
             Rectangle {
                 width: 40px; height: 40px; border-radius: 8px; 
                 background: root.has_access ? Theme.brand-primary : Theme.border-dark;
-                Text { 
-                    text: root.icon_text; 
-                    color: root.has_access ? Theme.bg-main : Theme.text-muted; 
-                    font-size: 18px; font-weight: 900; 
-                    horizontal-alignment: center; vertical-alignment: center; 
-                }
+                Text { text: root.icon_text; color: root.has_access ? Theme.bg-main : Theme.text-muted; font-size: 18px; font-weight: 900; horizontal-alignment: center; vertical-alignment: center; }
             }
         }
         VerticalLayout {
@@ -174,7 +185,6 @@ export component AppWindow inherits Window {
     in-out property <string> hwid_string: "HWID: UNKNOWN";
     in property <string> app_version_meta: "v1.2.4";
 
-    // Core User Identity Profile
     in-out property <bool> is_logged_in: false;
     in-out property <string> current_user_name: "GUEST";
     in-out property <string> current_user_role: "UNAUTHORIZED";
@@ -187,7 +197,6 @@ export component AppWindow inherits Window {
     in-out property <string> captcha_q_main: "0 + 0"; in-out property <string> captcha_a_main: "0"; in-out property <string> login_error: "";
     in-out property <string> form_user: ""; in-out property <string> form_pass: ""; in-out property <string> form_captcha_login: "";
     
-    // Core Graphic States
     in-out property <image> current_avatar_image;
     in-out property <bool> current_avatar_loaded: false;
     
@@ -195,22 +204,58 @@ export component AppWindow inherits Window {
     in-out property <string> pending_notification_name: "NONE"; in-out property <string> polling_error_msg: "";
     in-out property <[UserData]> active_users_list: [];
 
-    // Operations Variables
-    in-out property <string> op_target_schema: "gpffp";
-    in-out property <string> op_regd_no: ""; in-out property <string> op_series_id: ""; in-out property <string> op_account_no: "";
+    // MATRIX STATE ROUTING
+    in-out property <string> op_target_schema: "none";
+    in-out property <string> active_schema_action: "none"; 
     in-out property <string> op_status_msg: ""; in-out property <bool> op_is_error: false;
+
+    // GPFFP State Memory
+    in-out property <string> op_regd_no: ""; in-out property <string> op_series_id: ""; in-out property <string> op_account_no: "";
+    in-out property <string> op_holder_name: ""; 
+    in-out property <bool> gpf_case_found: false;
+    in-out property <GpfCaseDetails> active_gpf_case;
+    in-out property <string> op_gpf_new_status: "";
+
+    // VLCS State Memory
+    in-out property <string> vlcs_ddo_code: "";
+    in-out property <string> vlcs_emp_code: "";
+    in-out property <string> vlcs_emp_mobile: "";
+
+    // PENDAK CONFIGURATION PARAMETERS
+    in-out property <string> dak_app_num: "";
+    in-out property <string> dak_letter_no: "";
+    in-out property <string> dak_ppo_fppo: "";
+    in-out property <string> dak_gpo: "";
+    in-out property <string> dak_cpo: "";
+    in-out property <string> dak_section: "";
+    in-out property <string> dak_subject: "";
+    in-out property <string> dak_no_of_copies: "1";
+
+    in-out property <string> dak_adr_1: ""; in-out property <string> dak_bar_1: ""; in-out property <string> dak_sent_1: "REGISTERED"; in-out property <string> dak_sb_1: "YES";
+    in-out property <string> dak_adr_2: ""; in-out property <string> dak_bar_2: ""; in-out property <string> dak_sent_2: "REGISTERED"; in-out property <string> dak_sb_2: "YES";
+    in-out property <string> dak_adr_3: ""; in-out property <string> dak_bar_3: ""; in-out property <string> dak_sent_3: "REGISTERED"; in-out property <string> dak_sb_3: "YES";
 
     callback request_authentication(string, string);
     callback request_registration(string, string, string, string, string, string, string);
     callback approve_pending_operator(string, string); callback deny_pending_operator(string); callback request_logout(); callback load_users_list();
     callback request_profile_pic_update();
-    
-    callback extend_user_lease(string, string, string, string); 
-    callback ban_user(string);
+    callback extend_user_lease(string, string, string, string); callback ban_user(string);
 
+    // GPFFP Operations Callbacks
+    callback request_find_gpf_case(string);
     callback request_delete_full_case(string, string, string);
     callback request_delete_application(string);
     callback request_delete_precalc(string);
+    callback request_update_gpf_status(string, string);
+
+    // VLCS Operations Callbacks
+    callback request_vlcs_get_ddo(string);
+    callback request_vlcs_update_ddo(string);
+    callback request_vlcs_get_emp(string);
+    callback request_vlcs_update_emp(string, string);
+
+    // PENDAK Operations Callbacks
+    callback request_submit_outward_dak();
 
     HorizontalLayout {
         padding: 0px; spacing: 0px;
@@ -221,7 +266,6 @@ export component AppWindow inherits Window {
             VerticalLayout {
                 padding: 16px; spacing: 10px; alignment: start;
                 
-                // Sidebar Header Matrix Group
                 HorizontalLayout {
                     alignment: root.sidebar_collapsed ? LayoutAlignment.center : LayoutAlignment.start; padding-bottom: 16px; spacing: 12px;
                     Rectangle { 
@@ -245,36 +289,29 @@ export component AppWindow inherits Window {
                 
                 Rectangle { vertical-stretch: 1; }
                 
-                // --- MINIMAL PRODUCT VERSION BADGE FOOTER ---
                 VerticalLayout {
                     spacing: 4px; padding-left: 4px; padding-right: 4px; padding-bottom: 4px;
-                    Rectangle { height: 1px; background: Theme.border-dark; opacity: 0.4; }
-                    Rectangle { height: 4px; }
-                    
+                    Rectangle { height: 1px; background: Theme.border-dark; opacity: 0.4; } Rectangle { height: 4px; }
                     Rectangle {
                         background: #00E5FF1A; border-radius: 4px; height: 20px;
-                        width: root.sidebar_collapsed ? 36px : 64px;
-                        horizontal-stretch: 0;
+                        width: root.sidebar_collapsed ? 36px : 64px; horizontal-stretch: 0;
                         Text { text: root.app_version_meta; font-size: 10px; font-weight: 900; color: Theme.brand-primary; horizontal-alignment: center; vertical-alignment: center; }
                     }
                 }
             }
         }
 
-        // Main Login Screens Content Area Panel
         if (!root.is_logged_in) : Rectangle {
             horizontal-stretch: 1; background: Theme.bg-main;
             VerticalLayout {
                 alignment: center; HorizontalLayout { alignment: center; Rectangle { width: root.auth_screen_state == "register" ? 680px : 440px; background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.border-color; drop-shadow-blur: 40px; drop-shadow-color: #00E5FF1A; animate width { duration: 250ms; easing: ease-in-out; } VerticalLayout { padding: 40px; spacing: 16px; VerticalLayout { alignment: center; spacing: 5px; padding-bottom: 5px; Text { text: "IRONVAULT"; font-size: 32px; font-weight: 900; color: Theme.brand-primary; horizontal-alignment: center; } } Rectangle { height: 1px; background: Theme.border-color; } if (root.auth_screen_state == "landing") : VerticalLayout { spacing: 16px; padding-top: 10px; Button { text: "🔑  Access Terminal Login"; height: 45px; clicked => { root.auth_screen_state = "login"; root.login_error = ""; } } Button { text: "📝  Enroll New Node Profile"; height: 45px; clicked => { root.auth_screen_state = "register"; root.login_error = ""; } } } if (root.auth_screen_state == "login") : VerticalLayout { spacing: 14px; LineEdit { text <=> root.form_user; placeholder_text: "Operator ID"; height: 34px; } LineEdit { text <=> root.form_pass; placeholder_text: "Secret Token"; input-type: password; height: 34px; } HorizontalLayout { spacing: 12px; Rectangle { background: Theme.border-color; border-radius: 4px; horizontal-stretch: 1; height: 36px; Text { text: "Solve: " + root.captcha_q_main; font-size: 12px; font-weight: 700; color: Theme.text-primary; horizontal-alignment: center; vertical-alignment: center; } } LineEdit { text <=> root.form_captcha_login; width: 110px; height: 36px; placeholder_text: "Result"; } } if (root.login_error != "") : Rectangle { background: #FF336633; border-radius: 6px; border-width: 1px; border-color: Theme.brand-danger; HorizontalLayout { padding: 8px; Text { text: root.login_error; color: #FFA0B4; font-size: 12px; font-weight: 600; horizontal-alignment: center; } } } HorizontalLayout { spacing: 14px; padding-top: 18px; Button { text: "Authenticate Access"; height: Theme.button-height; horizontal-stretch: 1; clicked => { if (root.form_captcha_login == root.captcha_a_main) { root.request_authentication(root.form_user, root.form_pass); } else { root.login_error = "Validation Fault: Challenge mismatch."; } } } Button { text: "Return Gateway"; height: Theme.button-height; horizontal-stretch: 1; clicked => { root.auth_screen_state = "landing"; root.login_error = ""; } } } } if (root.auth_screen_state == "register") : RegisterView { captcha-question: root.captcha_q_main; operational-error: root.login_error; form-data <=> root.registration_fields; submit-registration => { if (root.registration_fields.captcha-result == root.captcha_a_main) { root.request_registration(root.registration_fields.username, root.registration_fields.secret, root.registration_fields.first-name, root.registration_fields.middle-name, root.registration_fields.last-name, root.registration_fields.designation, root.registration_fields.section); } else { root.login_error = "Validation Fault: Challenge mismatch."; } } cancel-registration => { root.auth_screen_state = "landing"; root.login_error = ""; } } } } } }
         }
 
-        // Authenticated Session Content Views Panel 
         if (root.is_logged_in) : Rectangle {
             horizontal-stretch: 1; background: Theme.bg-main; 
             VerticalLayout {
                 padding: 40px; spacing: 25px;
 
-                // --- TAB 1: OPERATOR PROFILE CARD (LOGOUT ALIGNED PERFECTLY IN CENTER-RIGHT PROFILE CLUSTER) ---
                 if (root.active_tab == "overview") : VerticalLayout {
                     spacing: 20px; 
                     Text { text: "Command Dashboard"; font-size: 32px; font-weight: 800; color: Theme.text-primary; letter-spacing: -0.5px; }
@@ -282,134 +319,258 @@ export component AppWindow inherits Window {
                     Rectangle {
                         background: Theme.bg-card; border-radius: 12px; border-width: 1px; border-color: Theme.border-color; drop-shadow-blur: 15px; drop-shadow-color: #0000004D;
                         height: 140px;
-                        
                         HorizontalLayout {
                             padding: 24px; spacing: 25px; alignment: start;
-                            
-                            // Column 1: Interactive Avatar
-                            VerticalLayout {
-                                alignment: center;
-                                Avatar { 
-                                    username: root.current_user_name; 
-                                    avatar_source: root.current_avatar_image;
-                                    has_avatar: root.current_avatar_loaded;
-                                    clicked => { root.request_profile_pic_update(); } 
-                                }
-                            }
-                            
-                            // Column 2: Identity Information Stack
-                            VerticalLayout {
-                                alignment: center; spacing: 4px; width: 240px;
-                                Text { text: root.current_user_full_name; font-size: 22px; font-weight: 900; color: Theme.brand-primary; overflow: elide; }
-                                Text { text: root.current_user_designation; font-size: 14px; font-weight: 700; color: Theme.text-secondary; }
-                                Text { text: "ID: @" + root.current_user_name; font-size: 13px; font-weight: 800; color: Theme.brand-warning; }
-                            }
-
+                            VerticalLayout { alignment: center; Avatar { username: root.current_user_name; avatar_source: root.current_avatar_image; has_avatar: root.current_avatar_loaded; clicked => { root.request_profile_pic_update(); } } }
+                            VerticalLayout { alignment: center; spacing: 4px; width: 250px; Text { text: root.current_user_full_name; font-size: 22px; font-weight: 900; color: Theme.brand-primary; overflow: elide; } Text { text: root.current_user_designation; font-size: 14px; font-weight: 700; color: Theme.text-secondary; } Text { text: "ID: @" + root.current_user_name; font-size: 13px; font-weight: 800; color: Theme.brand-warning; } }
                             Rectangle { width: 1px; background: Theme.border-color; }
-
-                            // Column 3: Lease Info
-                            VerticalLayout {
-                                alignment: center; spacing: 12px; width: 180px;
-                                VerticalLayout { spacing: 2px; Text { text: "AUTHORITY CLASS"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } Text { text: root.current_user_role; font-size: 15px; font-weight: 800; color: Theme.text-primary; } }
-                                VerticalLayout { spacing: 2px; Text { text: "LEASE EXPIRATION"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } Text { text: root.current_user_expires; font-size: 15px; font-weight: 800; color: Theme.brand-success; } }
-                            }
-                            
+                            VerticalLayout { alignment: center; spacing: 12px; width: 180px; VerticalLayout { spacing: 2px; Text { text: "AUTHORITY CLASS"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } Text { text: root.current_user_role; font-size: 15px; font-weight: 800; color: Theme.text-primary; } } VerticalLayout { spacing: 2px; Text { text: "LEASE EXPIRATION"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } Text { text: root.current_user_expires; font-size: 15px; font-weight: 800; color: Theme.brand-success; } } }
                             Rectangle { width: 1px; background: Theme.border-color; }
-
-                            // Column 4: Assigned Modules
-                            VerticalLayout {
-                                alignment: center; spacing: 6px; width: 340px;
-                                Text { text: "AUTHORIZED SCHEMAS"; font-size: 10px; font-weight: 800; color: Theme.text-muted; }
-                                Text { text: root.current_user_schemas_string; font-size: 13px; font-weight: 700; color: Theme.brand-primary; wrap: word-wrap; }
-                            }
-
+                            VerticalLayout { alignment: center; spacing: 6px; width: 340px; Text { text: "AUTHORIZED SCHEMAS"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } Text { text: root.current_user_schemas_string; font-size: 13px; font-weight: 700; color: Theme.brand-primary; wrap: word-wrap; } }
                             Rectangle { width: 1px; background: Theme.border-color; }
-
-                            // COLUMN 5: POLISHED REPOSITIONED LOGOUT ICON BUTTON (CENTER RIGHT MARGIN ACCENT)
-                            VerticalLayout {
-                                alignment: center; horizontal-stretch: 1; padding-left: 15px;
-                                HorizontalLayout {
-                                    alignment: end;
-                                    Rectangle {
-                                        width: 44px; height: 44px; border-radius: 22px;
-                                        background: logout_ta.has-hover ? #FF33661A : #FFFFFF0A;
-                                        border-width: 1px; border-color: logout_ta.has-hover ? #FF33664D : Theme.border-color;
-                                        animate background { duration: 125ms; } animate border-color { duration: 125ms; }
-                                        
-                                        Image {
-                                            source: @image-url("assets/log-out.svg"); 
-                                            width: 18px; height: 18px; image-fit: contain;
-                                            opacity: logout_ta.has-hover ? 1.0 : 0.7;
-                                            colorize: logout_ta.has-hover ? #FF3366 : Theme.text-secondary; // FIXED: Added vector layout color tinting tracker
-                                            animate opacity { duration: 125ms; }
-                                        }
-                                        logout_ta := TouchArea { clicked => { root.request_logout(); } }
-                                    }
-                                }
-                            }
+                            VerticalLayout { alignment: center; horizontal-stretch: 1; padding-left: 10px; HorizontalLayout { alignment: end; Rectangle { width: 44px; height: 44px; border-radius: 22px; background: logout_ta.has-hover ? #FF33661A : #FFFFFF0A; border-width: 1px; border-color: logout_ta.has-hover ? #FF33664D : Theme.border-color; animate background { duration: 125ms; } animate border-color { duration: 125ms; } Image { source: @image-url("assets/log-out.svg"); width: 18px; height: 18px; image-fit: contain; opacity: logout_ta.has-hover ? 1.0 : 0.7; colorize: logout_ta.has-hover ? #FF3366 : Theme.text-secondary; animate opacity { duration: 125ms; } } logout_ta := TouchArea { clicked => { root.request_logout(); } } } } }
                         }
                     }
-                    
-                    // FIXED UI/UX: Vertical spacer pins profile summary up top rather than sinking to page baseline
                     Rectangle { vertical-stretch: 1; }
                 }
 
-                // --- TAB 2: ADVANCED OPERATIONS MATRIX ---
                 if (root.active_tab == "operations") : VerticalLayout {
                     spacing: 24px;
-                    Text { text: "Multi-Node Matrix Routing"; font-size: 32px; font-weight: 800; color: Theme.text-primary; letter-spacing: -0.5px; }
+                    
+                    // --- STATIC OR ACTIVE SCHEMA DYNAMIC HEADER TOOLBAR PANEL ---
+                    HorizontalLayout {
+                        alignment: LayoutAlignment.start;
+                        spacing: 16px;
+                        
+                        if (root.op_target_schema != "none") : Rectangle {
+                            width: 36px; height: 36px; border-radius: 18px;
+                            background: back_ta.has-hover ? #00E5FF22 : #FFFFFF0A;
+                            border-width: 1px; border-color: back_ta.has-hover ? Theme.brand-primary : Theme.border-color;
+                            animate background { duration: 100ms; } animate border-color { duration: 100ms; }
+                            
+                            Text { text: "←"; font-size: 18px; font-weight: 900; color: Theme.brand-primary; horizontal-alignment: center; vertical-alignment: center; }
+                            back_ta := TouchArea { clicked => { root.op_target_schema = "none"; root.active_schema_action = "none"; root.op_status_msg = ""; } }
+                        }
+                        
+                        Text { 
+                            text: root.op_target_schema == "none" ? "Multi-Node Matrix Routing" : 
+                                  (root.op_target_schema == "gpffp" ? "GPF Final Payment System" : 
+                                  (root.op_target_schema == "vlcs" ? "Voucher Level Computerize System" : "Pension DAK System")); 
+                            font-size: 32px; font-weight: 800; color: Theme.text-primary; letter-spacing: -0.5px;
+                            vertical-alignment: center;
+                        }
+                    }
                     
                     ScrollView {
                         width: 100%; vertical-stretch: 1;
                         VerticalLayout {
                             spacing: 30px; padding-bottom: 40px;
 
-                            // SERVER CLUSTER 1
-                            VerticalLayout {
-                                spacing: 12px;
-                                Text { text: "SERVER HOST: 192.168.100.247 (FINANCE & ADMINISTRATION)"; font-size: 12px; font-weight: 900; color: Theme.text-muted; letter-spacing: 1px; }
-                                HorizontalLayout {
-                                    spacing: 12px;
-                                    SchemaCard { icon_text: "₹"; title: "gpffp: GPF Final Payment System"; has_access: root.schema_access.gpffp; active: root.op_target_schema == "gpffp"; clicked => { root.op_target_schema = "gpffp"; root.op_status_msg = ""; } }
-                                    SchemaCard { icon_text: "📄"; title: "VLCS: Voucher Level Computerize System"; has_access: root.schema_access.vlcs; active: root.op_target_schema == "vlcs"; clicked => { root.op_target_schema = "vlcs"; root.op_status_msg = ""; } }
-                                }
-                                HorizontalLayout {
-                                    spacing: 12px;
-                                    SchemaCard { icon_text: "⚙"; title: "agtall: AGT ALL System Nodes"; has_access: root.schema_access.agtall; active: root.op_target_schema == "agtall"; clicked => { root.op_target_schema = "agtall"; root.op_status_msg = ""; } }
-                                    SchemaCard { icon_text: "✉"; title: "agdak: Office DAK Monitoring System"; has_access: root.schema_access.agdak; active: root.op_target_schema == "agdak"; clicked => { root.op_target_schema = "agdak"; root.op_status_msg = ""; } }
-                                }
-                            }
-
-                            // SERVER CLUSTER 2
-                            VerticalLayout {
-                                spacing: 12px;
-                                Text { text: "SERVER HOST: 192.168.0.140 (PENSION ENGINES)"; font-size: 12px; font-weight: 900; color: Theme.text-muted; letter-spacing: 1px; }
-                                HorizontalLayout {
-                                    spacing: 12px;
-                                    SchemaCard { icon_text: "🛡"; title: "sai_agartala: P-SAI Core Pension"; has_access: root.schema_access.sai_agartala; active: root.op_target_schema == "sai_agartala"; clicked => { root.op_target_schema = "sai_agartala"; root.op_status_msg = ""; } }
-                                    SchemaCard { icon_text: "📮"; title: "pendak: Pension DAK System"; has_access: root.schema_access.pendak; active: root.op_target_schema == "pendak"; clicked => { root.op_target_schema = "pendak"; root.op_status_msg = ""; } }
-                                    SchemaCard { icon_text: "📊"; title: "penindex: Pension Indexing System"; has_access: root.schema_access.penindex; active: root.op_target_schema == "penindex"; clicked => { root.op_target_schema = "penindex"; root.op_status_msg = ""; } }
-                                }
-                            }
-
-                            Rectangle { height: 1px; background: Theme.border-color; }
-
-                            // WORKSPACE: GPFFP
-                            if (root.op_target_schema == "gpffp" && root.schema_access.gpffp) : Rectangle {
-                                background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.brand-primary; drop-shadow-blur: 15px; drop-shadow-color: #00E5FF1A;
+                            // 1. SCHEMA SELECTION LAYER (SERVER HOSTS - ONLY SHOWN WHEN NO ACTIVE SCHEMA IS LINKED)
+                            if (root.op_target_schema == "none") : VerticalLayout {
+                                spacing: 30px;
+                                
                                 VerticalLayout {
-                                    padding: 30px; spacing: 20px;
-                                    Text { text: "GPF FINAL PAYMENT SYSTEM - COMMAND CONSOLE"; font-size: 16px; font-weight: 900; color: Theme.brand-primary; letter-spacing: 1px; }
-                                    HorizontalLayout { spacing: 15px; VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "REGD NO"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.op_regd_no; placeholder_text: "Enter REGD_NO"; height: 38px; } } VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "SERIES ID"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.op_series_id; placeholder_text: "Enter SERIES_ID"; height: 38px; } } VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "ACCOUNT NO"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.op_account_no; placeholder_text: "Enter ACCOUNT_NO"; height: 38px; } } }
-                                    Text { text: "TRANSACTIONAL TRIGGERS"; font-size: 11px; font-weight: 800; color: Theme.brand-warning; }
-                                    HorizontalLayout { spacing: 15px; Button { text: "Delete Full Case"; height: 42px; horizontal-stretch: 1; clicked => { root.request_delete_full_case(root.op_regd_no, root.op_series_id, root.op_account_no); } } Button { text: "Delete Application"; height: 42px; horizontal-stretch: 1; clicked => { root.request_delete_application(root.op_regd_no); } } Button { text: "Delete Pre-Calculation"; height: 42px; horizontal-stretch: 1; clicked => { root.request_delete_precalc(root.op_regd_no); } } }
+                                    spacing: 12px;
+                                    Text { text: "SERVER HOST: 192.168.100.247 (FINANCE & ADMINISTRATION)"; font-size: 12px; font-weight: 900; color: Theme.text-muted; letter-spacing: 1px; }
+                                    HorizontalLayout {
+                                        spacing: 12px;
+                                        SchemaCard { icon_text: "₹"; title: "gpffp: GPF Final Payment System"; has_access: root.schema_access.gpffp; active: false; clicked => { root.op_target_schema = "gpffp"; root.active_schema_action = "gpffp_find"; } }
+                                        SchemaCard { icon_text: "📄"; title: "VLCS: Voucher Level Computerize System"; has_access: root.schema_access.vlcs; active: false; clicked => { root.op_target_schema = "vlcs"; root.active_schema_action = "vlcs_ddo"; } }
+                                    }
+                                    HorizontalLayout {
+                                        spacing: 12px;
+                                        SchemaCard { icon_text: "⚙"; title: "agtall: AGT ALL System Nodes"; has_access: root.schema_access.agtall; active: false; clicked => { root.op_target_schema = "agtall"; root.active_schema_action = "none"; } }
+                                        SchemaCard { icon_text: "✉"; title: "agdak: Office DAK Monitoring System"; has_access: root.schema_access.agdak; active: false; clicked => { root.op_target_schema = "agdak"; root.active_schema_action = "none"; } }
+                                    }
+                                }
+
+                                VerticalLayout {
+                                    spacing: 12px;
+                                    Text { text: "SERVER HOST: 192.168.0.140 (PENSION ENGINES)"; font-size: 12px; font-weight: 900; color: Theme.text-muted; letter-spacing: 1px; }
+                                    HorizontalLayout {
+                                        spacing: 12px;
+                                        SchemaCard { icon_text: "🛡"; title: "sai_agartala: P-SAI Core Pension"; has_access: root.schema_access.sai_agartala; active: false; clicked => { root.op_target_schema = "sai_agartala"; root.active_schema_action = "none"; } }
+                                        SchemaCard { icon_text: "📮"; title: "pendak: Pension DAK System"; has_access: root.schema_access.pendak; active: false; clicked => { root.op_target_schema = "pendak"; root.active_schema_action = "pendak_entry"; } }
+                                        SchemaCard { icon_text: "📊"; title: "penindex: Pension Indexing System"; has_access: root.schema_access.penindex; active: false; clicked => { root.op_target_schema = "penindex"; root.active_schema_action = "none"; } }
+                                    }
                                 }
                             }
 
-                            if (root.op_target_schema != "gpffp") : Rectangle {
-                                height: 160px; background: Theme.bg-sidebar; border-radius: 12px; border-width: 1px; border-color: Theme.border-dark;
-                                VerticalLayout { alignment: center; spacing: 10px; Text { text: "STANDBY CONSOLE: " + root.op_target_schema; font-size: 18px; font-weight: 900; color: Theme.text-primary; horizontal-alignment: center; } Text { text: "Connection verified. Data structures loaded. Awaiting business logic deployment for this schema."; font-italic: true; color: Theme.text-muted; horizontal-alignment: center; font-size: 14px;} }
+                            // 2. DYNAMIC WORKSPACE LAYER: GPFFP OPERATIONS
+                            if (root.op_target_schema == "gpffp" && root.schema_access.gpffp) : VerticalLayout {
+                                spacing: 20px;
+                                HorizontalLayout {
+                                    spacing: 12px;
+                                    SchemaAction { icon_text: "🔍"; title: "Get Case Details"; active: root.active_schema_action == "gpffp_find"; clicked => { root.active_schema_action = "gpffp_find"; root.op_status_msg = ""; } }
+                                    SchemaAction { icon_text: "✏️"; title: "Update Case Status"; active: root.active_schema_action == "gpffp_update"; clicked => { root.active_schema_action = "gpffp_update"; root.op_status_msg = ""; } }
+                                    SchemaAction { icon_text: "🗑️"; title: "Destructive Options"; active: root.active_schema_action == "gpffp_delete"; clicked => { root.active_schema_action = "gpffp_delete"; root.op_status_msg = ""; } }
+                                }
+                                Rectangle { height: 1px; background: Theme.border-color; opacity: 0.3; }
+                                if (root.active_schema_action == "gpffp_find") : Rectangle {
+                                    background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.brand-primary; drop-shadow-blur: 15px; drop-shadow-color: #00E5FF1A;
+                                    VerticalLayout {
+                                        padding: 30px; spacing: 20px;
+                                        Text { text: "GPF CASE DISCOVERY ENGINE"; font-size: 16px; font-weight: 900; color: Theme.brand-primary; letter-spacing: 1px; }
+                                        HorizontalLayout { spacing: 15px; VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "REGISTRATION NUMBER (REGD_NO)"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.op_regd_no; placeholder_text: "Enter REGD_NO identity..."; height: 38px; } } }
+                                        HorizontalLayout { spacing: 15px; Button { text: "🔍  Discover Case Profile Natively"; height: 42px; horizontal-stretch: 1; clicked => { root.request_find_gpf_case(root.op_regd_no); } } }
+                                        if (root.gpf_case_found) : VerticalLayout {
+                                            spacing: 0px; Rectangle { height: 10px; }
+                                            Rectangle {
+                                                background: #00E5FF05; border-radius: 12px; border-width: 1px; border-color: #00E5FF33;
+                                                VerticalLayout {
+                                                    padding: 20px; spacing: 14px;
+                                                    Text { text: "DISCOVERED FILE PROFILE META ATTRIBUTES"; font-size: 13px; font-weight: 900; color: Theme.brand-warning; letter-spacing: 0.5px; }
+                                                    HorizontalLayout {
+                                                        spacing: 20px;
+                                                        VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "REGISTRATION NUMBER"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } Text { text: root.active_gpf_case.regd_no; font-size: 14px; font-weight: 800; color: Theme.text-primary; } }
+                                                        VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "ACCOUNT HOLDER NAME"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } Text { text: root.active_gpf_case.holder_name; font-size: 14px; font-weight: 800; color: Theme.text-primary; } }
+                                                        VerticalLayout { spacing: 4px; width: 100px; Text { text: "SERIES ID"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } Text { text: root.active_gpf_case.series_id; font-size: 14px; font-weight: 800; color: Theme.brand-primary; } }
+                                                        VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "ACCOUNT NUMBER"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } Text { text: root.active_gpf_case.account_no; font-size: 14px; font-weight: 800; color: Theme.brand-primary; } }
+                                                    }
+                                                    HorizontalLayout {
+                                                        spacing: 20px;
+                                                        VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "CLOSING LEDGER BALANCE"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } Text { text: "₹ " + root.active_gpf_case.balance; font-size: 16px; font-weight: 900; color: Theme.brand-success; } }
+                                                        VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "APPLICATION LIFECYCLE STATUS"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } Text { text: root.active_gpf_case.status; font-size: 14px; font-weight: 800; color: Theme.brand-warning; } }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if (root.active_schema_action == "gpffp_update") : Rectangle {
+                                    background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.brand-warning; drop-shadow-blur: 15px; drop-shadow-color: #F59E0B1A;
+                                    VerticalLayout {
+                                        padding: 30px; spacing: 20px;
+                                        Text { text: "UPDATE GPF CASE STATUS OVERRIDE"; font-size: 16px; font-weight: 900; color: Theme.brand-warning; letter-spacing: 1px; }
+                                        HorizontalLayout { spacing: 15px; VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "TARGET REGD_NO"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.op_regd_no; placeholder_text: "Target Application No"; height: 38px; } } VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "NEW STATUS CODE"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.op_gpf_new_status; placeholder_text: "Enter forced status..."; height: 38px; } } }
+                                        Button { text: "✏️ Commit Status Override"; height: 42px; clicked => { root.request_update_gpf_status(root.op_regd_no, root.op_gpf_new_status); } }
+                                    }
+                                }
+                                if (root.active_schema_action == "gpffp_delete") : Rectangle {
+                                    background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.brand-danger; drop-shadow-blur: 15px; drop-shadow-color: #EF44441A;
+                                    VerticalLayout {
+                                        padding: 30px; spacing: 20px;
+                                        Text { text: "GPFFP DESTRUCTIVE PROTOCOLS"; font-size: 16px; font-weight: 900; color: Theme.brand-danger; letter-spacing: 1px; }
+                                        HorizontalLayout { spacing: 15px; VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "TARGET REGD_NO"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.op_regd_no; placeholder_text: "Application No"; height: 38px; } } VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "SERIES ID"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.op_series_id; placeholder_text: "Series"; height: 38px; } } VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "ACCOUNT NO"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.op_account_no; placeholder_text: "Account"; height: 38px; } } }
+                                        HorizontalLayout { spacing: 15px; Button { text: "Delete Full Case"; height: 42px; horizontal-stretch: 1; clicked => { root.request_delete_full_case(root.op_regd_no, root.op_series_id, root.op_account_no); } } Button { text: "Delete Application"; height: 42px; horizontal-stretch: 1; clicked => { root.request_delete_application(root.op_regd_no); } } Button { text: "Delete Pre-Calculation"; height: 42px; horizontal-stretch: 1; clicked => { root.request_delete_precalc(root.op_regd_no); } } }
+                                    }
+                                }
                             }
+
+                            // 3. DYNAMIC WORKSPACE LAYER: VLCS OPERATIONS
+                            if (root.op_target_schema == "vlcs" && root.schema_access.vlcs) : VerticalLayout {
+                                spacing: 20px;
+                                HorizontalLayout {
+                                    spacing: 12px;
+                                    SchemaAction { icon_text: "🏢"; title: "DDO Operations"; active: root.active_schema_action == "vlcs_ddo"; clicked => { root.active_schema_action = "vlcs_ddo"; root.op_status_msg = ""; } }
+                                    SchemaAction { icon_text: "👥"; title: "Employee Operations"; active: root.active_schema_action == "vlcs_emp"; clicked => { root.active_schema_action = "vlcs_emp"; root.op_status_msg = ""; } }
+                                }
+                                Rectangle { height: 1px; background: Theme.border-color; opacity: 0.3; }
+                                if (root.active_schema_action == "vlcs_ddo") : Rectangle {
+                                    background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.brand-primary; drop-shadow-blur: 15px; drop-shadow-color: #00E5FF1A;
+                                    VerticalLayout {
+                                        padding: 30px; spacing: 20px;
+                                        Text { text: "VLCS DDO MANAGEMENT TERMINAL"; font-size: 16px; font-weight: 900; color: Theme.brand-primary; letter-spacing: 1px; }
+                                        HorizontalLayout { spacing: 15px; VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "DDO IDENTIFIER CODE"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.vlcs_ddo_code; placeholder_text: "Enter DDO routing code..."; height: 38px; } } }
+                                        HorizontalLayout { spacing: 15px; Button { text: "🏢  Get DDO Details"; height: 42px; horizontal-stretch: 1; clicked => { root.request_vlcs_get_ddo(root.vlcs_ddo_code); } } Button { text: "✏️  Update DDO Details"; height: 42px; horizontal-stretch: 1; clicked => { root.request_vlcs_update_ddo(root.vlcs_ddo_code); } } }
+                                    }
+                                }
+                                if (root.active_schema_action == "vlcs_emp") : Rectangle {
+                                    background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.brand-primary; drop-shadow-blur: 15px; drop-shadow-color: #00E5FF1A;
+                                    VerticalLayout {
+                                        padding: 30px; spacing: 20px;
+                                        Text { text: "VLCS EMPLOYEE MATRIX TERMINAL"; font-size: 16px; font-weight: 900; color: Theme.brand-primary; letter-spacing: 1px; }
+                                        HorizontalLayout { spacing: 15px; VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "EMPLOYEE ID"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.vlcs_emp_code; placeholder_text: "Enter Employee Code..."; height: 38px; } } VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "NEW MOBILE NUMBER"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.vlcs_emp_mobile; placeholder_text: "Enter 10-digit mobile..."; height: 38px; } } }
+                                        HorizontalLayout {
+                                            spacing: 15px;
+                                            Button {
+                                                text: "👥  Get Employee Details";
+                                                height: 42px;
+                                                horizontal-stretch: 1;
+                                                clicked => { root.request_vlcs_get_emp(root.vlcs_emp_code); }
+                                            }
+                                            Button {
+                                                text: "📱  Update Mobile Sync";
+                                                height: 42px;
+                                                horizontal-stretch: 1;
+                                                clicked => { root.request_vlcs_update_emp(root.vlcs_emp_code, root.vlcs_emp_mobile); }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 4. DYNAMIC WORKSPACE LAYER: PENSION DAK SYSTEM (pendak)
+                            if (root.op_target_schema == "pendak" && root.schema_access.pendak) : VerticalLayout {
+                                spacing: 20px;
+                                HorizontalLayout {
+                                    spacing: 12px;
+                                    SchemaAction { icon_text: "📮"; title: "Entry Outward Pension Case"; active: root.active_schema_action == "pendak_entry"; clicked => { root.active_schema_action = "pendak_entry"; root.op_status_msg = ""; } }
+                                }
+                                Rectangle { height: 1px; background: Theme.border-color; opacity: 0.3; }
+                                if (root.active_schema_action == "pendak_entry") : Rectangle {
+                                    background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.brand-primary; drop-shadow-blur: 15px; drop-shadow-color: #00E5FF1A;
+                                    VerticalLayout {
+                                        padding: 30px; spacing: 18px;
+                                        Text { text: "ENTRY OUTWARD PENSION CASE - MANAGEMENT PANEL"; font-size: 16px; font-weight: 900; color: Theme.brand-primary; letter-spacing: 0.5px; }
+                                        HorizontalLayout {
+                                            spacing: 20px;
+                                            VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "APPLICATION NUMBER *"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.dak_app_num; placeholder_text: "ENTER APPLICATION NUMBER"; height: 38px; } }
+                                            VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "LETTER NO *"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.dak_letter_no; placeholder_text: "ENTER LETTER NO"; height: 38px; } }
+                                        }
+                                        HorizontalLayout {
+                                            spacing: 20px;
+                                            VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "PPO/FPPO NO"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.dak_ppo_fppo; placeholder_text: "ENTER PPO/FPPO"; height: 38px; } }
+                                            VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "GPO"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.dak_gpo; placeholder_text: "ENTER GPO"; height: 38px; } }
+                                        }
+                                        HorizontalLayout {
+                                            spacing: 20px;
+                                            VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "CPO"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.dak_cpo; placeholder_text: "ENTER CPO"; height: 38px; } }
+                                            VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "SECTION *"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.dak_section; placeholder_text: "e.g., PENSION-01"; height: 38px; } }
+                                        }
+                                        HorizontalLayout {
+                                            spacing: 20px;
+                                            VerticalLayout { spacing: 4px; horizontal-stretch: 2; Text { text: "SUBJECT *"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.dak_subject; placeholder_text: "ENTER SUBJECT"; height: 38px; } }
+                                            VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "NO. OF COPIES (1, 2, or 3) *"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.dak_no_of_copies; placeholder_text: "1, 2, or 3"; height: 38px; } }
+                                        }
+                                        Rectangle { height: 1px; background: Theme.border-color; opacity: 0.4; }
+                                        Text { text: "RECIPIENT BARCODE ROUTING MATRIX"; font-size: 12px; font-weight: 900; color: Theme.brand-warning; }
+                                        
+                                        if (root.dak_no_of_copies == "1" || root.dak_no_of_copies == "2" || root.dak_no_of_copies == "3") : HorizontalLayout {
+                                            spacing: 12px;
+                                            VerticalLayout { spacing: 4px; horizontal-stretch: 2; Text { text: "ADDRESSEE (1) *"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } LineEdit { text <=> root.dak_adr_1; placeholder_text: "ENTER ADDRESSEE"; height: 34px; } }
+                                            VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "BAR CODE"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } LineEdit { text <=> root.dak_bar_1; placeholder_text: "----"; height: 34px; } }
+                                            VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "SENT BY *"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } LineEdit { text <=> root.dak_sent_1; height: 34px; } }
+                                            VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "SERVICE BOOK *"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } LineEdit { text <=> root.dak_sb_1; height: 34px; } }
+                                        }
+                                        if (root.dak_no_of_copies == "2" || root.dak_no_of_copies == "3") : HorizontalLayout {
+                                            spacing: 12px;
+                                            VerticalLayout { spacing: 4px; horizontal-stretch: 2; Text { text: "ADDRESSEE (2) *"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } LineEdit { text <=> root.dak_adr_2; placeholder_text: "ENTER ADDRESSEE"; height: 34px; } }
+                                            VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "BAR CODE"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } LineEdit { text <=> root.dak_bar_2; placeholder_text: "----"; height: 34px; } }
+                                            VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "SENT BY *"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } LineEdit { text <=> root.dak_sent_2; height: 34px; } }
+                                            VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "SERVICE BOOK *"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } LineEdit { text <=> root.dak_sb_2; height: 34px; } }
+                                        }
+                                        if (root.dak_no_of_copies == "3") : HorizontalLayout {
+                                            spacing: 12px;
+                                            VerticalLayout { spacing: 4px; horizontal-stretch: 2; Text { text: "ADDRESSEE (3) *"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } LineEdit { text <=> root.dak_adr_3; placeholder_text: "ENTER ADDRESSEE"; height: 34px; } }
+                                            VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "BAR CODE"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } LineEdit { text <=> root.dak_bar_3; placeholder_text: "----"; height: 34px; } }
+                                            VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "SENT BY *"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } LineEdit { text <=> root.dak_sent_3; height: 34px; } }
+                                            VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "SERVICE BOOK *"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } LineEdit { text <=> root.dak_sb_3; height: 34px; } }
+                                        }
+                                        Rectangle { height: 10px; }
+                                        Button { text: "💾  Submit Outward DAK Record Entry"; height: 42px; clicked => { root.request_submit_outward_dak(); } }
+                                    }
+                                }
+                            }
+
+                            // 5. UNAVAILABLE SCHEMA STANDBY STATE
+                            if (root.op_target_schema != "gpffp" && root.op_target_schema != "vlcs" && root.op_target_schema != "pendak" && root.op_target_schema != "none") : Rectangle {
+                                height: 160px; background: Theme.bg-sidebar; border-radius: 12px; border-width: 1px; border-color: Theme.border-dark;
+                                VerticalLayout { alignment: center; spacing: 10px; Text { text: "STANDBY CONSOLE: " + root.op_target_schema; font-size: 18px; font-weight: 900; color: Theme.text-primary; horizontal-alignment: center; } Text { text: "Connection verified. Data structures loaded. Awaiting dynamic UI logic deployment for this schema module."; font-italic: true; color: Theme.text-muted; horizontal-alignment: center; font-size: 14px;} }
+                            }
+
+                            // SYSTEM MESSAGES ALERTS
                             if (root.op_status_msg != "") : Rectangle {
                                 background: root.op_is_error ? #7F1D1D33 : #064E3B33; border-radius: 6px; border-width: 1px; border-color: root.op_is_error ? Theme.brand-danger : Theme.brand-success;
                                 HorizontalLayout { padding: 12px; Text { text: root.op_status_msg; color: root.op_is_error ? #FCA5A5 : #6EE7B7; font-size: 14px; font-weight: 800; horizontal-alignment: center; } }

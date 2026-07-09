@@ -17,7 +17,7 @@ export global Theme {
     // --- CRISP HIGH-CONTRAST BORDERS ---
     in-out property <color> border-color: #242938;
     in-out property <color> border-dark: #181C26;
-    
+
     // --- ILLUMINATED TYPOGRAPHY ---
     in-out property <color> text-primary: #FFFFFF;   // Pure White
     in-out property <color> text-secondary: #E2E8F0; // Very Light Crisp Gray
@@ -55,13 +55,13 @@ export component NeonButton {
     in-out property <string> text;
     in-out property <bool> primary;
     callback clicked();
-    
+
     Rectangle {
         background: primary ? Theme.primary : Theme.secondary;
         border_radius: Theme.radius_md;
         border_width: 2px;
         border_color: primary ? Theme.primary : Theme.secondary;
-        
+
         HorizontalLayout {
             alignment: center;
             Text {
@@ -70,7 +70,10 @@ export component NeonButton {
                 font_weight: 700;
             }
         }
-        TouchArea { clicked => { root.clicked(); } }
+
+        TouchArea {
+            clicked => { root.clicked(); }
+        }
     }
 }
 
@@ -78,20 +81,20 @@ export component NeonInput {
     in-out property <string> placeholder_text;
     in-out property <string> input_value;
     in-out property <bool> is_password;
-    
+
     Rectangle {
         background: Theme.bg_surface;
         border_radius: Theme.radius_md;
         border_width: 1px;
         border_color: Theme.accent_border;
-        
-        if (root.input_value == "") : Text {
+
+        if (root.input_value == ""): Text {
             text: root.placeholder_text;
             color: Theme.text_secondary;
             vertical_alignment: center;
             x: 10px;
         }
-        
+
         TextInput {
             text <=> root.input_value;
             color: Theme.text_primary;
@@ -110,11 +113,11 @@ export component NeonCard {
         border_radius: Theme.radius_lg;
         border_width: 1px;
         border_color: Theme.primary_dark;
-        
+
         VerticalLayout {
             spacing: Theme.spacing_md;
             padding: Theme.spacing_lg;
-            if (title != "") : Text {
+            if (title != ""): Text {
                 text: root.title;
                 color: Theme.text_primary;
                 font_size: Theme.font_size_large;

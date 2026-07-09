@@ -6,19 +6,19 @@ export component Sidebar {
     in property <string> app_version;
     in property <string> copyright_text;
     in property <string> current_view;
-    
+
     callback navigate_view(string);
     callback logout();
-    
+
     width: 240px;
     background: Theme.bg_surface;
     border_right_width: 2px;
     border_right_color: Theme.primary;
-    
+
     VerticalLayout {
         spacing: 0;
         padding: Theme.spacing_lg;
-        
+
         Rectangle {
             height: 60px;
             margin_bottom: Theme.spacing_lg;
@@ -33,20 +33,20 @@ export component Sidebar {
                 }
             }
         }
-        
+
         VerticalLayout {
             spacing: Theme.spacing_sm;
             padding_top: Theme.spacing_lg;
             border_top_width: 1px;
             border_top_color: Theme.primary_dark;
-            
+
             Text {
                 text: "v\{root.app_version}"; // FIXED: Slint correct string formatting
                 color: Theme.text_tertiary;
                 font_size: Theme.font_size_small;
                 horizontal_alignment: center;
             }
-            
+
             Text {
                 text: root.copyright_text;
                 color: Theme.text_tertiary;
@@ -54,17 +54,25 @@ export component Sidebar {
                 horizontal_alignment: center;
                 wrap: word_wrap;
             }
-            
+
             Rectangle {
                 height: 40px;
                 background: Theme.error;
                 border_radius: Theme.radius_md;
-                
+
                 HorizontalLayout {
                     alignment: center;
-                    Text { text: "  Logout"; color: #FFFFFF; font_weight: 600; vertical_alignment: center; }
+                    Text {
+                        text: "  Logout";
+                        color: #FFFFFF;
+                        font_weight: 600;
+                        vertical_alignment: center;
+                    }
                 }
-                TouchArea { clicked => { root.logout(); } }
+
+                TouchArea {
+                    clicked => { root.logout(); }
+                }
             }
         }
     }

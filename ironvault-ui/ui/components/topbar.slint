@@ -5,20 +5,20 @@ import { Theme } from "../theme.slint";
 export component TopBar inherits Rectangle {
     in property <string> user_name;
     in property <string> user_role;
-    
+
     callback logout();
-    
+
     height: 60px;
     background: Theme.bg_tertiary;
-    
+
     // FIXED: Using standard Slint Rectangle border constraints
     border_width: 1px;
     border_color: Theme.primary_dark;
-    
+
     HorizontalLayout {
         padding: Theme.spacing_md;
         spacing: Theme.spacing_lg;
-        
+
         Text {
             text: "  Active";
             color: Theme.success;

@@ -3,12 +3,12 @@
 //! Handles all database operations for the primary application state
 //! using PostgreSQL as the main data store
 
-use sqlx::{postgres::PgPoolOptions, PgPool};
-use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::{postgres::PgPoolOptions, PgPool};
+use uuid::Uuid;
 
-use crate::{DbError, DatabaseConnection};
+use crate::{DatabaseConnection, DbError};
 
 /// PostgreSQL connection pool wrapper
 pub struct PostgresConnection {

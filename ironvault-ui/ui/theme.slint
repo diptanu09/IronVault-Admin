@@ -1,27 +1,26 @@
 // Futuristic theme with color palettes and font definitions
 
-// Color Palette - Dark Neon
 export global Theme {
     // --- VIBRANT PREMIUM BRAND TOKENS ---
-    in-out property <color> brand-primary: #00E5FF; // High-energy Neon Cyan
-    in-out property <color> brand-success: #00FF9D; // Bright Mint Green
-    in-out property <color> brand-warning: #FFB800; // Vivid Gold
-    in-out property <color> brand-danger: #FF3366;  // Punchy Crimson
+    in-out property <color> brand-primary: #00E5FF; 
+    in-out property <color> brand-success: #00FF9D; 
+    in-out property <color> brand-warning: #FFB800; 
+    in-out property <color> brand-danger: #FF3366;  
     
     // --- DEEP RICH BACKGROUNDS ---
-    in-out property <color> bg-main: #050507;       // Deepest Void Black
-    in-out property <color> bg-sidebar: #0B0D12;    // Distinct Edge Material
-    in-out property <color> bg-card: #11141A;       // Elevated Surface
-    in-out property <color> bg-card-hover: #1A1E26; // Interactive Surface Glow
+    in-out property <color> bg-main: #050507;       
+    in-out property <color> bg-sidebar: #0B0D12;    
+    in-out property <color> bg-card: #11141A;       
+    in-out property <color> bg-card-hover: #1A1E26; 
     
     // --- CRISP HIGH-CONTRAST BORDERS ---
     in-out property <color> border-color: #242938;
     in-out property <color> border-dark: #181C26;
 
     // --- ILLUMINATED TYPOGRAPHY ---
-    in-out property <color> text-primary: #FFFFFF;   // Pure White
-    in-out property <color> text-secondary: #E2E8F0; // Very Light Crisp Gray
-    in-out property <color> text-muted: #94A3B8;     // Clean Mid-Gray
+    in-out property <color> text-primary: #FFFFFF;    
+    in-out property <color> text-secondary: #E2E8F0;  
+    in-out property <color> text-muted: #94A3B8;      
     in-out property <color> text-dark: #64748B;
 
     in-out property <length> input-height: 34px;
@@ -51,11 +50,31 @@ export global Theme {
     in-out property <length> radius_lg: 16px;
 }
 
+// --- SHARED DYNAMIC SCHEMA ACTION TOOLBAR BUTTON ---
+export component SchemaAction inherits Rectangle {
+    in property <string> icon_text;
+    in property <string> title;
+    in property <bool> active;
+    callback clicked();
+
+    height: 42px; border-radius: 8px; horizontal-stretch: 1;
+    background: active ? #00E5FF22 : (ta.has-hover ? Theme.bg-card-hover : Theme.bg-sidebar);
+    border-width: 1px; border-color: active ? Theme.brand-primary : Theme.border-dark;
+    
+    animate background { duration: 150ms; } animate border-color { duration: 150ms; }
+
+    HorizontalLayout {
+        padding-left: 14px; padding-right: 14px; spacing: 10px; alignment: center;
+        Text { text: root.icon_text; font-size: 16px; vertical-alignment: center; color: active ? Theme.brand-primary : Theme.text-muted; }
+        Text { text: root.title; font-size: 12px; font-weight: 800; color: active ? Theme.brand-primary : Theme.text-primary; vertical-alignment: center; }
+    }
+    ta := TouchArea { clicked => { root.clicked(); } }
+}
+
 export component NeonButton {
     in-out property <string> text;
     in-out property <bool> primary;
     callback clicked();
-
     Rectangle {
         background: primary ? Theme.primary : Theme.secondary;
         border_radius: Theme.radius_md;
@@ -70,10 +89,7 @@ export component NeonButton {
                 font_weight: 700;
             }
         }
-
-        TouchArea {
-            clicked => { root.clicked(); }
-        }
+        TouchArea { clicked => { root.clicked(); } }
     }
 }
 
@@ -90,11 +106,10 @@ export component NeonInput {
 
         if (root.input_value == ""): Text {
             text: root.placeholder_text;
-            color: Theme.text_secondary;
+            color: Theme.text-secondary;
             vertical_alignment: center;
             x: 10px;
         }
-
         TextInput {
             text <=> root.input_value;
             color: Theme.text_primary;
@@ -113,13 +128,12 @@ export component NeonCard {
         border_radius: Theme.radius_lg;
         border_width: 1px;
         border_color: Theme.primary_dark;
-
         VerticalLayout {
             spacing: Theme.spacing_md;
             padding: Theme.spacing_lg;
             if (title != ""): Text {
                 text: root.title;
-                color: Theme.text_primary;
+                color: Theme.text-primary;
                 font_size: Theme.font_size_large;
                 font_weight: 600;
             }

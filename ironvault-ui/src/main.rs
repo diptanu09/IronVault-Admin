@@ -241,7 +241,7 @@ async fn main() -> Result<(), slint::PlatformError> {
         let ui_weak = app_weak_op1.clone(); let oracle = Arc::clone(&oracle_op1); let (r_no, s_id, a_no) = (regd_no.to_string(), series_id.to_string(), account_no.to_string());
         tokio::spawn(async move {
             match oracle.gpffp_delete_full_case(&r_no, &s_id, &a_no).await {
-                Ok(_) => { slint::invoke_from_event_loop(move || { let ui = ui_weak.unwrap(); ui.set_op_is_error(false); ui.set_op_status_msg("SUCCESS: GPFFP Full Case cleared.".into()); ui.set_op_regd_no("".into()); ui.set_op_series_id("".into()); ui.set_op_account_no("".into()); ui.set_gpf_case_found(false); }).unwrap(); }
+                Ok(_) => { slint::invoke_from_event_loop(move || { let ui = ui_weak.unwrap(); ui.set_op_is_error(false); ui.set_op_status_msg("SUCCESS: GPFFP Final payment case completely cleared.".into()); ui.set_op_regd_no("".into()); ui.set_op_series_id("".into()); ui.set_op_account_no("".into()); ui.set_gpf_case_found(false); }).unwrap(); }
                 Err(e) => { slint::invoke_from_event_loop(move || { let ui = ui_weak.unwrap(); ui.set_op_is_error(true); ui.set_op_status_msg(format!("GPFFP TRANSACTION FAILURE: {}", e).into()); }).unwrap(); }
             }
         });
@@ -269,7 +269,7 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    // Stubs
+    // Sub-stubs
     app.on_request_update_gpf_status(|_, _| {}); app.on_request_vlcs_get_ddo(|_| {}); app.on_request_vlcs_update_ddo(|_| {}); app.on_request_vlcs_get_emp(|_| {}); app.on_request_vlcs_update_emp(|_, _| {});
 
     // --- PENDAK DYNAMIC CASE LIVE AUTO-LOOKUP HOOK CONTEXT ---
@@ -310,16 +310,16 @@ async fn main() -> Result<(), slint::PlatformError> {
     let oracle_dak = Arc::clone(&oracle_client);
     app.on_request_submit_outward_dak(move || {
         let ui = app_weak_dak.unwrap(); let oracle = Arc::clone(&oracle_dak);
-        let app_num = ui.get_dak_app_num().to_string().trim().to_string();
-        let letter_no = ui.get_dak_letter_no().to_string().trim().to_string();
         
+        let app_num = ui.get_entry_app_num().to_string().trim().to_string();
+        let letter_no = ui.get_entry_letter_no().to_string().trim().to_string();
         let ppo = ui.get_dak_ppo().to_string();
         let fppo = ui.get_dak_fppo().to_string();
         let gpo = ui.get_dak_gpo().to_string().trim().to_string();
         let cpo = ui.get_dak_cpo().to_string().trim().to_string();
-        let section = ui.get_dak_section().to_string().trim().to_string();
-        let subject = ui.get_dak_subject().to_string().trim().to_string();
-        let copies_str = ui.get_dak_no_of_copies().to_string();
+        let section = ui.get_entry_section().to_string().trim().to_string();
+        let subject = ui.get_entry_subject().to_string().trim().to_string();
+        let copies_str = ui.get_entry_no_of_copies().to_string();
         let copies_count: i32 = copies_str.parse().unwrap_or(1);
 
         if app_num.is_empty() || letter_no.is_empty() || section.is_empty() || subject.is_empty() {
@@ -339,8 +339,6 @@ async fn main() -> Result<(), slint::PlatformError> {
         }
 
         let ui_weak = app_weak_dak.clone();
-        
-        // RECODED: PPO and FPPO merged into a formatted entry string parameter
         let ppo_combined = format!("PPO: {} / FPPO: {}", ppo, fppo);
         
         let transaction_payload = ironvault_db::oracle::PensionDakEntry {
@@ -352,9 +350,9 @@ async fn main() -> Result<(), slint::PlatformError> {
                 Ok(_) => {
                     slint::invoke_from_event_loop(move || {
                         let ui_handle = ui_weak.unwrap(); ui_handle.set_op_is_error(false); ui_handle.set_op_status_msg(format!("SUCCESS: Outward case record for Application {} logged.", app_num).into());
-                        ui_handle.set_dak_app_num("".into()); ui_handle.set_dak_letter_no("".into());
+                        ui_handle.set_entry_app_num("".into()); ui_handle.set_entry_letter_no("".into());
                         ui_handle.set_dak_ppo("".into()); ui_handle.set_dak_fppo("".into()); ui_handle.set_dak_gpo("".into()); ui_handle.set_dak_cpo("".into());
-                        ui_handle.set_dak_section("".into()); ui_handle.set_dak_subject("".into()); ui_handle.set_dak_no_of_copies("1".into());
+                        ui_handle.set_entry_section("".into()); ui_handle.set_entry_subject("".into()); ui_handle.set_entry_no_of_copies("1".into());
                         ui_handle.set_dak_adr_1("".into()); ui_handle.set_dak_bar_1("".into());
                         ui_handle.set_dak_adr_2("".into()); ui_handle.set_dak_bar_2("".into());
                         ui_handle.set_dak_adr_3("".into()); ui_handle.set_dak_bar_3("".into());
@@ -365,9 +363,7 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    // --- PRODUCTION SELECTION INTERCEPTORS FOR THE EXTENDED DAK PRIVILEGES BUTTONS ---
-
-    // 1. Find Outward Pension Case Option
+    // ACTION 3: Find Outward Record Archive Task
     let app_weak_dak_query = app.as_weak();
     let oracle_dak_query = Arc::clone(&oracle_client);
     app.on_request_find_outward_dak(move |search_key| {
@@ -386,51 +382,52 @@ async fn main() -> Result<(), slint::PlatformError> {
                         ui.set_dak_adr_1(record.addressee.into()); ui.set_dak_bar_1(record.barcode.into()); ui.set_dak_sent_1(record.sent_by.into());
                     }).unwrap();
                 }
-                Ok(None) => { slint::invoke_from_event_loop(move || { let ui = ui_weak.unwrap(); ui.set_dak_case_found(false); ui.set_op_is_error(true); ui.set_op_status_msg("Discovery Fault: Given index key doesn't exist inside archive.".into()); }).unwrap(); }
+                Ok(None) => { slint::invoke_from_event_loop(move || { let ui = ui_weak.unwrap(); ui.set_dak_case_found(false); ui.set_op_is_error(true); ui.set_op_status_msg("Discovery Fault: Given index key doesn't exist inside archive registry.".into()); }).unwrap(); }
                 Err(e) => { slint::invoke_from_event_loop(move || { let ui = ui_weak.unwrap(); ui.set_dak_case_found(false); ui.set_op_is_error(true); ui.set_op_status_msg(format!("ORACLE LOOKUP REJECTION: {}", e).into()); }).unwrap(); }
             }
         });
     });
 
-    // 2. Edit or Update Outward Case Option
+    // ACTION 4: Edit or Update Outward Case Option
     let app_weak_dak_modify = app.as_weak();
     let oracle_dak_modify = Arc::clone(&oracle_client);
     app.on_request_update_outward_dak(move || {
         let ui_weak = app_weak_dak_modify.clone(); let oracle = Arc::clone(&oracle_dak_modify);
         let ui = app_weak_dak_modify.unwrap();
-        let app_num = ui.get_dak_app_num().to_string().trim().to_string();
-        let section = ui.get_dak_section().to_string().trim().to_string();
-        let subject = ui.get_dak_subject().to_string().trim().to_string();
+        
+        let app_num = ui.get_edit_app_num().to_string().trim().to_string();
+        let section = ui.get_edit_section().to_string().trim().to_string();
+        let subject = ui.get_edit_subject().to_string().trim().to_string();
+        
         if app_num.is_empty() || section.is_empty() || subject.is_empty() {
             ui.set_op_is_error(true); ui.set_op_status_msg("Fault: Fields required to execute modifications are empty.".into());
             return;
         }
         tokio::spawn(async move {
             match oracle.pendak_update_outward_case(&app_num, &section, &subject).await {
-                Ok(_) => { slint::invoke_from_event_loop(move || { let ui_handle = ui_weak.unwrap(); ui_handle.set_op_is_error(false); ui_handle.set_op_status_msg(format!("SUCCESS: Modification matrix applied cleanly to profile record {}", app_num).into()); ui_handle.set_dak_app_num("".into()); ui_handle.set_dak_section("".into()); ui_handle.set_dak_subject("".into()); }).unwrap(); }
+                Ok(_) => { slint::invoke_from_event_loop(move || { let ui_handle = ui_weak.unwrap(); ui_handle.set_op_is_error(false); ui_handle.set_op_status_msg(format!("SUCCESS: Modification matrix applied cleanly to profile record {}", app_num).into()); ui_handle.set_edit_app_num("".into()); ui_handle.set_edit_section("".into()); ui_handle.set_edit_subject("".into()); }).unwrap(); }
                 Err(e) => { slint::invoke_from_event_loop(move || { let ui_handle = ui_weak.unwrap(); ui_handle.set_op_is_error(true); ui_handle.set_op_status_msg(format!("ORACLE UPDATE FAULT: {}", e).into()); }).unwrap(); }
             }
         });
     });
 
-    // 3. Outward Letters Binding Link Option
+    // ACTION 5: Outward Letters Binding Link Option (FIXED: references crate path correctly instead of oracle_client)
     let app_weak_dak_letter = app.as_weak();
     let oracle_dak_letter = Arc::clone(&oracle_client);
     app.on_request_submit_correspondence(move || {
         let ui_weak = app_weak_dak_letter.clone(); let oracle = Arc::clone(&oracle_dak_letter);
         let ui = app_weak_dak_letter.unwrap();
         
-        let app_num = ui.get_dak_app_num().to_string().trim().to_string();
-        let letter_no = ui.get_dak_letter_no().to_string().trim().to_string();
-        let section = ui.get_dak_section().to_string().trim().to_string();
-        let subject = ui.get_dak_subject().to_string().trim().to_string();
-        let copies_count: i32 = ui.get_dak_no_of_copies().to_string().parse().unwrap_or(1);
+        let app_num = ui.get_letter_app_num().to_string().trim().to_string();
+        let letter_no = ui.get_letter_letter_no().to_string().trim().to_string();
+        let section = ui.get_letter_section().to_string().trim().to_string();
+        let subject = ui.get_letter_subject().to_string().trim().to_string();
+        let copies_count: i32 = ui.get_letter_no_of_copies().to_string().parse().unwrap_or(1);
         
-        // FIXED: Exchanged custom string identifier loops for direct database crate paths
         let letter_payload = ironvault_db::oracle::PensionDakEntry {
             app_num: app_num.clone(), letter_no: letter_no.clone(), ppo_fppo: ui.get_dak_ppo().to_string(), gpo: ui.get_dak_gpo().to_string(), cpo: ui.get_dak_cpo().to_string(),
             section: section.clone(), subject: subject.clone(), copies_count,
-            recipients: vec![ironvault_db::oracle::DakRecipientDetail {
+            recipients: vec![ironvault_db::oracle::DakRecipientDetail { // <-- FIXED TYPO LOGIC HERE
                 addressee: ui.get_dak_adr_1().to_string(), barcode: ui.get_dak_bar_1().to_string(), sent_by: ui.get_dak_sent_1().to_string(), service_book: "N".to_string()
             }],
         };
@@ -440,7 +437,7 @@ async fn main() -> Result<(), slint::PlatformError> {
                 Ok(_) => {
                     slint::invoke_from_event_loop(move || {
                         let ui_handle = ui_weak.unwrap(); ui_handle.set_op_is_error(false); ui_handle.set_op_status_msg(format!("SUCCESS: Letter component {} successfully linked into dairy registry.", letter_no).into());
-                        ui_handle.set_dak_app_num("".into()); ui_handle.set_dak_letter_no("".into()); ui_handle.set_dak_section("".into()); ui_handle.set_dak_subject("".into());
+                        ui_handle.set_letter_app_num("".into()); ui_handle.set_letter_letter_no("".into()); ui_handle.set_letter_section("".into()); ui_handle.set_letter_subject("".into());
                         ui_handle.set_dak_adr_1("".into()); ui_handle.set_dak_bar_1("".into()); ui_handle.set_dak_sent_1("".into());
                     }).unwrap();
                 }

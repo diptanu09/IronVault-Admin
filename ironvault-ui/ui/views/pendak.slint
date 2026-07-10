@@ -1,0 +1,184 @@
+import { Button, LineEdit } from "std-widgets.slint";
+import { Theme, SchemaAction } from "../theme.slint";
+
+export component PenDakView inherits VerticalLayout {
+    in-out property <string> active_schema_action;
+    in-out property <string> op_status_msg;
+    in-out property <bool> op_is_error;
+
+    // --- COMPLETE TASK-ISOLATED PARAMETER INPUT FIELDS ---
+    in-out property <string> entry_app_num; 
+    in-out property <string> entry_letter_no; 
+    in-out property <string> entry_section; 
+    in-out property <string> entry_subject; 
+    in-out property <string> entry_no_of_copies;
+    
+    in-out property <string> find_app_num;
+    
+    in-out property <string> edit_app_num; 
+    in-out property <string> edit_section; 
+    in-out property <string> edit_subject;
+    
+    in-out property <string> letter_app_num; 
+    in-out property <string> letter_letter_no; 
+    in-out property <string> letter_section; 
+    in-out property <string> letter_subject; 
+    in-out property <string> letter_no_of_copies;
+
+    // Auto-fetch context fields
+    in-out property <string> dak_ppo; in-out property <string> dak_fppo; in-out property <string> dak_gpo; in-out property <string> dak_cpo;
+    in-out property <string> dak_adr_1; in-out property <string> dak_bar_1; in-out property <string> dak_sent_1;
+    in-out property <string> dak_adr_2; in-out property <string> dak_bar_2; in-out property <string> dak_sent_2;
+    in-out property <string> dak_adr_3; in-out property <string> dak_bar_3; in-out property <string> dak_sent_3;
+
+    // Query result data fields
+    in-out property <bool> dak_case_found; in-out property <string> view_dak_letter; in-out property <string> view_dak_subject; in-out property <string> view_dak_section; in-out property <string> dak_corr_date;
+
+    callback request_find_pension_dak_meta(string); callback request_submit_outward_dak(); callback request_find_outward_dak(string); callback request_update_outward_dak(); callback request_submit_correspondence();
+
+    spacing: 20px;
+    HorizontalLayout {
+        spacing: 12px;
+        SchemaAction { icon_text: "📥"; title: "Entry Outward Case"; active: root.active_schema_action == "pendak_entry"; clicked => { root.active_schema_action = "pendak_entry"; root.op_status_msg = ""; } }
+        SchemaAction { icon_text: "🔍"; title: "Find Outward Case"; active: root.active_schema_action == "pendak_find"; clicked => { root.active_schema_action = "pendak_find"; root.op_status_msg = ""; } }
+        SchemaAction { icon_text: "✏️"; title: "Edit/Update Outward"; active: root.active_schema_action == "pendak_edit"; clicked => { root.active_schema_action = "pendak_edit"; root.op_status_msg = ""; } }
+        SchemaAction { icon_text: "✉️"; title: "Outward Letter Link"; active: root.active_schema_action == "pendak_letter"; clicked => { root.active_schema_action = "pendak_letter"; root.op_status_msg = ""; } }
+    }
+    Rectangle { height: 1px; background: Theme.border-color; opacity: 0.3; }
+
+    if (root.active_schema_action == "pendak_entry") : Rectangle {
+        background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.brand-primary;
+        VerticalLayout {
+            padding: 30px; spacing: 18px;
+            Text { text: "ENTRY OUTWARD PENSION CASE PROFILE"; font-size: 16px; font-weight: 900; color: Theme.brand-primary; }
+            HorizontalLayout {
+                spacing: 20px;
+                VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "APPLICATION NUMBER *"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.entry_app_num; placeholder_text: "ENTER APPLICATION NUMBER"; height: 38px; edited => { root.request_find_pension_dak_meta(self.text); } } }
+                VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "LETTER NO *"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.entry_letter_no; placeholder_text: "ENTER LETTER NO"; height: 38px; } }
+            }
+            HorizontalLayout {
+                spacing: 20px;
+                VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "PPO NUMBER"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.dak_ppo; placeholder_text: "AUTO-FETCHED"; height: 38px; } }
+                VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "FPPO NUMBER"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.dak_fppo; placeholder_text: "AUTO-FETCHED"; height: 38px; } }
+            }
+            HorizontalLayout {
+                spacing: 20px;
+                VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "GPO NUMBER"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.dak_gpo; placeholder_text: "AUTO-FETCHED"; height: 38px; } }
+                VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "CPO NUMBER"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.dak_cpo; placeholder_text: "AUTO-FETCHED"; height: 38px; } }
+            }
+            HorizontalLayout {
+                spacing: 20px;
+                VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "SECTION *"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.entry_section; placeholder_text: "e.g., PENSION-01"; height: 38px; } }
+                VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "NO. OF COPIES (1-3) *"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.entry_no_of_copies; height: 38px; } }
+            }
+            VerticalLayout { spacing: 4px; Text { text: "SUBJECT *"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.entry_subject; placeholder_text: "ENTER SUBJECT DESCRIPTION"; height: 38px; } }
+            Rectangle { height: 10px; }
+            Button { text: "💾  Submit Outward DAK Record Entry"; height: 42px; clicked => { root.request_submit_outward_dak(); } }
+        }
+    }
+
+    if (root.active_schema_action == "pendak_find") : Rectangle {
+        background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.border-color;
+        VerticalLayout {
+            padding: 30px; spacing: 22px;
+            Text { text: "DISCOVER OUTWARD PENSION ARCHIVE FILE PROFILE"; font-size: 16px; font-weight: 900; color: Theme.brand-primary; letter-spacing: 0.5px; }
+            HorizontalLayout {
+                spacing: 15px;
+                VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "SEARCH APPLN_NO RECORD ARCHIVE"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.find_app_num; placeholder_text: "Enter application tracking number..."; height: 38px; } }
+            }
+            Button { text: "🔍 Query Transaction Vault"; height: 42px; clicked => { root.request_find_outward_dak(root.find_app_num); } }
+            if (root.dak_case_found) : VerticalLayout {
+                spacing: 16px;
+                Rectangle { height: 10px; background: transparent; }
+                Rectangle { height: 1px; background: Theme.border-color; opacity: 0.4; }
+                Text { text: "RETRIEVED ARCHIVE FILE METRICS ENVELOPE"; font-size: 12px; font-weight: 900; color: Theme.brand-warning; }
+                Rectangle {
+                    background: #FFFFFF03; border-radius: 8px; border-width: 1px; border-color: #FFFFFF0A;
+                    VerticalLayout {
+                        padding: 14px; spacing: 12px;
+                        Text { text: "CORE IDENTITY SIGNATURES"; font-size: 10px; font-weight: 900; color: Theme.brand-primary; }
+                        HorizontalLayout {
+                            spacing: 24px;
+                            VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "APPLICATION NO"; font-size: 9px; color: Theme.text-muted; } Text { text: root.find_app_num; font-size: 15px; font-weight: 900; color: Theme.text-primary; } }
+                            VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "LETTER NUMBER"; font-size: 9px; color: Theme.text-muted; } Text { text: root.view_dak_letter; font-size: 15px; font-weight: 900; color: Theme.brand-warning; } }
+                            VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "DISPATCH LOG DATE"; font-size: 9px; color: Theme.text-muted; } Text { text: root.dak_corr_date; font-size: 15px; font-weight: 900; color: Theme.brand-success; } }
+                        }
+                    }
+                }
+                Rectangle {
+                    background: #FFFFFF03; border-radius: 8px; border-width: 1px; border-color: #FFFFFF0A;
+                    VerticalLayout {
+                        padding: 14px; spacing: 12px;
+                        Text { text: "PENSION COMPONENT AUTHORITY PARAMETERS"; font-size: 10px; font-weight: 900; color: Theme.brand-primary; }
+                        HorizontalLayout {
+                            spacing: 16px;
+                            VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "PPO NO"; font-size: 9px; color: Theme.text-muted; } Text { text: root.dak_ppo; font-size: 14px; font-weight: 700; color: Theme.text-primary; } }
+                            VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "FPPO NO"; font-size: 9px; color: Theme.text-muted; } Text { text: root.dak_fppo; font-size: 14px; font-weight: 700; color: Theme.text-primary; } }
+                            VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "GPO NO"; font-size: 9px; color: Theme.text-muted; } Text { text: root.dak_gpo; font-size: 14px; font-weight: 700; color: Theme.text-primary; } }
+                            VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "CPO NO"; font-size: 9px; color: Theme.text-muted; } Text { text: root.dak_cpo; font-size: 14px; font-weight: 700; color: Theme.text-primary; } }
+                        }
+                    }
+                }
+                Rectangle {
+                    background: #FFFFFF03; border-radius: 8px; border-width: 1px; border-color: #FFFFFF0A;
+                    VerticalLayout {
+                        padding: 14px; spacing: 12px;
+                        Text { text: "METRIC DISPATCH LOG ROUTING"; font-size: 10px; font-weight: 900; color: Theme.brand-primary; }
+                        HorizontalLayout {
+                            spacing: 20px;
+                            VerticalLayout { spacing: 4px; width: 120px; Text { text: "SYSTEM SECTION"; font-size: 9px; color: Theme.text-muted; } Text { text: root.view_dak_section; font-size: 14px; font-weight: 800; color: Theme.brand-warning; } }
+                            VerticalLayout { spacing: 4px; horizontal-stretch: 2; Text { text: "ADDRESSEE (RECIPIENT NAME)"; font-size: 9px; color: Theme.text-muted; } Text { text: root.dak_adr_1; font-size: 14px; font-weight: 700; color: Theme.text-primary; } }
+                            VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "BARCODE SCAN ID"; font-size: 9px; color: Theme.text-muted; } Text { text: root.dak_bar_1; font-size: 14px; font-weight: 800; color: Theme.brand-primary; } }
+                            VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "DISPATCHED BY"; font-size: 9px; color: Theme.text-muted; } Text { text: root.dak_sent_1; font-size: 14px; font-weight: 700; color: Theme.text-primary; } }
+                        }
+                    }
+                }
+                Rectangle {
+                    background: #00E5FF05; border-radius: 8px; border-width: 1px; border-color: #00E5FF1F;
+                    VerticalLayout { padding: 16px; spacing: 6px; Text { text: "RECORD SUBJECT MATTERS HEADING"; font-size: 10px; font-weight: 900; color: Theme.brand-warning; } Text { text: root.view_dak_subject; font-size: 14px; font-weight: 700; color: Theme.text-primary; wrap: word-wrap; } }
+                }
+            }
+        }
+    }
+
+    if (root.active_schema_action == "pendak_edit") : Rectangle {
+        background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.brand-warning;
+        VerticalLayout {
+            padding: 30px; spacing: 18px;
+            Text { text: "EDIT / OVERRIDE EXISTING OUTWARD RECORD PARAMETERS"; font-size: 16px; font-weight: 900; color: Theme.brand-warning; }
+            HorizontalLayout {
+                spacing: 20px;
+                VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "TARGET APPLICATION NO *"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.edit_app_num; placeholder_text: "Modifying target key..."; height: 38px; } }
+                VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "AMENDED SECTION METADATA *"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.edit_section; placeholder_text: "Update target section routing..."; height: 38px; } }
+            }
+            VerticalLayout { spacing: 4px; Text { text: "AMENDED SUBJECT HEADING *"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.edit_subject; placeholder_text: "Update description text..."; height: 38px; } }
+            Button { text: "✏️ Commit Ledger Modification Pass"; height: 42px; clicked => { root.request_update_outward_dak(); } }
+        }
+    }
+
+    if (root.active_schema_action == "pendak_letter") : Rectangle {
+        background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.brand-primary;
+        VerticalLayout {
+            padding: 30px; spacing: 18px;
+            Text { text: "OUTWARD LETTER CORRESPONDENCES LINKER"; font-size: 16px; font-weight: 900; color: Theme.brand-primary; }
+            HorizontalLayout {
+                spacing: 20px;
+                VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "LETTER TRACKING NUMBER *"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.letter_letter_no; placeholder_text: "ENTER DISPATCH LETTER NO"; height: 38px; } }
+                VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "SYSTEM COMPONENT SECTION *"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.letter_section; placeholder_text: "e.g., SECT-PEN"; height: 38px; } }
+                VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "APPLICATION NO LINK *"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.letter_app_num; placeholder_text: "App link key..."; height: 38px; } }
+            }
+            HorizontalLayout {
+                spacing: 20px;
+                VerticalLayout { spacing: 4px; horizontal-stretch: 2; Text { text: "LETTER SUBJECT SPECIFICATION *"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.letter_subject; placeholder_text: "ENTER SUBJECT MATTER"; height: 38px; } }
+                VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "NO. OF COPIES *"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.letter_no_of_copies; height: 38px; } }
+            }
+            HorizontalLayout {
+                spacing: 12px;
+                VerticalLayout { spacing: 4px; horizontal-stretch: 2; Text { text: "ADDRESSEE COMPONENT"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } LineEdit { text <=> root.dak_adr_1; placeholder_text: "RECIPIENT"; height: 34px; } }
+                VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "BAR CODE"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } LineEdit { text <=> root.dak_bar_1; placeholder_text: "----"; height: 34px; } }
+                VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "SENT BY"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } LineEdit { text <=> root.dak_sent_1; height: 34px; } }
+            }
+            Button { text: "✉️ Dispatch and Bind Letter Record"; height: 42px; clicked => { root.request_submit_correspondence(); } }
+        }
+    }
+}

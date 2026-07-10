@@ -3,6 +3,12 @@
 //! Handles configuration pools across distinct host locations without
 //! cross-contaminating schema transaction pipelines.
 
+// --- BACKWARD COMPATIBILITY BRIDGE MODULE RE-EXPORTS ---
+pub use crate::gpf::GpfCaseRecord;
+pub use crate::pendak::{
+    DakRecipientDetail, FullPensionDakRecord, PensionAuthDetails, PensionDakEntry,
+};
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum OracleTarget {
     Gpffp,
@@ -66,6 +72,7 @@ impl OracleConnection {
         })
     }
 
+    /// Internal helper method to grab an active connection from requested pool context safely
     pub(crate) fn get_connection(
         &self,
         target: OracleTarget,

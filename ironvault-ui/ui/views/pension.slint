@@ -97,19 +97,23 @@ export component PensionView inherits VerticalLayout {
                     VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "APPLICATION DATE"; font-size: 9px; color: Theme.text-muted; } Text { text: root.status_record.application_date; font-size: 14px; font-weight: 700; color: Theme.text-secondary; } }
                     VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "CURRENT STATUS"; font-size: 9px; color: Theme.text-muted; } Text { text: root.status_record.status; font-size: 14px; font-weight: 800; color: Theme.brand-warning; } }
                 }
+                
+                // FIXED: Wrapped inside HorizontalLayout container to safely apply layout padding properties
                 Rectangle {
-                    background: #FFFFFF02; border-radius: 8px; padding: 12px;
+                    background: #FFFFFF02; border-radius: 8px;
                     HorizontalLayout {
-                        spacing: 20px;
+                        padding: 12px; spacing: 20px;
                         VerticalLayout { spacing: 2px; horizontal-stretch: 1; Text { text: "PPO AUTHORITY"; font-size: 9px; color: Theme.text-muted; } Text { text: root.status_record.ppo; font-size: 13px; font-weight: 700; color: Theme.brand-primary; } }
                         VerticalLayout { spacing: 2px; horizontal-stretch: 1; Text { text: "GPO AUTHORITY"; font-size: 9px; color: Theme.text-muted; } Text { text: root.status_record.gpo; font-size: 13px; font-weight: 700; color: Theme.brand-primary; } }
                         VerticalLayout { spacing: 2px; horizontal-stretch: 1; Text { text: "CPO AUTHORITY"; font-size: 9px; color: Theme.text-muted; } Text { text: root.status_record.cpo; font-size: 13px; font-weight: 700; color: Theme.brand-primary; } }
                     }
                 }
+                
+                // FIXED: Wrapped inside HorizontalLayout container to safely apply layout padding properties
                 Rectangle {
-                    background: #00E5FF05; border-radius: 8px; border-width: 1px; border-color: #00E5FF22; padding: 12px;
+                    background: #00E5FF05; border-radius: 8px; border-width: 1px; border-color: #00E5FF22;
                     HorizontalLayout {
-                        spacing: 20px;
+                        padding: 12px; spacing: 20px;
                         VerticalLayout { spacing: 2px; horizontal-stretch: 1; Text { text: "LAST FORWARDED WORKING OFFICE"; font-size: 9px; color: Theme.text-muted; } Text { text: root.status_record.last_work_office_name; font-size: 13px; color: Theme.text-secondary; } }
                         VerticalLayout { spacing: 2px; width: 150px; Text { text: "DAK OUTWARD DATE"; font-size: 9px; color: Theme.text-muted; } Text { text: root.status_record.dak_outward_date; font-size: 13px; font-weight: 700; color: Theme.brand-success; } }
                         VerticalLayout { spacing: 2px; horizontal-stretch: 1; Text { text: "SPEED POST / BARCODE DISPATCH LOG"; font-size: 9px; color: Theme.text-muted; } Text { text: root.status_record.speed_post; font-size: 13px; font-weight: 900; color: Theme.brand-warning; } }

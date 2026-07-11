@@ -50,11 +50,13 @@ impl OracleConnection {
         tokio::task::spawn_blocking(move || {
             conn.execute("DELETE FROM FP_APPLICATION WHERE REGD_NO = :1", &[&r_no]).map_err(|e| e.to_string())?;
 
-            let optional_tables = ["FP_INWARD_DAIRY", "FP_INWARD_DIARY", "FP_MAIN", "FP_SUBSCRIPTION_DETAILS", "FP_MISSING_CREDIT", "FP_ACCOUNT_CALCULATION"];
-            for table in optional_tables.iter() {
-                let query = format!("DELETE FROM {} WHERE REGD_NO = :1", table);
-                let _ = conn.execute(&query, &[&r_no]); 
-            }
+            // Secure Static Parametrization Execution avoids runtime concatenation vulnerabilities
+            let _ = conn.execute("DELETE FROM FP_INWARD_DAIRY WHERE REGD_NO = :1", &[&r_no]);
+            let _ = conn.execute("DELETE FROM FP_INWARD_DIARY WHERE REGD_NO = :1", &[&r_no]);
+            let _ = conn.execute("DELETE FROM FP_MAIN WHERE REGD_NO = :1", &[&r_no]);
+            let _ = conn.execute("DELETE FROM FP_SUBSCRIPTION_DETAILS WHERE REGD_NO = :1", &[&r_no]);
+            let _ = conn.execute("DELETE FROM FP_MISSING_CREDIT WHERE REGD_NO = :1", &[&r_no]);
+            let _ = conn.execute("DELETE FROM FP_ACCOUNT_CALCULATION WHERE REGD_NO = :1", &[&r_no]);
 
             conn.execute("UPDATE VLCS.GP_ACCOUNTS SET ACCOUNT_CLOSED_TAG = NULL WHERE SERIES_ID = :1 AND ACCOUNT_NO = :2", &[&extracted_series, &extracted_account]).map_err(|e| e.to_string())?;
             conn.commit().map_err(|e| e.to_string())?;
@@ -68,9 +70,9 @@ impl OracleConnection {
         tokio::task::spawn_blocking(move || {
             conn.execute("DELETE FROM FP_APPLICATION WHERE REGD_NO = :1", &[&r_no]).map_err(|e| e.to_string())?;
             conn.execute("DELETE FROM FP_MAIN WHERE REGD_NO = :1", &[&r_no]).map_err(|e| e.to_string())?;
-            for table in &["FP_SUBSCRIPTION_DETAILS", "FP_MISSING_CREDIT", "FP_ACCOUNT_CALCULATION"] {
-                let _ = conn.execute(&format!("DELETE FROM {} WHERE REGD_NO = :1", table), &[&r_no]);
-            }
+            let _ = conn.execute("DELETE FROM FP_SUBSCRIPTION_DETAILS WHERE REGD_NO = :1", &[&r_no]);
+            let _ = conn.execute("DELETE FROM FP_MISSING_CREDIT WHERE REGD_NO = :1", &[&r_no]);
+            let _ = conn.execute("DELETE FROM FP_ACCOUNT_CALCULATION WHERE REGD_NO = :1", &[&r_no]);
             conn.commit().map_err(|e| e.to_string())?;
             Ok(())
         }).await.unwrap()
@@ -81,9 +83,9 @@ impl OracleConnection {
         let conn = self.get_connection(OracleTarget::Gpffp)?;
         tokio::task::spawn_blocking(move || {
             conn.execute("DELETE FROM FP_MAIN WHERE REGD_NO = :1", &[&r_no]).map_err(|e| e.to_string())?;
-            for table in &["FP_SUBSCRIPTION_DETAILS", "FP_MISSING_CREDIT", "FP_ACCOUNT_CALCULATION"] {
-                let _ = conn.execute(&format!("DELETE FROM {} WHERE REGD_NO = :1", table), &[&r_no]);
-            }
+            let _ = conn.execute("DELETE FROM FP_SUBSCRIPTION_DETAILS WHERE REGD_NO = :1", &[&r_no]);
+            let _ = conn.execute("DELETE FROM FP_MISSING_CREDIT WHERE REGD_NO = :1", &[&r_no]);
+            let _ = conn.execute("DELETE FROM FP_ACCOUNT_CALCULATION WHERE REGD_NO = :1", &[&r_no]);
             conn.execute("UPDATE FP_APPLICATION SET CALCULATION_DATE = NULL WHERE REGD_NO = :1", &[&r_no]).map_err(|e| e.to_string())?;
             conn.commit().map_err(|e| e.to_string())?;
             Ok(())

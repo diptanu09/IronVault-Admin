@@ -67,7 +67,6 @@ impl OracleConnection {
             for row_res in rows {
                 let row = row_res.map_err(|e| e.to_string())?;
                 
-                // FIXED TYPE INFERENCE DECODING VIA EXPLICIT TYPED VARIABLE ASSIGNMENTS
                 let app_no_val: String = row.get(0).unwrap_or_default();
                 let pensioner_name_val: String = row.get(1).unwrap_or_default();
                 let employee_code_val: i64 = row.get(2).unwrap_or(0);
@@ -162,7 +161,6 @@ impl OracleConnection {
             for row_res in rows {
                 let row = row_res.map_err(|e| e.to_string())?;
 
-                // FIXED TYPE INFERENCE DECODING USING IMPPLICIT OPTIONAL VALUE UNWRAPPING
                 let app_no_val: String = row.get(0).unwrap_or_default();
                 let app_date_val: String = row.get(1).unwrap_or_default();
                 let name_val: String = row.get(2).unwrap_or_default();
@@ -170,6 +168,7 @@ impl OracleConnection {
                 let status_val: String = row.get(4).unwrap_or_default();
                 let settle_val: String = row.get(5).unwrap_or_default();
                 
+                // FIXED: Omit explicit type arguments entirely to allow clean contextual type inference
                 let ppo_val: Option<String> = row.get(6).unwrap_or(None);
                 let gpo_val: Option<String> = row.get(7).unwrap_or(None);
                 let cpo_val: Option<String> = row.get(8).unwrap_or(None);

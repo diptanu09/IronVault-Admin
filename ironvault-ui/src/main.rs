@@ -9,6 +9,7 @@ use ironvault_core::audit::AuditLogger;
 use ironvault_db::{DbClient, OracleConnection};
 use std::sync::Arc;
 use std::rc::Rc;
+use rand::distributions::Alphanumeric;
 use rand::Rng;
 use sqlx::Row; 
 
@@ -38,25 +39,51 @@ async fn main() -> Result<(), slint::PlatformError> {
     app.set_captcha_q_main(format!("{} + {}", v1, v2).into());
     app.set_captcha_a_main((v1 + v2).to_string().into());
     
-    let app_weak_login = app.as_weak();
-    let db_login_clone = Arc::clone(&db);
-    let audit_login_clone = Arc::clone(&audit_logger);
-    let current_hwid_login = hwid.clone();
+    // --- INITIALIZE CENTRALIZED CORE SMART POINTER CLONES ---
+    let app_weak_main = app.as_weak();
+    let db_clone = Arc::clone(&db);
+    let oracle_clone = Arc::clone(&oracle_client);
+    let audit_clone = Arc::clone(&audit_logger);
+    let target_hwid_main = hwid.clone();
     
+    let app_weak_login = app_weak_main.clone();
+    let db_login = Arc::clone(&db_clone);
+    let audit_login = Arc::clone(&audit_clone);
+    let hwid_login = target_hwid_main.clone();
     app.on_request_authentication(move |username, password| {
         let ui_weak = app_weak_login.clone();
-        let db = Arc::clone(&db_login_clone);
-        let audit = Arc::clone(&audit_login_clone);
-        let target_hwid = current_hwid_login.clone();
+        let db = Arc::clone(&db_login);
+        let audit = Arc::clone(&audit_login);
+        let target_hwid = hwid_login.clone();
         let u_name = username.to_string();
         let plain_password = password.to_string();
         
         tokio::spawn(async move {
-            match db.authenticate_user(&u_name, &plain_password, &target_hwid).await {
-                Ok(user) => {
-                    let pool = db.get_pool().clone();
+            let pool = db.get_pool().clone();
+            let secure_hashed_pass = ironvault_core::crypto::hash_password(&plain_password, &u_name);
+
+            let login_query = sqlx::query(
+                "SELECT username, role, status, COALESCE(TO_CHAR(last_login_at, 'YYYY-MM-DD HH24:MI'), 'NEVER') as last_login \
+                 FROM ironvault.users \
+                 WHERE username = $1 AND password = $2 AND hardware_fingerprint = $3 \
+                 AND (status = 'ACTIVE' OR status = 'EXPIRED')"
+            )
+            .bind(&u_name)
+            .bind(&secure_hashed_pass)
+            .bind(&target_hwid)
+            .fetch_optional(&pool)
+            .await;
+
+            match login_query {
+                Ok(Some(row)) => {
+                    let status: String = row.try_get("status").unwrap_or_else(|_| "ACTIVE".to_string());
+                    let is_expired_token = status == "EXPIRED";
+                    let username_val: String = row.try_get("username").unwrap_or_else(|_| u_name.clone());
+                    let role_assigned: String = row.try_get("role").unwrap_or_else(|_| "Operator".to_string());
+                    let last_login_val: String = row.try_get("last_login").unwrap_or_else(|_| "NEVER".to_string());
+
                     let profile_query = sqlx::query("SELECT full_name, designation, expires_at, section FROM ironvault.users WHERE username = $1")
-                        .bind(&u_name)
+                        .bind(&username_val)
                         .fetch_optional(&pool).await.unwrap_or(None);
                         
                     let mut full_name = "System Operator".to_string();
@@ -64,17 +91,17 @@ async fn main() -> Result<(), slint::PlatformError> {
                     let mut expires = "Unknown".to_string();
                     let mut allowed_schemas_str = "".to_string();
 
-                    if let Some(row) = profile_query {
-                        full_name = row.try_get("full_name").unwrap_or(full_name);
-                        designation = row.try_get("designation").unwrap_or(designation);
-                        allowed_schemas_str = row.try_get("section").unwrap_or(allowed_schemas_str).to_lowercase();
+                    if let Some(p_row) = profile_query {
+                        full_name = p_row.try_get("full_name").unwrap_or(full_name);
+                        designation = p_row.try_get("designation").unwrap_or(designation);
+                        allowed_schemas_str = p_row.try_get("section").unwrap_or(allowed_schemas_str).to_lowercase();
                         
-                        if let Ok(dt) = row.try_get::<chrono::DateTime<chrono::Utc>, _>("expires_at") {
+                        if let Ok(dt) = p_row.try_get::<chrono::DateTime<chrono::Utc>, _>("expires_at") {
                             expires = dt.format("%Y-%m-%d").to_string();
                         }
                     }
 
-                    let is_super = user.role.to_lowercase().contains("superadmin");
+                    let is_super = role_assigned.to_lowercase().contains("superadmin");
                     let mut schema_str_display = if is_super { "ALL SYSTEMS AUTHORIZED (SUPERADMIN)".to_string() } else { allowed_schemas_str.clone() };
                     if schema_str_display.trim().is_empty() { schema_str_display = "NO SCHEMAS ASSIGNED".to_string(); }
 
@@ -88,9 +115,8 @@ async fn main() -> Result<(), slint::PlatformError> {
                         penindex: is_super || allowed_schemas_str.contains("penindex") || allowed_schemas_str.contains("penidx"),
                     };
 
-                    let ui_username = user.username.clone();
-                    let ui_role = user.role.to_string();
-                    
+                    let ui_username = username_val.clone();
+                    let ui_role = role_assigned.clone();
                     let avatar_path = std::path::Path::new("./storage/avatars/").join(format!("{}.png", ui_username));
 
                     slint::invoke_from_event_loop(move || {
@@ -103,6 +129,14 @@ async fn main() -> Result<(), slint::PlatformError> {
                         ui.set_current_user_expires(expires.into());
                         ui.set_current_user_schemas_string(schema_str_display.into());
                         ui.set_schema_access(access);
+                        ui.set_is_logged_in(true);
+
+                        if is_expired_token {
+                            ui.set_forced_password_reset_state(true);
+                        } else {
+                            ui.set_show_welcome_popup(true);
+                            ui.set_active_tab("overview".into());
+                        }
                         
                         if avatar_path.exists() {
                             if let Ok(slint_img) = slint::Image::load_from_path(&avatar_path) {
@@ -114,28 +148,28 @@ async fn main() -> Result<(), slint::PlatformError> {
                         } else {
                             ui.set_current_avatar_loaded(false);
                         }
-                        
-                        ui.set_is_logged_in(true);
-                        ui.set_show_welcome_popup(true);
-                        ui.set_active_tab("overview".into());
                     }).unwrap();
                     
-                    let core_user = ironvault_core::auth::User { id: Default::default(), username: user.username.clone(), role: user.role.clone().into(), last_login: user.last_login.clone() };
+                    let core_user = ironvault_core::auth::User { 
+                        id: Default::default(), 
+                        username: username_val, 
+                        role: role_assigned.into(), 
+                        last_login: last_login_val 
+                    };
                     audit.log_action(&core_user, "OPERATOR_DB_LOGIN_SUCCESS", "CRITICAL").ok();
-                }
-                Err(err) => slint::invoke_from_event_loop(move || { ui_weak.unwrap().set_login_error(err.into()); }).unwrap(),
+                },
+                _ => slint::invoke_from_event_loop(move || { ui_weak.unwrap().set_login_error("Authentication Failed: Invalid credentials or HWID mismatched.".into()); }).unwrap()
             }
         });
     });
 
-    // --- SECURE SYSTEM OPERATOR ENROLLMENT CHANNELS HOOK ---
-    let app_weak_reg = app.as_weak();
-    let db_reg_clone = Arc::clone(&db);
-    let current_hwid_reg = hwid.clone();
+    let app_weak_reg = app_weak_main.clone();
+    let db_reg = Arc::clone(&db_clone);
+    let hwid_reg = target_hwid_main.clone();
     app.on_request_registration(move |username, secret, first, middle, last, desg, sect| {
         let ui_weak = app_weak_reg.clone();
-        let db = Arc::clone(&db_reg_clone);
-        let hwid = current_hwid_reg.clone();
+        let db = Arc::clone(&db_reg);
+        let hwid = hwid_reg.clone();
         let u_name = username.to_string();
         let f_name = first.to_string();
         let m_name = middle.to_string();
@@ -143,7 +177,6 @@ async fn main() -> Result<(), slint::PlatformError> {
         let d_name = desg.to_string();
         let s_name = sect.to_string();
         
-        // SECURED: Pass word token undergoes cryptographic salting hashing routine before transmission
         let secure_hashed_password = ironvault_core::crypto::hash_password(&secret.to_string(), &u_name);
 
         tokio::spawn(async move {
@@ -163,9 +196,8 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    // --- BACKGROUND ACCESS REQUEST SIGNALS POLLING THREAD ---
-    let app_weak_poll = app.as_weak();
-    let db_poll_clone = Arc::clone(&db);
+    let app_weak_poll = app_weak_main.clone();
+    let db_poll = Arc::clone(&db_clone);
     tokio::spawn(async move {
         loop {
             tokio::time::sleep(std::time::Duration::from_secs(3)).await;
@@ -179,7 +211,7 @@ async fn main() -> Result<(), slint::PlatformError> {
             }; 
 
             if should_poll {
-                if let Ok(pending_operator) = db_poll_clone.fetch_next_pending_user().await {
+                if let Ok(pending_operator) = db_poll.fetch_next_pending_user().await {
                     let app_weak_copy = app_weak_poll.clone();
                     slint::invoke_from_event_loop(move || {
                         if let Some(ui_layer) = app_weak_copy.upgrade() {
@@ -191,11 +223,11 @@ async fn main() -> Result<(), slint::PlatformError> {
         }
     });
 
-    let app_weak_approve = app.as_weak();
-    let db_approve_clone = Arc::clone(&db);
+    let app_weak_approve = app_weak_main.clone();
+    let db_approve = Arc::clone(&db_clone);
     app.on_approve_pending_operator(move |target_user, role_str| {
         let ui_weak = app_weak_approve.clone();
-        let db = Arc::clone(&db_approve_clone);
+        let db = Arc::clone(&db_approve);
         let target = target_user.to_string();
         let assigned_role = role_str.to_string();
         tokio::spawn(async move {
@@ -210,11 +242,11 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    let app_weak_deny = app.as_weak();
-    let db_deny_clone = Arc::clone(&db);
+    let app_weak_deny = app_weak_main.clone();
+    let db_deny = Arc::clone(&db_clone);
     app.on_deny_pending_operator(move |target_user| {
         let ui_weak = app_weak_deny.clone();
-        let db = Arc::clone(&db_deny_clone);
+        let db = Arc::clone(&db_deny);
         let target = target_user.to_string();
         tokio::spawn(async move {
             if db.deny_user("ADMIN", &target).await.is_ok() {
@@ -228,15 +260,14 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    // --- USER MANAGEMENT CONTROLS Matrix ---
-    let app_weak_users = app.as_weak();
-    let db_users_clone = Arc::clone(&db);
+    let app_weak_users = app_weak_main.clone();
+    let db_users = Arc::clone(&db_clone);
     app.on_load_users_list(move || {
         let ui_weak = app_weak_users.clone();
-        let db = Arc::clone(&db_users_clone);
+        let db = Arc::clone(&db_users);
         tokio::spawn(async move {
             let pool = db.get_pool().clone();
-            let query = "SELECT username, role, full_name, designation, TO_CHAR(expires_at, 'YYYY-MM-DD') as exp_date, section FROM ironvault.users WHERE status = 'ACTIVE'";
+            let query = "SELECT username, role, full_name, designation, status, section FROM ironvault.users WHERE status = 'ACTIVE' OR status = 'EXPIRED'";
             if let Ok(rows) = sqlx::query(query).fetch_all(&pool).await {
                 let mut slint_users = Vec::new();
                 for r in rows {
@@ -244,9 +275,11 @@ async fn main() -> Result<(), slint::PlatformError> {
                     let ro: String = r.try_get("role").unwrap_or_default();
                     let f: String = r.try_get("full_name").unwrap_or_default();
                     let d: String = r.try_get("designation").unwrap_or_default();
-                    let e_dt: String = r.try_get("exp_date").unwrap_or_else(|_| "Unknown".to_string());
+                    let st: String = r.try_get("status").unwrap_or_default();
                     let s: String = r.try_get("section").unwrap_or_default();
-                    slint_users.push(UserData { username: u.into(), role: ro.into(), last_login: "ACTIVE".into(), full_name: f.into(), designation: d.into(), expires_at: e_dt.into(), allowed_schemas: s.into() });
+                    
+                    let display_expiry = if st == "EXPIRED" { "ONE-TIME ACCESS ACTIVE".to_string() } else { "ACTIVE LEASE".to_string() };
+                    slint_users.push(UserData { username: u.into(), role: ro.into(), last_login: "ONLINE".into(), full_name: f.into(), designation: d.into(), expires_at: display_expiry.into(), allowed_schemas: s.into() });
                 }
                 slint::invoke_from_event_loop(move || {
                     if let Some(ui) = ui_weak.upgrade() {
@@ -257,11 +290,11 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    let app_weak_lease = app.as_weak();
-    let db_lease_clone = Arc::clone(&db);
+    let app_weak_lease = app_weak_main.clone();
+    let db_lease = Arc::clone(&db_clone);
     app.on_extend_user_lease(move |target_user, new_role, days_string, new_schemas| {
         let ui_weak = app_weak_lease.clone();
-        let db = Arc::clone(&db_lease_clone);
+        let db = Arc::clone(&db_lease);
         let user_str = target_user.to_string();
         let role_str = new_role.to_string();
         let schema_str = new_schemas.to_string().to_lowercase();
@@ -269,7 +302,7 @@ async fn main() -> Result<(), slint::PlatformError> {
         tokio::spawn(async move {
             if db.update_user_lease(&user_str, &role_str, days_valid).await.is_ok() {
                 let pool = db.get_pool().clone();
-                let _ = sqlx::query("UPDATE ironvault.users SET section = $1 WHERE username = $2").bind(&schema_str).bind(&user_str).execute(&pool).await;
+                let _ = sqlx::query("UPDATE ironvault.users SET section = $1, status = 'ACTIVE' WHERE username = $2").bind(&schema_str).bind(&user_str).execute(&pool).await;
                 slint::invoke_from_event_loop(move || {
                     if let Some(ui) = ui_weak.upgrade() {
                         ui.invoke_load_users_list();
@@ -279,11 +312,11 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    let app_weak_ban = app.as_weak();
-    let db_ban_clone = Arc::clone(&db);
+    let app_weak_ban = app_weak_main.clone();
+    let db_ban = Arc::clone(&db_clone);
     app.on_ban_user(move |target_user| {
         let ui_weak = app_weak_ban.clone();
-        let db = Arc::clone(&db_ban_clone);
+        let db = Arc::clone(&db_ban);
         let user_str = target_user.to_string();
         tokio::spawn(async move {
             if db.ban_user("SUPERADMIN", &user_str).await.is_ok() {
@@ -298,21 +331,25 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    // --- CRYPTOGRAPHIC PASSWORD RESET RUNTIME CALLBACK HOOK ---
-    // --- SECURE SYSTEM OPERATOR CREDENTIAL RECOVERY OVERRIDE ---
-    let app_weak_reset = app.as_weak();
-    let db_reset_clone = Arc::clone(&db);
+    let app_weak_reset = app_weak_main.clone();
+    let db_reset = Arc::clone(&db_clone);
     app.on_reset_user_password(move |target_user| {
         let ui_weak = app_weak_reset.clone();
-        let db = Arc::clone(&db_reset_clone);
+        let db = Arc::clone(&db_reset);
         let user_str = target_user.to_string();
         
         tokio::spawn(async move {
             let pool = db.get_pool().clone();
-            let default_temp_pass = "IronVault@2026";
-            let secure_hashed_pass = ironvault_core::crypto::hash_password(default_temp_pass, &user_str);
             
-            let query = "UPDATE ironvault.users SET password = $1 WHERE username = $2 AND status = 'ACTIVE'";
+            let dynamic_token: String = rand::thread_rng()
+                .sample_iter(&Alphanumeric)
+                .take(8)
+                .map(char::from)
+                .collect();
+
+            let secure_hashed_pass = ironvault_core::crypto::hash_password(&dynamic_token, &user_str);
+            
+            let query = "UPDATE ironvault.users SET password = $1, status = 'EXPIRED' WHERE username = $2";
             match sqlx::query(query)
                 .bind(&secure_hashed_pass)
                 .bind(&user_str)
@@ -321,24 +358,55 @@ async fn main() -> Result<(), slint::PlatformError> {
             {
                 Ok(_) => slint::invoke_from_event_loop(move || {
                     if let Some(ui) = ui_weak.upgrade() {
-                        // UNLOCKED: Pushes an active visual feedback message onto the UI matrix
                         ui.set_op_is_error(false);
-                        ui.set_op_status_msg(format!("🛡️ OVERRIDE SUCCESS: Password for @{} has been reset to: {}", user_str, default_temp_pass).into());
+                        ui.set_op_status_msg(format!("🛡️ OTA ACTIVATED: Temporary token generated for @{} -> [ {} ]", user_str, dynamic_token).into());
                         ui.invoke_load_users_list();
                     }
                 }).unwrap(),
                 Err(e) => slint::invoke_from_event_loop(move || {
                     if let Some(ui) = ui_weak.upgrade() {
                         ui.set_op_is_error(true);
-                        ui.set_op_status_msg(format!("🚨 DATABASE OVERRIDE WRITE FAULT: {}", e).into());
+                        ui.set_op_status_msg(format!("OVERRIDE FAULT: {}", e).into());
                     }
-                }).unwrap(),
+                }).unwrap()
             }
         });
     });
 
-    // --- SECURE AVATAR CARRIER ENGINE ---
-    let app_weak_pic = app.as_weak();
+    let app_weak_commit = app_weak_main.clone();
+    let db_commit = Arc::clone(&db_clone);
+    app.on_commit_forced_password_update(move |username, new_password| {
+        let ui_weak = app_weak_commit.clone();
+        let db = Arc::clone(&db_commit);
+        let u_name = username.to_string();
+        let new_pass = new_password.to_string();
+
+        tokio::spawn(async move {
+            let pool = db.get_pool().clone();
+            let final_secure_hash = ironvault_core::crypto::hash_password(&new_pass, &u_name);
+
+            let query = "UPDATE ironvault.users SET password = $1, status = 'ACTIVE' WHERE username = $2";
+            match sqlx::query(query).bind(&final_secure_hash).bind(&u_name).execute(&pool).await {
+                Ok(_) => slint::invoke_from_event_loop(move || {
+                    if let Some(ui) = ui_weak.upgrade() {
+                        ui.set_forced_password_reset_state(false);
+                        ui.set_form_new_pass("".into());
+                        ui.set_form_confirm_pass("".into());
+                        ui.set_password_reset_error("".into());
+                        ui.set_show_welcome_popup(true);
+                        ui.set_active_tab("overview".into());
+                    }
+                }).unwrap(),
+                Err(e) => slint::invoke_from_event_loop(move || {
+                    if let Some(ui) = ui_weak.upgrade() {
+                        ui.set_password_reset_error(format!("Database Fault: {}", e).into());
+                    }
+                }).unwrap()
+            }
+        });
+    });
+
+    let app_weak_pic = app_weak_main.clone();
     app.on_request_profile_pic_update(move || {
         let ui = app_weak_pic.unwrap();
         let username = ui.get_current_user_name().to_string();
@@ -370,7 +438,7 @@ async fn main() -> Result<(), slint::PlatformError> {
         }
     });
 
-    let app_weak_logout = app.as_weak();
+    let app_weak_logout = app_weak_main.clone();
     app.on_request_logout(move || {
         if let Some(ui) = app_weak_logout.upgrade() {
             ui.set_is_logged_in(false); ui.set_current_user_name("GUEST".into()); ui.set_auth_screen_state("landing".into());
@@ -382,11 +450,13 @@ async fn main() -> Result<(), slint::PlatformError> {
         }
     });
 
-    // --- GPFFP CASE DISCOVERY MATRIX LOGIC ---
-    let app_weak_find = app.as_weak();
-    let oracle_find = Arc::clone(&oracle_client);
+    // --- FIXED: CLONED SHARED REFERENCES DYNAMICALLY PREVENTS THE FNMUT CLOSURE CAPTURE BUG ---
+    let app_weak_find = app_weak_main.clone();
+    let oracle_find = Arc::clone(&oracle_clone);
     app.on_request_find_gpf_case(move |regd_no| {
-        let ui_weak = app_weak_find.clone(); let oracle = Arc::clone(&oracle_find); let r_no = regd_no.to_string();
+        let ui_weak = app_weak_find.clone(); 
+        let oracle = oracle_find.clone(); 
+        let r_no = regd_no.to_string();
         tokio::spawn(async move {
             match oracle.gpffp_find_case_profile(&r_no).await {
                 Ok(Some(record)) => {
@@ -400,15 +470,18 @@ async fn main() -> Result<(), slint::PlatformError> {
                         }
                     }).unwrap();
                 }
-                Ok(None) => { slint::invoke_from_event_loop(move || { let ui = ui_weak.upgrade(); if let Some(ui) = ui_weak.upgrade() { ui.set_gpf_case_found(false); ui.set_op_is_error(true); ui.set_op_status_msg("Discovery Fault: No matching records found.".into()); } }).unwrap(); }
-                Err(e) => { slint::invoke_from_event_loop(move || { let ui = ui_weak.upgrade(); if let Some(ui) = ui_weak.upgrade() { ui.set_gpf_case_found(false); ui.set_op_is_error(true); ui.set_op_status_msg(format!("ORACLE TRANSACTION FAILURE: {:?}", e).into()); } }).unwrap(); }
+                Ok(None) => { slint::invoke_from_event_loop(move || { if let Some(ui) = ui_weak.upgrade() { ui.set_gpf_case_found(false); ui.set_op_is_error(true); ui.set_op_status_msg("Discovery Fault: No matching records found.".into()); } }).unwrap(); }
+                Err(e) => { slint::invoke_from_event_loop(move || { if let Some(ui) = ui_weak.upgrade() { ui.set_gpf_case_found(false); ui.set_op_is_error(true); ui.set_op_status_msg(format!("ORACLE TRANSACTION FAILURE: {:?}", e).into()); } }).unwrap(); }
             }
         });
     });
 
-    let app_weak_op1 = app.as_weak(); let oracle_op1 = Arc::clone(&oracle_client);
+    let app_weak_op1 = app_weak_main.clone();
+    let oracle_op1 = Arc::clone(&oracle_clone);
     app.on_request_delete_full_case(move |regd_no, series_id, account_no| {
-        let ui_weak = app_weak_op1.clone(); let oracle = Arc::clone(&oracle_op1); let (r_no, s_id, a_no) = (regd_no.to_string(), series_id.to_string(), account_no.to_string());
+        let ui_weak = app_weak_op1.clone(); 
+        let oracle = oracle_op1.clone(); 
+        let (r_no, s_id, a_no) = (regd_no.to_string(), series_id.to_string(), account_no.to_string());
         tokio::spawn(async move {
             match oracle.gpffp_delete_full_case(&r_no, &s_id, &a_no).await {
                 Ok(_) => { slint::invoke_from_event_loop(move || { if let Some(ui) = ui_weak.upgrade() { ui.set_op_is_error(false); ui.set_op_status_msg("SUCCESS: GPFFP Final payment case completely cleared.".into()); ui.set_op_regd_no("".into()); ui.set_op_series_id("".into()); ui.set_op_account_no("".into()); ui.set_gpf_case_found(false); } }).unwrap(); }
@@ -417,9 +490,12 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    let app_weak_op2 = app.as_weak(); let oracle_op2 = Arc::clone(&oracle_client);
+    let app_weak_op2 = app_weak_main.clone();
+    let oracle_op2 = Arc::clone(&oracle_clone);
     app.on_request_delete_application(move |regd_no| {
-        let ui_weak = app_weak_op2.clone(); let oracle = Arc::clone(&oracle_op2); let r_no = regd_no.to_string();
+        let ui_weak = app_weak_op2.clone(); 
+        let oracle = oracle_op2.clone(); 
+        let r_no = regd_no.to_string();
         tokio::spawn(async move {
             match oracle.gpffp_delete_from_application(&r_no).await {
                 Ok(_) => { slint::invoke_from_event_loop(move || { if let Some(ui) = ui_weak.upgrade() { ui.set_op_is_error(false); ui.set_op_status_msg("SUCCESS: GPFFP Application Record purged.".into()); ui.set_op_regd_no("".into()); ui.set_gpf_case_found(false); } }).unwrap(); }
@@ -428,9 +504,12 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    let app_weak_op3 = app.as_weak(); let oracle_op3 = Arc::clone(&oracle_client);
+    let app_weak_op3 = app_weak_main.clone();
+    let oracle_op3 = Arc::clone(&oracle_clone);
     app.on_request_delete_precalc(move |regd_no| {
-        let ui_weak = app_weak_op3.clone(); let oracle = Arc::clone(&oracle_op3); let r_no = regd_no.to_string();
+        let ui_weak = app_weak_op3.clone(); 
+        let oracle = oracle_op3.clone(); 
+        let r_no = regd_no.to_string();
         tokio::spawn(async move {
             match oracle.gpffp_delete_from_pre_calculation(&r_no).await {
                 Ok(_) => { slint::invoke_from_event_loop(move || { if let Some(ui) = ui_weak.upgrade() { ui.set_op_is_error(false); ui.set_op_status_msg("SUCCESS: GPFFP Pre-Calculation values updated.".into()); ui.set_op_regd_no("".into()); ui.set_gpf_case_found(false); } }).unwrap(); }
@@ -439,14 +518,12 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    // Sub-stubs
-    app.on_request_update_gpf_status(|_, _| {}); app.on_request_vlcs_get_ddo(|_| {}); app.on_request_vlcs_update_ddo(|_| {}); app.on_request_vlcs_get_emp(|_| {}); app.on_request_vlcs_update_emp(|_, _| {});
-
-    // --- LIVE AUTO-LOOKUP HOOK CONTEXT ---
-    let app_weak_dak_find = app.as_weak();
-    let oracle_dak_find = Arc::clone(&oracle_client);
+    let app_weak_dak_find = app_weak_main.clone();
+    let oracle_dak_find = Arc::clone(&oracle_clone);
     app.on_request_find_pension_dak_meta(move |search_app_num| {
-        let ui = app_weak_dak_find.unwrap(); let oracle = Arc::clone(&oracle_dak_find); let target_app = search_app_num.to_string().trim().to_string();
+        let ui = app_weak_dak_find.unwrap(); 
+        let oracle = oracle_dak_find.clone(); 
+        let target_app = search_app_num.to_string().trim().to_string();
         if target_app.is_empty() {
             ui.set_dak_ppo("".into()); ui.set_dak_fppo("".into()); ui.set_dak_gpo("".into()); ui.set_dak_cpo("".into());
             return;
@@ -477,11 +554,11 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    // --- PENSION DAK SYSTEM: OUTWARD MASTER RECORD ENTRY SUBMISSION ---
-    let app_weak_dak = app.as_weak();
-    let oracle_dak = Arc::clone(&oracle_client);
+    let app_weak_dak = app_weak_main.clone();
+    let oracle_dak = Arc::clone(&oracle_clone);
     app.on_request_submit_outward_dak(move || {
-        let ui = app_weak_dak.unwrap(); let oracle = Arc::clone(&oracle_dak);
+        let ui = app_weak_dak.unwrap(); 
+        let oracle = oracle_dak.clone();
         
         let app_num = ui.get_entry_app_num().to_string().trim().to_string();
         let letter_no = ui.get_entry_letter_no().to_string().trim().to_string();
@@ -537,11 +614,11 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    // ACTION 3: Find Outward Record Archive Task
-    let app_weak_dak_query = app.as_weak();
-    let oracle_dak_query = Arc::clone(&oracle_client);
+    let app_weak_dak_query = app_weak_main.clone();
+    let oracle_dak_query = Arc::clone(&oracle_clone);
     app.on_request_find_outward_dak(move |search_key| {
-        let ui_weak = app_weak_dak_query.clone(); let oracle = Arc::clone(&oracle_dak_query);
+        let ui_weak = app_weak_dak_query.clone(); 
+        let oracle = oracle_dak_query.clone(); 
         let target = search_key.to_string().trim().to_string();
         if target.is_empty() { return; }
         tokio::spawn(async move {
@@ -564,11 +641,11 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    // ACTION 4: Edit or Update Outward Case Option
-    let app_weak_dak_modify = app.as_weak();
-    let oracle_dak_modify = Arc::clone(&oracle_client);
+    let app_weak_dak_modify = app_weak_main.clone();
+    let oracle_dak_modify = Arc::clone(&oracle_clone);
     app.on_request_update_outward_dak(move || {
-        let ui_weak = app_weak_dak_modify.clone(); let oracle = Arc::clone(&oracle_dak_modify);
+        let ui_weak = app_weak_dak_modify.clone(); 
+        let oracle = oracle_dak_modify.clone();
         let ui = app_weak_dak_modify.unwrap();
         
         let app_num = ui.get_edit_app_num().to_string().trim().to_string();
@@ -587,11 +664,11 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    // ACTION 5: Outward Letters Binding Link Option
-    let app_weak_dak_letter = app.as_weak();
-    let oracle_dak_letter = Arc::clone(&oracle_client);
+    let app_weak_dak_letter = app_weak_main.clone();
+    let oracle_dak_letter = Arc::clone(&oracle_clone);
     app.on_request_submit_correspondence(move || {
-        let ui_weak = app_weak_dak_letter.clone(); let oracle = Arc::clone(&oracle_dak_letter);
+        let ui_weak = app_weak_dak_letter.clone(); 
+        let oracle = oracle_dak_letter.clone();
         let ui = app_weak_dak_letter.unwrap();
         
         let app_num = ui.get_letter_app_num().to_string().trim().to_string();
@@ -624,13 +701,10 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    // =========================================================================
-    // --- SAI_AGARTALA / PENSION COMPONENT CHANNELS ---
-    // =========================================================================
-    let app_weak_pnsr_det = app.as_weak();
-    let oracle_pnsr_det = Arc::clone(&oracle_client);
+    let app_weak_pnsr_det = app_weak_main.clone();
+    let oracle_pnsr_det = Arc::clone(&oracle_clone);
     app.on_request_pension_details(move |query_term| {
-        let ui_weak = app_weak_pnsr_det.clone(); let oracle = Arc::clone(&oracle_pnsr_det);
+        let ui_weak = app_weak_pnsr_det.clone(); let oracle = oracle_pnsr_det.clone();
         let term = query_term.to_string();
         tokio::spawn(async move {
             match oracle.pnsr_get_details(&term).await {
@@ -654,10 +728,10 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    let app_weak_pnsr_stat = app.as_weak();
-    let oracle_pnsr_stat = Arc::clone(&oracle_client);
+    let app_weak_pnsr_stat = app_weak_main.clone();
+    let oracle_pnsr_stat = Arc::clone(&oracle_clone);
     app.on_request_pension_status(move |app_no| {
-        let ui_weak = app_weak_pnsr_stat.clone(); let oracle = Arc::clone(&oracle_pnsr_stat);
+        let ui_weak = app_weak_pnsr_stat.clone(); let oracle = oracle_pnsr_stat.clone();
         let query_app = app_no.to_string();
         tokio::spawn(async move {
             match oracle.pnsr_get_status_tracking(&query_app).await {

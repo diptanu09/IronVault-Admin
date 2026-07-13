@@ -119,6 +119,8 @@ export component AppWindow inherits Window {
     callback request_vlcs_get_ddo(string); callback request_vlcs_update_ddo(string); callback request_vlcs_get_emp(string); callback request_vlcs_update_emp(string, string);
     callback request_find_pension_dak_meta(string); callback request_submit_outward_dak(); callback request_find_outward_dak(string); callback request_update_outward_dak(); callback request_submit_correspondence();
     callback request_pension_details(string); callback request_pension_status(string);
+    
+    callback reset_user_password(string);
 
     // Main Layout Root Window Layer Stack
     Rectangle {
@@ -363,13 +365,13 @@ export component AppWindow inherits Window {
                                 }
                             }
 
-                            // --- BOTTOM SPLIT SPLIT WORKSPACE INTERFACE ---
+                            // --- BOTTOM SPLIT WORKSPACE INTERFACE ---
                             HorizontalLayout {
                                 spacing: 24px; vertical-stretch: 1;
                                 
-                                // LEFT ROW GRID PANEL: Dynamic Operator Ledger List
+                                // LEFT PANEL: Dynamic Operator Ledger List
                                 VerticalLayout {
-                                    width: 60%; spacing: 12px;
+                                    width: 55%; spacing: 12px;
                                     Text { text: "SECURE OPERATOR SUITE LEDGER"; font-size: 11px; font-weight: 900; color: Theme.text-muted; letter-spacing: 0.5px; }
                                     Rectangle {
                                         background: Theme.bg-sidebar; border-radius: Theme.corner-radius; border-width: 1px; border-color: Theme.border-color; padding: 12px; vertical-stretch: 1;
@@ -384,7 +386,6 @@ export component AppWindow inherits Window {
                                                         padding: 14px; alignment: space-between;
                                                         VerticalLayout { spacing: 4px; width: 180px; Text { text: user.full_name; font-size: 14px; font-weight: 800; color: Theme.text-primary; } Text { text: "@" + user.username; font-size: 11px; color: Theme.brand-warning; font-weight: 800; } }
                                                         
-                                                        // Clearance class conditional colorful badges
                                                         VerticalLayout {
                                                             alignment: center; width: 120px;
                                                             Rectangle {
@@ -400,8 +401,8 @@ export component AppWindow inherits Window {
                                                         VerticalLayout {
                                                             alignment: center;
                                                             Button {
-                                                                text: "⚙️ Access Configuration"; height: 32px;
-                                                                clicked => { root.lease_target_user = user.username; root.lease_target_role = user.role; root.lease_target_schemas = user.allowed_schemas; }
+                                                                text: "⚙️ Select Configuration"; height: 32px;
+                                                                clicked => { root.lease_target_user = user.username; root.lease_target_role = user.role; root.lease_target_days = user.expires_at; root.lease_target_schemas = user.allowed_schemas; }
                                                             }
                                                         }
                                                     }
@@ -411,37 +412,59 @@ export component AppWindow inherits Window {
                                     }
                                 }
 
-                                // RIGHT ROW PANEL: Enclave Security Authorization Editor Form Controls
+                                // RIGHT PANEL: Enclave Security Authorization Editor Form Controls (POLISHED LAYER)
                                 VerticalLayout {
                                     horizontal-stretch: 1; spacing: 12px;
-                                    Text { text: "ENCLAVE SECURITY ACCESS CONTROL FORMS"; font-size: 11px; font-weight: 900; color: Theme.text-muted; letter-spacing: 0.5px; }
+                                    Text { text: "ENCLAVE SECURITY ACCESS CONTROL OVERRIDES"; font-size: 11px; font-weight: 900; color: Theme.text-muted; letter-spacing: 0.5px; }
                                     Rectangle {
-                                        background: Theme.bg-card; border-radius: Theme.corner-radius; border-width: 1px; border-color: root.lease_target_user != "" ? Theme.brand-warning : Theme.border-color; padding: 24px;
-                                        VerticalLayout {
-                                            spacing: 20px; alignment: start;
-                                            if (root.lease_target_user == "") : VerticalLayout {
-                                                alignment: center; spacing: 12px; height: 300px;
-                                                Text { text: "🔒 SECURITY GUARD LOCK INTERRUPT"; font-size: 13px; font-weight: 900; color: Theme.brand-warning; horizontal-alignment: TextHorizontalAlignment.center; }
-                                                Text { text: "Select an operator profile item from the active database ledger configuration list on the left to amend dynamic network leases or re-route authorized database schemas paths."; font-size: 12px; color: Theme.text-muted; horizontal-alignment: TextHorizontalAlignment.center; wrap: word-wrap; }
-                                            }
-                                            if (root.lease_target_user != "") : VerticalLayout {
-                                                spacing: 16px;
-                                                VerticalLayout { spacing: 4px; Text { text: "TARGET USER CONTEXT"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } LineEdit { text: "@" + root.lease_target_user; enabled: false; height: Theme.input-height; } }
-                                                VerticalLayout { spacing: 4px; Text { text: "SECURITY CLEARANCE CLASS ROLE"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } LineEdit { text <=> root.lease_target_role; placeholder_text: "Operator / SuperAdmin"; height: Theme.input-height; } }
-                                                VerticalLayout { spacing: 4px; Text { text: "WORKSPACE LEASE RENEWAL EXTENSION (DAYS)"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } LineEdit { text <=> root.lease_target_days; placeholder_text: "30"; height: Theme.input-height; } }
-                                                VerticalLayout { spacing: 4px; Text { text: "ROUTED ENVIRONMENT SCHEMAS PATHS (COMMA SEPARATED)"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } LineEdit { text <=> root.lease_target_schemas; placeholder_text: "gpffp, vlcs, sai_agartala, pendak"; height: Theme.input-height; } }
-                                                
-                                                Rectangle { height: 10px; }
-                                                Rectangle { height: 1px; background: Theme.border-color; }
-                                                
-                                                HorizontalLayout {
-                                                    spacing: 12px; alignment: end;
-                                                    Button { text: "✏️ Save Modification Pass"; primary: true; height: 38px; clicked => { root.extend_user_lease(root.lease_target_user, root.lease_target_role, root.lease_target_days, root.lease_target_schemas); root.lease_target_user = ""; } }
-                                                    Button { text: "🚨 Ban Operator Profile"; height: 38px; clicked => { root.ban_user(root.lease_target_user); root.lease_target_user = ""; } }
+                                        background: Theme.bg-card; border-radius: Theme.corner-radius; border-width: 1px; border-color: root.lease_target_user != "" ? Theme.brand-warning : Theme.border-color; vertical-stretch: 1;
+                                        
+                                        ScrollView {
+                                            VerticalLayout {
+                                                padding: 24px; spacing: 20px; alignment: start;
+                                                if (root.lease_target_user == "") : VerticalLayout {
+                                                    alignment: center; spacing: 12px; height: 350px;
+                                                    Text { text: "🔒 SECURITY OVERRIDE PANEL LOCKED"; font-size: 13px; font-weight: 900; color: Theme.brand-warning; horizontal-alignment: TextHorizontalAlignment.center; }
+                                                    Text { text: "Select an operator item from the active database ledger on the left to edit network clearance levels, re-route sections, trigger credential resets, or issue revocations."; font-size: 12px; color: Theme.text-muted; horizontal-alignment: TextHorizontalAlignment.center; wrap: word-wrap; }
                                                 }
-                                                HorizontalLayout {
-                                                    alignment: center;
-                                                    Button { text: "Cancel Selection Focus"; height: 32px; horizontal-stretch: 1; clicked => { root.lease_target_user = ""; } }
+                                                if (root.lease_target_user != "") : VerticalLayout {
+                                                    spacing: 16px;
+                                                    
+                                                    // Section 1: Identity Profile Metadata
+                                                    Text { text: "1. PROFILE METADATA IDENTITY"; font-size: 11px; font-weight: 900; color: Theme.brand-primary; }
+                                                    VerticalLayout { spacing: 4px; Text { text: "TARGET OPERATOR ID TOKEN"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } LineEdit { text: "@" + root.lease_target_user; enabled: false; height: Theme.input-height; } }
+                                                    
+                                                    Rectangle { height: 1px; background: Theme.border-color; opacity: 0.4; }
+                                                    
+                                                    // Section 2: Workspace Authorization Access Controls
+                                                    Text { text: "2. WORKSPACE ACCESS PARAMETERS"; font-size: 11px; font-weight: 900; color: Theme.brand-primary; }
+                                                    VerticalLayout { spacing: 4px; Text { text: "SECURITY CLEARANCE CLASS GROUP ROLE"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } LineEdit { text <=> root.lease_target_role; placeholder_text: "Operator / SuperAdmin"; height: Theme.input-height; } }
+                                                    VerticalLayout { spacing: 4px; Text { text: "LEASE COMPLIANCE VALIDATION RENEWAL INTERVAL (DAYS)"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } LineEdit { text <=> root.lease_target_days; placeholder_text: "30"; height: Theme.input-height; } }
+                                                    VerticalLayout { spacing: 4px; Text { text: "RE-ROUTE ASSIGNED SCHEMAS PATHCONTEXT SECTIONS"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } LineEdit { text <=> root.lease_target_schemas; placeholder_text: "gpffp, vlcs, sai_agartala, pendak"; height: Theme.input-height; } }
+                                                    
+                                                    HorizontalLayout {
+                                                        alignment: end; spacing: 12px; padding-top: 4px;
+                                                        Button { text: "✏️ Save Modification Pass"; height: 36px; clicked => { root.extend_user_lease(root.lease_target_user, root.lease_target_role, root.lease_target_days, root.lease_target_schemas); root.lease_target_user = ""; } }
+                                                    }
+
+                                                    Rectangle { height: 1px; background: Theme.border-color; opacity: 0.4; }
+                                                    
+                                                    // Section 3: Administrative Credential & Enclave Security Action Overrides
+                                                    Text { text: "3. CRITICAL SECURITY OVERRIDES"; font-size: 11px; font-weight: 900; color: Theme.brand-danger; }
+                                                    HorizontalLayout {
+                                                        spacing: 12px; alignment: stretch;
+                                                        Button { text: "🔑 Reset Cryptographic Password"; height: 38px; horizontal-stretch: 1; clicked => { root.reset_user_password(root.lease_target_user); root.lease_target_user = ""; } }
+                                                        Button { text: "🚨 Ban Operator Profile"; height: 38px; horizontal-stretch: 1; clicked => { root.ban_user(root.lease_target_user); root.lease_target_user = ""; } }
+                                                    }
+                                                    
+                                                    Rectangle { height: 8px; }
+                                                    Rectangle { height: 1px; background: Theme.border-color; }
+                                                    
+                                                    // FIXED: Cancel button is aligned right at the bottom edge with fill stretched space
+                                                    HorizontalLayout {
+                                                        padding-top: 4px;
+                                                        Button { text: "Cancel Panel Focus"; height: 34px; horizontal-stretch: 1; clicked => { root.lease_target_user = ""; } }
+                                                    }
                                                 }
                                             }
                                         }

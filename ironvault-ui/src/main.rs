@@ -116,6 +116,7 @@ async fn main() -> Result<(), slint::PlatformError> {
                         }
                         
                         ui.set_is_logged_in(true);
+                        ui.set_show_welcome_popup(true);
                         ui.set_active_tab("overview".into());
                     }).unwrap();
                     
@@ -162,6 +163,71 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
+    // --- BACKGROUND ACCESS REQUEST SIGNALS POLLING THREAD ---
+    let app_weak_poll = app.as_weak();
+    let db_poll_clone = Arc::clone(&db);
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+            
+            let should_poll = {
+                if let Some(ui) = app_weak_poll.upgrade() {
+                    ui.get_is_logged_in() && ui.get_current_user_role().to_string().contains("SuperAdmin")
+                } else {
+                    false
+                }
+            }; 
+
+            if should_poll {
+                if let Ok(pending_operator) = db_poll_clone.fetch_next_pending_user().await {
+                    let app_weak_copy = app_weak_poll.clone();
+                    slint::invoke_from_event_loop(move || {
+                        if let Some(ui_layer) = app_weak_copy.upgrade() {
+                            ui_layer.set_pending_notification_name(pending_operator.unwrap_or_else(|| "NONE".to_string()).into());
+                        }
+                    }).unwrap();
+                }
+            }
+        }
+    });
+
+    let app_weak_approve = app.as_weak();
+    let db_approve_clone = Arc::clone(&db);
+    app.on_approve_pending_operator(move |target_user, role_str| {
+        let ui_weak = app_weak_approve.clone();
+        let db = Arc::clone(&db_approve_clone);
+        let target = target_user.to_string();
+        let assigned_role = role_str.to_string();
+        tokio::spawn(async move {
+            if db.approve_user("ADMIN", &target, &assigned_role).await.is_ok() {
+                slint::invoke_from_event_loop(move || {
+                    let ui = ui_weak.unwrap();
+                    ui.set_pending_notification_name("NONE".into());
+                    ui.set_op_is_error(false);
+                    ui.set_op_status_msg("SUCCESS: Access registration token signed into active matrix.".into());
+                }).unwrap();
+            }
+        });
+    });
+
+    let app_weak_deny = app.as_weak();
+    let db_deny_clone = Arc::clone(&db);
+    app.on_deny_pending_operator(move |target_user| {
+        let ui_weak = app_weak_deny.clone();
+        let db = Arc::clone(&db_deny_clone);
+        let target = target_user.to_string();
+        tokio::spawn(async move {
+            if db.deny_user("ADMIN", &target).await.is_ok() {
+                slint::invoke_from_event_loop(move || {
+                    let ui = ui_weak.unwrap();
+                    ui.set_pending_notification_name("NONE".into());
+                    ui.set_op_is_error(true);
+                    ui.set_op_status_msg("Purged: Verification request discarded successfully.".into());
+                }).unwrap();
+            }
+        });
+    });
+
     // --- USER MANAGEMENT CONTROLS Matrix ---
     let app_weak_users = app.as_weak();
     let db_users_clone = Arc::clone(&db);
@@ -182,7 +248,11 @@ async fn main() -> Result<(), slint::PlatformError> {
                     let s: String = r.try_get("section").unwrap_or_default();
                     slint_users.push(UserData { username: u.into(), role: ro.into(), last_login: "ACTIVE".into(), full_name: f.into(), designation: d.into(), expires_at: e_dt.into(), allowed_schemas: s.into() });
                 }
-                slint::invoke_from_event_loop(move || ui_weak.unwrap().set_active_users_list(ModelRc::from(Rc::new(VecModel::from(slint_users))))).unwrap();
+                slint::invoke_from_event_loop(move || {
+                    if let Some(ui) = ui_weak.upgrade() {
+                        ui.set_active_users_list(ModelRc::from(Rc::new(VecModel::from(slint_users))));
+                    }
+                }).unwrap();
             }
         });
     });
@@ -196,22 +266,73 @@ async fn main() -> Result<(), slint::PlatformError> {
         let role_str = new_role.to_string();
         let schema_str = new_schemas.to_string().to_lowercase();
         let days_valid: i32 = days_string.to_string().parse().unwrap_or(30);
-        
         tokio::spawn(async move {
-            // Persist the clearance group tier updates and the calendar validation lease intervals
             if db.update_user_lease(&user_str, &role_str, days_valid).await.is_ok() {
                 let pool = db.get_pool().clone();
-                // Re-route path configurations
-                let _ = sqlx::query("UPDATE ironvault.users SET section = $1 WHERE username = $2")
-                    .bind(&schema_str)
-                    .bind(&user_str)
-                    .execute(&pool)
-                    .await;
-                
-                // Force an event loop refresh pass
+                let _ = sqlx::query("UPDATE ironvault.users SET section = $1 WHERE username = $2").bind(&schema_str).bind(&user_str).execute(&pool).await;
                 slint::invoke_from_event_loop(move || {
-                    ui_weak.unwrap().invoke_load_users_list();
+                    if let Some(ui) = ui_weak.upgrade() {
+                        ui.invoke_load_users_list();
+                    }
                 }).unwrap();
+            }
+        });
+    });
+
+    let app_weak_ban = app.as_weak();
+    let db_ban_clone = Arc::clone(&db);
+    app.on_ban_user(move |target_user| {
+        let ui_weak = app_weak_ban.clone();
+        let db = Arc::clone(&db_ban_clone);
+        let user_str = target_user.to_string();
+        tokio::spawn(async move {
+            if db.ban_user("SUPERADMIN", &user_str).await.is_ok() {
+                slint::invoke_from_event_loop(move || {
+                    if let Some(ui) = ui_weak.upgrade() {
+                        ui.invoke_load_users_list();
+                        ui.set_op_is_error(true);
+                        ui.set_op_status_msg("REVOCATION SUCCESS: Operator credentials blacklisted and purged from registry.".into());
+                    }
+                }).unwrap();
+            }
+        });
+    });
+
+    // --- CRYPTOGRAPHIC PASSWORD RESET RUNTIME CALLBACK HOOK ---
+    // --- SECURE SYSTEM OPERATOR CREDENTIAL RECOVERY OVERRIDE ---
+    let app_weak_reset = app.as_weak();
+    let db_reset_clone = Arc::clone(&db);
+    app.on_reset_user_password(move |target_user| {
+        let ui_weak = app_weak_reset.clone();
+        let db = Arc::clone(&db_reset_clone);
+        let user_str = target_user.to_string();
+        
+        tokio::spawn(async move {
+            let pool = db.get_pool().clone();
+            let default_temp_pass = "IronVault@2026";
+            let secure_hashed_pass = ironvault_core::crypto::hash_password(default_temp_pass, &user_str);
+            
+            let query = "UPDATE ironvault.users SET password = $1 WHERE username = $2 AND status = 'ACTIVE'";
+            match sqlx::query(query)
+                .bind(&secure_hashed_pass)
+                .bind(&user_str)
+                .execute(&pool)
+                .await 
+            {
+                Ok(_) => slint::invoke_from_event_loop(move || {
+                    if let Some(ui) = ui_weak.upgrade() {
+                        // UNLOCKED: Pushes an active visual feedback message onto the UI matrix
+                        ui.set_op_is_error(false);
+                        ui.set_op_status_msg(format!("🛡️ OVERRIDE SUCCESS: Password for @{} has been reset to: {}", user_str, default_temp_pass).into());
+                        ui.invoke_load_users_list();
+                    }
+                }).unwrap(),
+                Err(e) => slint::invoke_from_event_loop(move || {
+                    if let Some(ui) = ui_weak.upgrade() {
+                        ui.set_op_is_error(true);
+                        ui.set_op_status_msg(format!("🚨 DATABASE OVERRIDE WRITE FAULT: {}", e).into());
+                    }
+                }).unwrap(),
             }
         });
     });
@@ -270,15 +391,17 @@ async fn main() -> Result<(), slint::PlatformError> {
             match oracle.gpffp_find_case_profile(&r_no).await {
                 Ok(Some(record)) => {
                     slint::invoke_from_event_loop(move || {
-                        let ui = ui_weak.unwrap(); ui.set_gpf_case_found(true); ui.set_op_is_error(false); ui.set_op_status_msg("SUCCESS: GPF Case entity located.".into());
-                        ui.set_active_gpf_case(GpfCaseDetails {
-                            regd_no: record.regd_no.into(), holder_name: record.acc_holder_name.into(), series_id: record.series_id.into(),
-                            account_no: record.account_no.into(), balance: record.closing_balance.to_string().into(), status: record.current_status.into(),
-                        });
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_gpf_case_found(true); ui.set_op_is_error(false); ui.set_op_status_msg("SUCCESS: GPF Case entity located.".into());
+                            ui.set_active_gpf_case(GpfCaseDetails {
+                                regd_no: record.regd_no.into(), holder_name: record.acc_holder_name.into(), series_id: record.series_id.into(),
+                                account_no: record.account_no.into(), balance: record.closing_balance.to_string().into(), status: record.current_status.into(),
+                            });
+                        }
                     }).unwrap();
                 }
-                Ok(None) => { slint::invoke_from_event_loop(move || { let ui = ui_weak.unwrap(); ui.set_gpf_case_found(false); ui.set_op_is_error(true); ui.set_op_status_msg("Discovery Fault: No matching records found.".into()); }).unwrap(); }
-                Err(e) => { slint::invoke_from_event_loop(move || { let ui = ui_weak.unwrap(); ui.set_gpf_case_found(false); ui.set_op_is_error(true); ui.set_op_status_msg(format!("ORACLE TRANSACTION FAILURE: {:?}", e).into()); }).unwrap(); }
+                Ok(None) => { slint::invoke_from_event_loop(move || { let ui = ui_weak.upgrade(); if let Some(ui) = ui_weak.upgrade() { ui.set_gpf_case_found(false); ui.set_op_is_error(true); ui.set_op_status_msg("Discovery Fault: No matching records found.".into()); } }).unwrap(); }
+                Err(e) => { slint::invoke_from_event_loop(move || { let ui = ui_weak.upgrade(); if let Some(ui) = ui_weak.upgrade() { ui.set_gpf_case_found(false); ui.set_op_is_error(true); ui.set_op_status_msg(format!("ORACLE TRANSACTION FAILURE: {:?}", e).into()); } }).unwrap(); }
             }
         });
     });
@@ -288,8 +411,8 @@ async fn main() -> Result<(), slint::PlatformError> {
         let ui_weak = app_weak_op1.clone(); let oracle = Arc::clone(&oracle_op1); let (r_no, s_id, a_no) = (regd_no.to_string(), series_id.to_string(), account_no.to_string());
         tokio::spawn(async move {
             match oracle.gpffp_delete_full_case(&r_no, &s_id, &a_no).await {
-                Ok(_) => { slint::invoke_from_event_loop(move || { let ui = ui_weak.unwrap(); ui.set_op_is_error(false); ui.set_op_status_msg("SUCCESS: GPFFP Final payment case completely cleared.".into()); ui.set_op_regd_no("".into()); ui.set_op_series_id("".into()); ui.set_op_account_no("".into()); ui.set_gpf_case_found(false); }).unwrap(); }
-                Err(e) => { slint::invoke_from_event_loop(move || { let ui = ui_weak.unwrap(); ui.set_op_is_error(true); ui.set_op_status_msg(format!("GPFFP TRANSACTION FAILURE: {}", e).into()); }).unwrap(); }
+                Ok(_) => { slint::invoke_from_event_loop(move || { if let Some(ui) = ui_weak.upgrade() { ui.set_op_is_error(false); ui.set_op_status_msg("SUCCESS: GPFFP Final payment case completely cleared.".into()); ui.set_op_regd_no("".into()); ui.set_op_series_id("".into()); ui.set_op_account_no("".into()); ui.set_gpf_case_found(false); } }).unwrap(); }
+                Err(e) => { slint::invoke_from_event_loop(move || { if let Some(ui) = ui_weak.upgrade() { ui.set_op_is_error(true); ui.set_op_status_msg(format!("GPFFP TRANSACTION FAILURE: {}", e).into()); } }).unwrap(); }
             }
         });
     });
@@ -299,8 +422,8 @@ async fn main() -> Result<(), slint::PlatformError> {
         let ui_weak = app_weak_op2.clone(); let oracle = Arc::clone(&oracle_op2); let r_no = regd_no.to_string();
         tokio::spawn(async move {
             match oracle.gpffp_delete_from_application(&r_no).await {
-                Ok(_) => { slint::invoke_from_event_loop(move || { let ui = ui_weak.unwrap(); ui.set_op_is_error(false); ui.set_op_status_msg("SUCCESS: GPFFP Application Record purged.".into()); ui.set_op_regd_no("".into()); ui.set_gpf_case_found(false); }).unwrap(); }
-                Err(e) => { slint::invoke_from_event_loop(move || { let ui = ui_weak.unwrap(); ui.set_op_is_error(true); ui.set_op_status_msg(format!("GPFFP TRANSACTION FAILURE: {}", e).into()); }).unwrap(); }
+                Ok(_) => { slint::invoke_from_event_loop(move || { if let Some(ui) = ui_weak.upgrade() { ui.set_op_is_error(false); ui.set_op_status_msg("SUCCESS: GPFFP Application Record purged.".into()); ui.set_op_regd_no("".into()); ui.set_gpf_case_found(false); } }).unwrap(); }
+                Err(e) => { slint::invoke_from_event_loop(move || { if let Some(ui) = ui_weak.upgrade() { ui.set_op_is_error(true); ui.set_op_status_msg(format!("GPFFP TRANSACTION FAILURE: {}", e).into()); } }).unwrap(); }
             }
         });
     });
@@ -310,8 +433,8 @@ async fn main() -> Result<(), slint::PlatformError> {
         let ui_weak = app_weak_op3.clone(); let oracle = Arc::clone(&oracle_op3); let r_no = regd_no.to_string();
         tokio::spawn(async move {
             match oracle.gpffp_delete_from_pre_calculation(&r_no).await {
-                Ok(_) => { slint::invoke_from_event_loop(move || { let ui = ui_weak.unwrap(); ui.set_op_is_error(false); ui.set_op_status_msg("SUCCESS: GPFFP Pre-Calculation values updated.".into()); ui.set_op_regd_no("".into()); ui.set_gpf_case_found(false); }).unwrap(); }
-                Err(e) => { slint::invoke_from_event_loop(move || { let ui = ui_weak.unwrap(); ui.set_op_is_error(true); ui.set_op_status_msg(format!("GPFFP TRANSACTION FAILURE: {}", e).into()); }).unwrap(); }
+                Ok(_) => { slint::invoke_from_event_loop(move || { if let Some(ui) = ui_weak.upgrade() { ui.set_op_is_error(false); ui.set_op_status_msg("SUCCESS: GPFFP Pre-Calculation values updated.".into()); ui.set_op_regd_no("".into()); ui.set_gpf_case_found(false); } }).unwrap(); }
+                Err(e) => { slint::invoke_from_event_loop(move || { if let Some(ui) = ui_weak.upgrade() { ui.set_op_is_error(true); ui.set_op_status_msg(format!("GPFFP TRANSACTION FAILURE: {}", e).into()); } }).unwrap(); }
             }
         });
     });
@@ -333,21 +456,23 @@ async fn main() -> Result<(), slint::PlatformError> {
             match oracle.pendak_fetch_auth_details(&target_app).await {
                 Ok(Some(details)) => {
                     slint::invoke_from_event_loop(move || {
-                        let ui_handle = ui_weak.unwrap();
-                        ui_handle.set_dak_ppo(if details.ppo_no.is_empty() { "N/A".to_string() } else { details.ppo_no }.into());
-                        ui_handle.set_dak_fppo(if details.fppo_no.is_empty() { "N/A".to_string() } else { details.fppo_no }.into());
-                        ui_handle.set_dak_gpo(if details.gpo_no.is_empty() { "N/A".to_string() } else { details.gpo_no }.into());
-                        ui_handle.set_dak_cpo(if details.cpo_no.is_empty() { "N/A".to_string() } else { details.cpo_no }.into());
-                        ui_handle.set_op_is_error(false); ui_handle.set_op_status_msg("SUCCESS: Associated pension authorities auto-fetched.".into());
+                        if let Some(ui_handle) = ui_weak.upgrade() {
+                            ui_handle.set_dak_ppo(if details.ppo_no.is_empty() { "N/A".to_string() } else { details.ppo_no }.into());
+                            ui_handle.set_dak_fppo(if details.fppo_no.is_empty() { "N/A".to_string() } else { details.fppo_no }.into());
+                            ui_handle.set_dak_gpo(if details.gpo_no.is_empty() { "N/A".to_string() } else { details.gpo_no }.into());
+                            ui_handle.set_dak_cpo(if details.cpo_no.is_empty() { "N/A".to_string() } else { details.cpo_no }.into());
+                            ui_handle.set_op_is_error(false); ui_handle.set_op_status_msg("SUCCESS: Associated pension authorities auto-fetched.".into());
+                        }
                     }).unwrap();
                 }
                 Ok(None) => {
                     slint::invoke_from_event_loop(move || {
-                        let ui_handle = ui_weak.unwrap();
-                        ui_handle.set_dak_ppo("N/A".into()); ui_handle.set_dak_fppo("N/A".into()); ui_handle.set_dak_gpo("N/A".into()); ui_handle.set_dak_cpo("N/A".into());
+                        if let Some(ui_handle) = ui_weak.upgrade() {
+                            ui_handle.set_dak_ppo("N/A".into()); ui_handle.set_dak_fppo("N/A".into()); ui_handle.set_dak_gpo("N/A".into()); ui_handle.set_dak_cpo("N/A".into());
+                        }
                     }).unwrap();
                 }
-                Err(e) => { slint::invoke_from_event_loop(move || { let ui_handle = ui_weak.unwrap(); ui_handle.set_op_is_error(true); ui_handle.set_op_status_msg(format!("Auto-Fetch Error: {}", e).into()); }).unwrap(); }
+                Err(e) => { slint::invoke_from_event_loop(move || { if let Some(ui_handle) = ui_weak.upgrade() { ui_handle.set_op_is_error(true); ui_handle.set_op_status_msg(format!("Auto-Fetch Error: {}", e).into()); } }).unwrap(); }
             }
         });
     });
@@ -396,16 +521,18 @@ async fn main() -> Result<(), slint::PlatformError> {
             match oracle.pendak_insert_outward_case(transaction_payload).await {
                 Ok(_) => {
                     slint::invoke_from_event_loop(move || {
-                        let ui_handle = ui_weak.unwrap(); ui_handle.set_op_is_error(false); ui_handle.set_op_status_msg(format!("SUCCESS: Outward case record for Application {} logged.", app_num).into());
-                        ui_handle.set_entry_app_num("".into()); ui_handle.set_entry_letter_no("".into());
-                        ui_handle.set_dak_ppo("".into()); ui_handle.set_dak_fppo("".into()); ui_handle.set_dak_gpo("".into()); ui_handle.set_dak_cpo("".into());
-                        ui_handle.set_entry_section("".into()); ui_handle.set_entry_subject("".into()); ui_handle.set_entry_no_of_copies("1".into());
-                        ui_handle.set_dak_adr_1("".into()); ui_handle.set_dak_bar_1("".into());
-                        ui_handle.set_dak_adr_2("".into()); ui_handle.set_dak_bar_2("".into());
-                        ui_handle.set_dak_adr_3("".into()); ui_handle.set_dak_bar_3("".into());
+                        if let Some(ui_handle) = ui_weak.upgrade() {
+                            ui_handle.set_op_is_error(false); ui_handle.set_op_status_msg(format!("SUCCESS: Outward case record for Application {} logged.", app_num).into());
+                            ui_handle.set_entry_app_num("".into()); ui_handle.set_entry_letter_no("".into());
+                            ui_handle.set_dak_ppo("".into()); ui_handle.set_dak_fppo("".into()); ui_handle.set_dak_gpo("".into()); ui_handle.set_dak_cpo("".into());
+                            ui_handle.set_entry_section("".into()); ui_handle.set_entry_subject("".into()); ui_handle.set_entry_no_of_copies("1".into());
+                            ui_handle.set_dak_adr_1("".into()); ui_handle.set_dak_bar_1("".into());
+                            ui_handle.set_dak_adr_2("".into()); ui_handle.set_dak_bar_2("".into());
+                            ui_handle.set_dak_adr_3("".into()); ui_handle.set_dak_bar_3("".into());
+                        }
                     }).unwrap();
                 }
-                Err(err_msg) => { slint::invoke_from_event_loop(move || { let ui_handle = ui_weak.unwrap(); ui_handle.set_op_is_error(true); ui_handle.set_op_status_msg(format!("DATABASE WRITE REFUSAL: {}", err_msg).into()); }).unwrap(); }
+                Err(err_msg) => { slint::invoke_from_event_loop(move || { if let Some(ui_handle) = ui_weak.upgrade() { ui_handle.set_op_is_error(true); ui_handle.set_op_status_msg(format!("DATABASE WRITE REFUSAL: {}", err_msg).into()); } }).unwrap(); }
             }
         });
     });
@@ -421,16 +548,18 @@ async fn main() -> Result<(), slint::PlatformError> {
             match oracle.pendak_select_outward_case_full(&target).await {
                 Ok(Some(record)) => {
                     slint::invoke_from_event_loop(move || {
-                        let ui = ui_weak.unwrap(); ui.set_dak_case_found(true); ui.set_op_is_error(false); ui.set_op_status_msg("SUCCESS: Outward Case matched inside storage vault.".into());
-                        ui.set_view_dak_letter(record.letter_no.into()); ui.set_view_dak_section(record.section.into()); ui.set_view_dak_subject(record.subject.into());
-                        ui.set_dak_corr_date(record.created_at.into());
-                        ui.set_dak_ppo(record.ppo_no.into()); ui.set_dak_fppo(record.fppo_no.into());
-                        ui.set_dak_gpo(record.gpo_no.into()); ui.set_dak_cpo(record.cpo_no.into());
-                        ui.set_dak_adr_1(record.addressee.into()); ui.set_dak_bar_1(record.barcode.into()); ui.set_dak_sent_1(record.sent_by.into());
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_dak_case_found(true); ui.set_op_is_error(false); ui.set_op_status_msg("SUCCESS: Outward Case matched inside storage vault.".into());
+                            ui.set_view_dak_letter(record.letter_no.into()); ui.set_view_dak_section(record.section.into()); ui.set_view_dak_subject(record.subject.into());
+                            ui.set_dak_corr_date(record.created_at.into());
+                            ui.set_dak_ppo(record.ppo_no.into()); ui.set_dak_fppo(record.fppo_no.into());
+                            ui.set_dak_gpo(record.gpo_no.into()); ui.set_dak_cpo(record.cpo_no.into());
+                            ui.set_dak_adr_1(record.addressee.into()); ui.set_dak_bar_1(record.barcode.into()); ui.set_dak_sent_1(record.sent_by.into());
+                        }
                     }).unwrap();
                 }
-                Ok(None) => { slint::invoke_from_event_loop(move || { let ui = ui_weak.unwrap(); ui.set_dak_case_found(false); ui.set_op_is_error(true); ui.set_op_status_msg("Discovery Fault: Given index key doesn't exist inside archive registry.".into()); }).unwrap(); }
-                Err(e) => { slint::invoke_from_event_loop(move || { let ui = ui_weak.unwrap(); ui.set_dak_case_found(false); ui.set_op_is_error(true); ui.set_op_status_msg(format!("ORACLE LOOKUP REJECTION: {}", e).into()); }).unwrap(); }
+                Ok(None) => { slint::invoke_from_event_loop(move || { if let Some(ui) = ui_weak.upgrade() { ui.set_dak_case_found(false); ui.set_op_is_error(true); ui.set_op_status_msg("Discovery Fault: Given index key doesn't exist inside archive registry.".into()); } }).unwrap(); }
+                Err(e) => { slint::invoke_from_event_loop(move || { if let Some(ui) = ui_weak.upgrade() { ui.set_dak_case_found(false); ui.set_op_is_error(true); ui.set_op_status_msg(format!("ORACLE LOOKUP REJECTION: {}", e).into()); } }).unwrap(); }
             }
         });
     });
@@ -452,8 +581,8 @@ async fn main() -> Result<(), slint::PlatformError> {
         }
         tokio::spawn(async move {
             match oracle.pendak_update_outward_case(&app_num, &section, &subject).await {
-                Ok(_) => { slint::invoke_from_event_loop(move || { let ui_handle = ui_weak.unwrap(); ui_handle.set_op_is_error(false); ui_handle.set_op_status_msg(format!("SUCCESS: Modification matrix applied cleanly to profile record {}", app_num).into()); ui_handle.set_edit_app_num("".into()); ui_handle.set_edit_section("".into()); ui_handle.set_edit_subject("".into()); }).unwrap(); }
-                Err(e) => { slint::invoke_from_event_loop(move || { let ui_handle = ui_weak.unwrap(); ui_handle.set_op_is_error(true); ui_handle.set_op_status_msg(format!("ORACLE UPDATE FAULT: {}", e).into()); }).unwrap(); }
+                Ok(_) => { slint::invoke_from_event_loop(move || { if let Some(ui_handle) = ui_weak.upgrade() { ui_handle.set_op_is_error(false); ui_handle.set_op_status_msg(format!("SUCCESS: Modification matrix applied cleanly to profile record {}", app_num).into()); ui_handle.set_edit_app_num("".into()); ui_handle.set_edit_section("".into()); ui_handle.set_edit_subject("".into()); } }).unwrap(); }
+                Err(e) => { slint::invoke_from_event_loop(move || { if let Some(ui_handle) = ui_weak.upgrade() { ui_handle.set_op_is_error(true); ui_handle.set_op_status_msg(format!("ORACLE UPDATE FAULT: {}", e).into()); } }).unwrap(); }
             }
         });
     });
@@ -483,12 +612,14 @@ async fn main() -> Result<(), slint::PlatformError> {
             match oracle.pendak_insert_outward_case(letter_payload).await {
                 Ok(_) => {
                     slint::invoke_from_event_loop(move || {
-                        let ui_handle = ui_weak.unwrap(); ui_handle.set_op_is_error(false); ui_handle.set_op_status_msg(format!("SUCCESS: Letter component {} successfully linked into dairy registry.", letter_no).into());
-                        ui_handle.set_letter_app_num("".into()); ui_handle.set_letter_letter_no("".into()); ui_handle.set_letter_section("".into()); ui_handle.set_letter_subject("".into());
-                        ui_handle.set_dak_adr_1("".into()); ui_handle.set_dak_bar_1("".into()); ui_handle.set_dak_sent_1("".into());
+                        if let Some(ui_handle) = ui_weak.upgrade() {
+                            ui_handle.set_op_is_error(false); ui_handle.set_op_status_msg(format!("SUCCESS: Letter component {} successfully linked into dairy registry.", letter_no).into());
+                            ui_handle.set_letter_app_num("".into()); ui_handle.set_letter_letter_no("".into()); ui_handle.set_letter_section("".into()); ui_handle.set_letter_subject("".into());
+                            ui_handle.set_dak_adr_1("".into()); ui_handle.set_dak_bar_1("".into()); ui_handle.set_dak_sent_1("".into());
+                        }
                     }).unwrap();
                 }
-                Err(e) => { slint::invoke_from_event_loop(move || { let ui_handle = ui_weak.unwrap(); ui_handle.set_op_is_error(true); ui_handle.set_op_status_msg(format!("ORACLE LETTER FAULT: {}", e).into()); }).unwrap(); }
+                Err(e) => { slint::invoke_from_event_loop(move || { if let Some(ui_handle) = ui_weak.upgrade() { ui_handle.set_op_is_error(true); ui_handle.set_op_status_msg(format!("ORACLE LETTER FAULT: {}", e).into()); } }).unwrap(); }
             }
         });
     });
@@ -511,12 +642,14 @@ async fn main() -> Result<(), slint::PlatformError> {
                         }
                     }).collect();
                     slint::invoke_from_event_loop(move || {
-                        let ui = ui_weak.unwrap(); ui.set_sai_data_found(!slint_records.is_empty());
-                        ui.set_sai_biographical_list(slint::ModelRc::from(std::rc::Rc::new(slint::VecModel::from(slint_records))));
-                        ui.set_op_is_error(false);
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_sai_data_found(!slint_records.is_empty());
+                            ui.set_sai_biographical_list(slint::ModelRc::from(std::rc::Rc::new(slint::VecModel::from(slint_records))));
+                            ui.set_op_is_error(false);
+                        }
                     }).unwrap();
                 }
-                Err(e) => { slint::invoke_from_event_loop(move || { let ui = ui_weak.unwrap(); ui.set_op_is_error(true); ui.set_op_status_msg(format!("Lookup failure: {}", e).into()); }).unwrap(); }
+                Err(e) => { slint::invoke_from_event_loop(move || { if let Some(ui) = ui_weak.upgrade() { ui.set_op_is_error(true); ui.set_op_status_msg(format!("Lookup failure: {}", e).into()); } }).unwrap(); }
             }
         });
     });
@@ -536,11 +669,13 @@ async fn main() -> Result<(), slint::PlatformError> {
                         speed_post: record.speed_post.into(), treasury: record.treasury.into(),
                     };
                     slint::invoke_from_event_loop(move || {
-                        let ui = ui_weak.unwrap(); ui.set_sai_data_found(true); ui.set_op_is_error(false); ui.set_sai_status_record(slint_record);
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_sai_data_found(true); ui.set_op_is_error(false); ui.set_sai_status_record(slint_record);
+                        }
                     }).unwrap();
                 }
-                Ok(None) => { slint::invoke_from_event_loop(move || { let ui = ui_weak.unwrap(); ui.set_sai_data_found(false); ui.set_op_is_error(true); ui.set_op_status_msg("No settlement matches located for criteria token.".into()); }).unwrap(); }
-                Err(e) => { slint::invoke_from_event_loop(move || { let ui = ui_weak.unwrap(); ui.set_op_is_error(true); ui.set_op_status_msg(format!("Tracking Engine Error: {}", e).into()); }).unwrap(); }
+                Ok(None) => { slint::invoke_from_event_loop(move || { if let Some(ui) = ui_weak.upgrade() { ui.set_sai_data_found(false); ui.set_op_is_error(true); ui.set_op_status_msg("No settlement matches located for criteria token.".into()); } }).unwrap(); }
+                Err(e) => { slint::invoke_from_event_loop(move || { if let Some(ui) = ui_weak.upgrade() { ui.set_op_is_error(true); ui.set_op_status_msg(format!("Tracking Engine Error: {}", e).into()); } }).unwrap(); }
             }
         });
     });

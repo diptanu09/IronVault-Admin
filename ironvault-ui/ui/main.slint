@@ -332,8 +332,8 @@ export component AppWindow inherits Window {
                                             }
                                             HorizontalLayout {
                                                 spacing: 24px;
-                                                PremiumSchemaCard { lucide_icon: @image-url("assets/shield.svg"); title: "gpffp: Final Payment Engine"; subtitle: "Processes provident fund settlement closures and automated clearance vouchers."; node_ip: "192.168.100.247"; has_access: root.schema_access.gpffp; active: false; clicked => { root.op_target_schema = "gpffp"; root.active_schema_action = "gpffp_find"; } }
-                                                PremiumSchemaCard { lucide_icon: @image-url("assets/file-text.svg"); title: "vlcs: Voucher Computerization Subsystem"; subtitle: "Compiles drawing officer transaction profiles and localized sub-treasury telemetry."; node_ip: "192.168.100.250"; has_access: root.schema_access.vlcs; active: false; clicked => { root.op_target_schema = "vlcs"; root.active_schema_action = "vlcs_ddo"; } }
+                                                PremiumSchemaCard { lucide_icon: @image-url("assets/shield.svg"); title: "GPFFP: GPF Final Payment Engine"; subtitle: "Processes provident fund settlement closures and automated clearance vouchers."; node_ip: "192.168.100.247"; has_access: root.schema_access.gpffp; active: false; clicked => { root.op_target_schema = "gpffp"; root.active_schema_action = "gpffp_find"; } }
+                                                PremiumSchemaCard { lucide_icon: @image-url("assets/file-text.svg"); title: "VLCS: Voucher Computerization Subsystem"; subtitle: "Compiles drawing officer transaction profiles and localized sub-treasury telemetry."; node_ip: "192.168.100.247"; has_access: root.schema_access.vlcs; active: false; clicked => { root.op_target_schema = "vlcs"; root.active_schema_action = "vlcs_ddo"; } }
                                             }
                                         }
                                        
@@ -346,8 +346,8 @@ export component AppWindow inherits Window {
                                             }
                                             HorizontalLayout {
                                                 spacing: 24px;
-                                                PremiumSchemaCard { lucide_icon: @image-url("assets/activity.svg"); title: "sai_agartala: P-SAI Core Framework"; subtitle: "Manages biographical indexing, superannuation mapping, and settlement tracking matrices."; node_ip: "192.168.0.140"; has_access: root.schema_access.sai_agartala; active: false; clicked => { root.op_target_schema = "sai_agartala"; root.active_schema_action = "sai_biographical"; } }
-                                                PremiumSchemaCard { lucide_icon: @image-url("assets/mail.svg"); title: "pendak: Inward Outward DAK Diary"; subtitle: "Tracks official departmental communications, service books, and package barcodes."; node_ip: "192.168.0.145"; has_access: root.schema_access.pendak; active: false; clicked => { root.op_target_schema = "pendak"; root.active_schema_action = "pendak_entry"; } }
+                                                PremiumSchemaCard { lucide_icon: @image-url("assets/activity.svg"); title: "Pension: P-SAI Core Framework"; subtitle: "Manages biographical indexing, superannuation mapping, and settlement tracking matrices."; node_ip: "192.168.0.140"; has_access: root.schema_access.sai_agartala; active: false; clicked => { root.op_target_schema = "sai_agartala"; root.active_schema_action = "sai_biographical"; } }
+                                                PremiumSchemaCard { lucide_icon: @image-url("assets/mail.svg"); title: "Pension DAK: Inward Outward DAK Diary"; subtitle: "Tracks official departmental communications, service books, and package barcodes."; node_ip: "192.168.0.145"; has_access: root.schema_access.pendak; active: false; clicked => { root.op_target_schema = "pendak"; root.active_schema_action = "pendak_entry"; } }
                                             }
                                         }
                                     }

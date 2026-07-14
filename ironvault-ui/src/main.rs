@@ -39,7 +39,7 @@ async fn main() -> Result<(), slint::PlatformError> {
     app.set_captcha_q_main(format!("{} + {}", v1, v2).into());
     app.set_captcha_a_main((v1 + v2).to_string().into());
     
-    // --- INITIALIZE MASTER REFERENCE CORES FOR SYSTEM LOOPS ---
+    // --- INITIALIZE MASTER SMART POINTER REFERENCE CONTEXTS ---
     let app_weak_main = app.as_weak();
     let db_clone = Arc::clone(&db);
     let oracle_master = Arc::clone(&oracle_client);
@@ -326,10 +326,10 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    let app_weak_users = app_weak_main.clone();
+    let app_weak_users_ledger = app_weak_main.clone();
     let db_users = Arc::clone(&db_clone);
     app.on_load_users_list(move || {
-        let ui_weak = db_users.clone(); // fixed backward reference bound
+        let ui_weak = app_weak_users_ledger.clone(); 
         let db = Arc::clone(&db_users);
         tokio::spawn(async move {
             let pool = db.get_pool().clone();
@@ -530,7 +530,6 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    // --- NEW FIXED HOOK: PARSE STRING PERMUTATIONS IN THE RUST ENGINE MATRIX FOR THE CHECKBOXES ---
     let app_weak_chk_fetch = app_weak_main.clone();
     let db_chk_fetch = Arc::clone(&db_clone);
     app.on_request_checkbox_states_fetch(move |target_user| {
@@ -540,7 +539,8 @@ async fn main() -> Result<(), slint::PlatformError> {
         tokio::spawn(async move {
             let pool = db.get_pool().clone();
             if let Ok(Some(row)) = sqlx::query("SELECT section FROM ironvault.users WHERE username = $1 OR LOWER(username) = LOWER($1)").bind(&user_str).fetch_optional(&pool).await {
-                let section_str: String = row.try_get("section").unwrap_or_default().to_lowercase();
+                // FIXED: Specified the generic type parameter generic <String, _> cleanly using a turbofish operator override to prevent E0282 panic checks
+                let section_str: String = row.try_get::<String, _>("section").unwrap_or_default().to_lowercase();
                 slint::invoke_from_event_loop(move || {
                     if let Some(ui) = ui_weak.upgrade() {
                         ui.set_cb_gpf(section_str.contains("gpffp"));
@@ -597,9 +597,6 @@ async fn main() -> Result<(), slint::PlatformError> {
         }
     });
 
-    // =========================================================================
-    // --- GPFFP MODULE LISTENER CLONES FIXED PLACEMENT ---
-    // =========================================================================
     let app_weak_find = app_weak_main.clone();
     let oracle_find = Arc::clone(&oracle_master);
     app.on_request_find_gpf_case(move |regd_no| {
@@ -901,29 +898,6 @@ async fn main() -> Result<(), slint::PlatformError> {
                 }
                 Ok(None) => { slint::invoke_from_event_loop(move || { if let Some(ui) = ui_weak.upgrade() { ui.set_sai_data_found(false); ui.set_op_is_error(true); ui.set_op_status_msg("No settlement matches located for criteria token.".into()); } }).unwrap(); }
                 Err(e) => { slint::invoke_from_event_loop(move || { if let Some(ui) = ui_weak.upgrade() { ui.set_op_is_error(true); ui.set_op_status_msg(format!("Tracking Engine Error: {}", e).into()); } }).unwrap(); }
-            }
-        });
-    });
-
-    // --- NEW FIXED HOOK: EVALUATES DYNAMIC STRING SPLITS ON THE RUST THREAD TO MAP CHECKBOXES FOR SLINT ---
-    let app_weak_chk_fetch = app_weak_main.clone();
-    let db_chk_fetch = Arc::clone(&db_clone);
-    app.on_request_checkbox_states_fetch(move |target_user| {
-        let ui_weak = app_weak_chk_fetch.clone();
-        let db = db_chk_fetch.clone();
-        let user_str = target_user.to_string().trim().to_string();
-        tokio::spawn(async move {
-            let pool = db.get_pool().clone();
-            if let Ok(Some(row)) = sqlx::query("SELECT section FROM ironvault.users WHERE username = $1 OR LOWER(username) = LOWER($1)").bind(&user_str).fetch_optional(&pool).await {
-                let section_str: String = row.try_get("section").unwrap_or_default().to_lowercase();
-                slint::invoke_from_event_loop(move || {
-                    if let Some(ui) = ui_weak.upgrade() {
-                        ui.set_cb_gpf(section_str.contains("gpffp"));
-                        ui.set_cb_vlcs(section_str.contains("vlcs"));
-                        ui.set_cb_sai(section_str.contains("sai_agartala"));
-                        ui.set_cb_dak(section_str.contains("pendak"));
-                    }
-                }).unwrap();
             }
         });
     });

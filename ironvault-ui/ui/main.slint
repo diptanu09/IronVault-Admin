@@ -178,7 +178,7 @@ export component AppWindow inherits Window {
     callback load_pending_users_list();
     callback request_hwid_unblock(string);
     callback commit_schema_toggles(string, bool, bool, bool, bool);
-    callback request_checkbox_states_fetch(string); // NEW BACKEND HOOK
+    callback request_checkbox_states_fetch(string);
 
     Rectangle {
         HorizontalLayout {
@@ -446,7 +446,7 @@ export component AppWindow inherits Window {
                                                                         root.lease_target_role = user.role; 
                                                                         root.lease_target_days = "30"; 
                                                                         root.lease_target_schemas = user.allowed_schemas;
-                                                                        root.request_checkbox_states_fetch(user.username); // TRIGGER RUST EVALUATION PATHWAY
+                                                                        root.request_checkbox_states_fetch(user.username);
                                                                     }
                                                                 }
                                                             }
@@ -526,11 +526,6 @@ export component AppWindow inherits Window {
 
                                                         Rectangle { height: 8px; }
                                                         Rectangle { height: 1px; background: Theme.border-color; }
-                                                        
-                                                        HorizontalLayout {
-                                                            padding-top: 4px;
-                                                            Button { text: "Cancel Panel Focus"; height: 34px; horizontal-stretch: 1; clicked => { root.lease_target_user = ""; } }
-                                                        }
                                                     }
                                                 }
                                             }
@@ -691,7 +686,7 @@ export component AppWindow inherits Window {
                     padding: 30px; alignment: space-between;
                     VerticalLayout {
                         spacing: 8px;
-                        Text { text: "🔒 SECURE ENCLAVE SESSION ENGAGED"; font-size: 11px; font-weight: 900; color: Theme.brand-primary; horizontal-alignment: TextHorizontalAlignment.center; letter-spacing: 1px; }
+                        Text { text: "🔒 SECURE ENCLAVE SESSION ENGAGED"; font-size: 11px; font-weight: 900; color: Theme.brand-primary; horizontal-alignment: center; letter-spacing: 1px; }
                         Text { text: "Welcome, " + root.current_user_full_name; font-size: 20px; font-weight: 800; color: Theme.text-primary; horizontal-alignment: TextHorizontalAlignment.center; }
                         Text { text: "Clearance Class: " + root.current_user_role; font-size: 13px; font-weight: 700; color: Theme.brand-warning; horizontal-alignment: TextHorizontalAlignment.center; }
                     }

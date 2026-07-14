@@ -185,8 +185,24 @@ export component AppWindow inherits Window {
             padding: 0px; spacing: 0px;
             if (root.is_logged_in) : Rectangle {
                 width: root.sidebar_collapsed ? 74px : 260px; background: Theme.bg-sidebar; border-width: 1px; border-color: Theme.border-dark;
+                
+                // FEATURE 1 ADDED: Smooth structural animation transitions for sidebar collapsibility maps
+                animate width { duration: 175ms; easing: ease-in-out; }
+
                 VerticalLayout {
                     padding: 16px; spacing: 10px; alignment: start;
+                    HorizontalLayout {
+                        alignment: root.sidebar_collapsed ? LayoutAlignment.center : LayoutAlignment.start; padding-bottom: 16px; spacing: 12px;
+                        Rectangle { 
+                            width: 38px; height: 38px; border-radius: 8px; background: logo_ta.has-hover ? Theme.bg-card : transparent; 
+                            Text { text: "⚙"; font-size: 20px; color: Theme.brand-primary; horizontal-alignment: center; vertical-alignment: center; }
+                            logo_ta := TouchArea { clicked => { root.sidebar_collapsed = !root.sidebar_collapsed; } } 
+                        }
+                        if (!root.sidebar_collapsed) : VerticalLayout { spacing: 2px; alignment: center;
+                            Text { text: "IRONVAULT"; font-size: 18px; font-weight: 900; color: Theme.text-primary; letter-spacing: 2px; }
+                            Text { text: "SECURE ENCLAVE NODE"; font-size: 9px; color: Theme.brand-primary; font-weight: 800; letter-spacing: 0.5px; } }
+                    }
+                    Rectangle { height: 1px; background: Theme.border-dark; opacity: 0.5; } Rectangle { height: 8px; }
                     NavItem { text: "Command Dashboard"; icon_image: @image-url("assets/layout-dashboard.svg"); active: root.active_tab == "overview"; collapsed: root.sidebar_collapsed; clicked => { root.active_tab = "overview"; } }
                     NavItem { text: "Operations Matrix"; icon_image: @image-url("assets/database.svg"); active: root.active_tab == "operations"; collapsed: root.sidebar_collapsed; clicked => { root.active_tab = "operations"; root.op_status_msg = ""; } }
                     if (root.current_user_role == "SuperAdmin") : NavItem { text: "Access Requests"; icon_image: @image-url("assets/bell.svg"); active: root.active_tab == "approvals"; collapsed: root.sidebar_collapsed; clicked => { root.active_tab = "approvals"; root.load_pending_users_list(); } }
@@ -446,7 +462,7 @@ export component AppWindow inherits Window {
                                                                         root.lease_target_role = user.role; 
                                                                         root.lease_target_days = "30"; 
                                                                         root.lease_target_schemas = user.allowed_schemas;
-                                                                        root.request_checkbox_states_fetch(user.username);
+                                                                        root.request_checkbox_states_fetch(user.username); 
                                                                     }
                                                                 }
                                                             }
@@ -477,7 +493,16 @@ export component AppWindow inherits Window {
                                                     if (root.lease_target_user != "") : VerticalLayout {
                                                         spacing: 16px;
                                                         
-                                                        Text { text: "1. PROFILE METADATA IDENTITY"; font-size: 11px; font-weight: 900; color: Theme.brand-primary; }
+                                                        // FEATURE 2 ADDED: Elegant, prominent panel close/cancel button row layout top context
+                                                        HorizontalLayout {
+                                                            alignment: LayoutAlignment.space-between;
+                                                            Text { text: "1. PROFILE METADATA IDENTITY"; font-size: 11px; font-weight: 900; color: Theme.brand-primary; vertical-alignment: center; }
+                                                            Rectangle {
+                                                                width: 26px; height: 26px; border-radius: 13px; background: close_ta.has-hover ? #FF336622 : transparent;
+                                                                Text { text: "✕"; font-size: 11px; font-weight: 900; color: close_ta.has-hover ? Theme.brand-danger : Theme.text-muted; horizontal-alignment: center; vertical-alignment: center; }
+                                                                close_ta := TouchArea { clicked => { root.lease_target_user = ""; } }
+                                                            }
+                                                        }
                                                         VerticalLayout { spacing: 4px; Text { text: "TARGET OPERATOR ID TOKEN"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } LineEdit { text: "@" + root.lease_target_user; enabled: false; height: Theme.input-height; } }
                                                         
                                                         Rectangle { height: 1px; background: Theme.border-color; opacity: 0.4; }
@@ -526,6 +551,11 @@ export component AppWindow inherits Window {
 
                                                         Rectangle { height: 8px; }
                                                         Rectangle { height: 1px; background: Theme.border-color; }
+                                                        
+                                                        HorizontalLayout {
+                                                            padding-top: 4px;
+                                                            Button { text: "Dismiss Panel Focus Configuration"; height: 34px; horizontal-stretch: 1; clicked => { root.lease_target_user = ""; } }
+                                                        }
                                                     }
                                                 }
                                             }

@@ -146,7 +146,7 @@ component ToggleAccessCheckbox inherits Rectangle {
         }
         Text { text: root.text; font-size: 13px; font-weight: 700; color: Theme.text-primary; vertical-alignment: center; }
     }
-    TouchArea { checked => { root.checked = !root.checked; } }
+    TouchArea { clicked => { root.checked = !root.checked; } }
 }
 
 export struct UserData { username: string, role: string, last_login: string, full_name: string, designation: string, expires_at: string, allowed_schemas: string }
@@ -317,7 +317,7 @@ export component AppWindow inherits Window {
                                     }
                                 }
                             }
-                     }
+                        }
                     }
 
                     VerticalLayout {
@@ -563,13 +563,14 @@ export component AppWindow inherits Window {
                                                                         root.request_checkbox_states_fetch(user.username);
                                                                     }
                                                                 }
-                                                        }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                }
-                                }
+                                                            } // End Button wrapper
+                                                        } // End for loop item HorizontalLayout
+                                                    } // End for loop item Rectangle
+                                                } // End ScrollView VerticalLayout
+                                            } // End ScrollView
+                                        } // End Rectangle VerticalLayout
+                                    } // End Rectangle
+                                } // End Ledger VerticalLayout
 
                                 VerticalLayout {
                                     horizontal-stretch: 1; spacing: 12px;
@@ -665,94 +666,93 @@ export component AppWindow inherits Window {
                                             }
                                         }
                                     }
+                                } // End Overrides VerticalLayout
+                            } // End Split View HorizontalLayout
+                        } // End users tab VerticalLayout
+
+                        if (root.op_status_msg != "") : Rectangle {
+                            height: 54px;
+                            background: root.op_is_error ? #7F1D1D4A : #064E3B4A;
+                            border-width: 1px; border-color: root.op_is_error ? Theme.brand-danger : Theme.brand-success;
+                            HorizontalLayout {
+                                padding-left: 24px; padding-right: 24px; spacing: 16px; alignment: space-between;
+                                Text { text: root.op_status_msg; color: root.op_is_error ? #FCA5A5 : #6EE7B7; font-size: 14px; font-weight: 800; vertical-alignment: center; }
+                                VerticalLayout {
+                                    alignment: center;
+                                    Button { text: "Dismiss Notification"; height: 30px; clicked => { root.op_status_msg = ""; } }
                                 }
                             }
                         }
-                    }
+                    } // End content wrapper VerticalLayout
+                } // End Main Workspace Rectangle
+            } // End Root HorizontalLayout
 
-                    if (root.op_status_msg != "") : Rectangle {
-                        height: 54px;
-                        background: root.op_is_error ? #7F1D1D4A : #064E3B4A;
-                        border-width: 1px; border-color: root.op_is_error ? Theme.brand-danger : Theme.brand-success;
-                        HorizontalLayout {
-                            padding-left: 24px; padding-right: 24px; spacing: 16px; alignment: space-between;
-                            Text { text: root.op_status_msg; color: root.op_is_error ? #FCA5A5 : #6EE7B7; font-size: 14px; font-weight: 800; vertical-alignment: center; }
+            if (root.forced_password_reset_state) : Rectangle {
+                background: #05070BD9;
+                TouchArea {}
+
+                Rectangle {
+                    width: 460px; height: 380px;
+
+                    x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+
+                    background: Theme.bg-card; border-radius: 16px; border-width: 2px; border-color: Theme.brand-warning; drop-shadow-blur: 24px; drop-shadow-color: #FFB80040;
+                    VerticalLayout {
+                        width: parent.width; height: parent.height; padding: 32px; spacing: 18px;
+
+                        VerticalLayout {
+                            spacing: 6px;
+                            Text { text: "🛡️ FORCED CREDENTIAL MITIGATION RECOGNIZED"; font-size: 11px; font-weight: 900; color: Theme.brand-warning; horizontal-alignment: TextHorizontalAlignment.center; letter-spacing: 0.5px; }
+                            Text { text: "Your session token was generated via a dynamic administrator one-time reset. You must establish a strong custom master password sequence before terminal initialization."; font-size: 12px; color: Theme.text-secondary; horizontal-alignment: TextHorizontalAlignment.center; wrap: word-wrap; }
+                        }
+
+                        Rectangle { height: 1px; background: Theme.border-color; }
+
+                        VerticalLayout {
+                            spacing: 12px;
                             VerticalLayout {
-                                alignment: center;
-                                Button { text: "Dismiss Notification"; height: 30px; clicked => { root.op_status_msg = ""; } }
+                                spacing: 4px;
+                                Text { text: "NEW MASTER PASSWORD"; font-size: 10px; font-weight: 800; color: Theme.text-muted; }
+                                LineEdit { text <=> root.form_new_pass; input-type: password; height: Theme.input-height; placeholder_text: "Enter high-entropy sequence"; }
+                            }
+
+                            VerticalLayout {
+                                spacing: 4px;
+                                Text { text: "CONFIRM MASTER PASSWORD"; font-size: 10px; font-weight: 800; color: Theme.text-muted; }
+                                LineEdit { text <=> root.form_confirm_pass; input-type: password; height: Theme.input-height; placeholder_text: "Repeat sequence exactly"; }
+                            }
+                        }
+
+                        if (root.password_reset_error != "") : Text { text: root.password_reset_error; color: Theme.brand-danger; font-size: 12px; font-weight: 800; horizontal-alignment: TextHorizontalAlignment.center; }
+
+                        Button {
+                            text: "🔒 Authorize and Update Enclave Key"; height: 42px;
+                            clicked => {
+                                if (root.form_new_pass == "") { root.password_reset_error = "Error: Input cannot be empty."; }
+                                else if (root.form_new_pass != root.form_confirm_pass) { root.password_reset_error = "Error: Password confirmation mismatch."; }
+                                else { root.commit_forced_password_update(root.current_user_name, root.form_new_pass); }
                             }
                         }
                     }
                 }
-            }
-        }
+            } // End forced_password_reset_state Rectangle
 
-        if (root.forced_password_reset_state) : Rectangle {
-            background: #05070BD9;
-            TouchArea {}
-
-            Rectangle {
-                width: 460px; height: 380px;
-
-                x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
-
-                background: Theme.bg-card; border-radius: 16px; border-width: 2px; border-color: Theme.brand-warning; drop-shadow-blur: 24px; drop-shadow-color: #FFB80040;
-                VerticalLayout {
-                    width: parent.width; height: parent.height; padding: 32px; spacing: 18px;
-
+            if (root.show_welcome_popup) : Rectangle {
+                background: #000000B3;
+                TouchArea { } 
+                Rectangle {
+                    width: 420px; height: 240px; background: Theme.bg-card; border-radius: 16px; border-width: 2px; border-color: Theme.brand-primary;
                     VerticalLayout {
-                        spacing: 6px;
-                        Text { text: "🛡️ FORCED CREDENTIAL MITIGATION RECOGNIZED"; font-size: 11px; font-weight: 900; color: Theme.brand-warning; horizontal-alignment: TextHorizontalAlignment.center; letter-spacing: 0.5px; }
-                        Text { text: "Your session token was generated via a dynamic administrator one-time reset. You must establish a strong custom master password sequence before terminal initialization."; font-size: 12px; color: Theme.text-secondary; horizontal-alignment: TextHorizontalAlignment.center; wrap: word-wrap; }
-                    }
-
-                    Rectangle { height: 1px; background: Theme.border-color; }
-
-                    VerticalLayout {
-                        spacing: 12px;
+                        padding: 30px; alignment: space-between;
                         VerticalLayout {
-                            spacing: 4px;
-                            Text { text: "NEW MASTER PASSWORD"; font-size: 10px; font-weight: 800; color: Theme.text-muted; }
-                            LineEdit { text <=> root.form_new_pass; input-type: password; height: Theme.input-height; placeholder_text: "Enter high-entropy sequence"; }
+                            spacing: 8px;
+                            Text { text: "🔒 SECURE ENCLAVE SESSION ENGAGED"; font-size: 11px; font-weight: 900; color: Theme.brand-primary; horizontal-alignment: center; letter-spacing: 1px; }
+                            Text { text: "Welcome, " + root.current_user_full_name; font-size: 20px; font-weight: 800; color: Theme.text-primary; horizontal-alignment: TextHorizontalAlignment.center; }
+                            Text { text: "Clearance Class: " + root.current_user_role; font-size: 13px; font-weight: 700; color: Theme.brand-warning; horizontal-alignment: TextHorizontalAlignment.center; }
                         }
-
-                    VerticalLayout {
-                        spacing: 4px;
-                        Text { text: "CONFIRM MASTER PASSWORD"; font-size: 10px; font-weight: 800; color: Theme.text-muted; }
-                        LineEdit { text <=> root.form_confirm_pass; input-type: password; height: Theme.input-height; placeholder_text: "Repeat sequence exactly"; }
+                        Button { text: "Enter Command Console Node"; height: 40px; clicked => { root.show_welcome_popup = false; } }
                     }
                 }
-
-                if (root.password_reset_error != "") : Text { text: root.password_reset_error; color: Theme.brand-danger; font-size: 12px; font-weight: 800; horizontal-alignment: TextHorizontalAlignment.center; }
-
-                Button {
-                    text: "🔒 Authorize and Update Enclave Key"; height: 42px;
-                    clicked => {
-                        if (root.form_new_pass == "") { root.password_reset_error = "Error: Input cannot be empty."; }
-                        else if (root.form_new_pass != root.form_confirm_pass) { root.password_reset_error = "Error: Password confirmation mismatch."; }
-                        else { root.commit_forced_password_update(root.current_user_name, root.form_new_pass); }
-                    }
-                }
-            }
-        }
-    }
-
-        if (root.show_welcome_popup) : Rectangle {
-            background: #000000B3;
-            TouchArea { } 
-            Rectangle {
-                width: 420px; height: 240px; background: Theme.bg-card; border-radius: 16px; border-width: 2px; border-color: Theme.brand-primary;
-                VerticalLayout {
-                    padding: 30px; alignment: space-between;
-                    VerticalLayout {
-                        spacing: 8px;
-                        Text { text: "🔒 SECURE ENCLAVE SESSION ENGAGED"; font-size: 11px; font-weight: 900; color: Theme.brand-primary; horizontal-alignment: center; letter-spacing: 1px; }
-                        Text { text: "Welcome, " + root.current_user_full_name; font-size: 20px; font-weight: 800; color: Theme.text-primary; horizontal-alignment: TextHorizontalAlignment.center; }
-                        Text { text: "Clearance Class: " + root.current_user_role; font-size: 13px; font-weight: 700; color: Theme.brand-warning; horizontal-alignment: TextHorizontalAlignment.center; }
-                    }
-                    Button { text: "Enter Command Console Node"; height: 40px; clicked => { root.show_welcome_popup = false; } }
-                }
-            }
-        }
-    }
-}
+            } // End show_welcome_popup Rectangle
+        } // End Root Rectangle
+    } // End AppWindow Component

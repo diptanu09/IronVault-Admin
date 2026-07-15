@@ -3,9 +3,14 @@
 //! Provides runtime security checks to prevent unauthorized access and tampering
 
 #[cfg(target_os = "windows")]
-use windows_sys::Win32::System::Diagnostics::Debug::IsDebuggerPresent;
+use windows_sys::Win32::System::Diagnostics::Debug::{
+    CheckRemoteDebuggerPresent, IsDebuggerPresent,
+};
+#[cfg(target_os = "windows")]
+use windows_sys::Win32::System::Threading::GetCurrentProcess;
 
 use std::arch::asm;
+use std::time::Duration;
 
 // Idiomatic CPUID intrinsics to safely bypass LLVM rbx/ebx register constraints
 #[cfg(target_arch = "x86")]
@@ -14,34 +19,33 @@ use std::arch::x86::__cpuid;
 use std::arch::x86_64::__cpuid;
 
 /// Executes critical system checks wrapped in native VMProtect virtualization markers.
-/// The post-build VMProtect scanner will detect these byte arrays and convert the enclosed
-/// x86_64 instructions into randomized virtual machine bytecode.
+/// Spawns a background worker loop thread to continuously check system integrity states.
 pub fn enforce_core_security_checks(current_hwid: &str) {
     unsafe {
-        // Replaced character strings with raw numerical byte literals compatible with LLVM assembler syntax
         asm!(
             ".byte 0xEB, 0x08, 0x56, 0x4D, 0x50, 0x42, 0x45, 0x47, 0x49, 0x4E",
             options(nostack, preserves_flags, readonly)
         );
     }
 
-    // ==========================================
-    // CRITICAL SECURITY LOGIC ZONE (Virtual-Safe)
-    // ==========================================
-    
-    // Prevent optimization from stripping this block out completely
     std::hint::black_box(current_hwid);
-    
-    // Run all environmental verification routines inside the virtualization layer
+
+    // Run initial baseline checking pass
     SecurityValidator::enforce_anti_debug();
     SecurityValidator::enforce_vm_detection();
 
-    println!("[SECURITY Engine] All runtime environment integrity tokens verified successfully.");
+    // HARDENED: Spawn an asynchronous background task to continuously poll anti-debugging
+    // and environmental tampering vectors throughout the active lifecycle of the application context.
+    tokio::spawn(async {
+        loop {
+            tokio::time::sleep(Duration::from_secs(4)).await;
+            SecurityValidator::enforce_anti_debug();
+        }
+    });
 
-    // ==========================================
+    println!("[SECURITY Engine] All runtime environment integrity tokens verified and active monitor engaged.");
 
     unsafe {
-        // Replaced character strings with raw numerical byte literals compatible with LLVM assembler syntax
         asm!(
             ".byte 0xEB, 0x08, 0x56, 0x4D, 0x50, 0x45, 0x4E, 0x44, 0x4F, 0x46",
             options(nostack, preserves_flags, readonly)
@@ -52,14 +56,31 @@ pub fn enforce_core_security_checks(current_hwid: &str) {
 pub struct SecurityValidator;
 
 impl SecurityValidator {
-    pub fn new() -> Self { Self }
-    
-    /// Checks the standard OS Win32 API layer for basic debug attachment flags
+    pub fn new() -> Self {
+        Self
+    }
+
+    /// Multi-layered baseline check to intercept basic local and remote debuggers
     pub fn enforce_anti_debug() {
         #[cfg(target_os = "windows")]
         unsafe {
+            // Level 1 Check: Basic Process Environment Block flag review
             if IsDebuggerPresent() != 0 {
-                println!("[SECURITY_FAULT] Unauthorized debugger detected. Self-terminating.");
+                eprintln!(
+                    "[SECURITY_FAULT] Unauthorized debug attachment detected. Self-terminating."
+                );
+                std::process::exit(1);
+            }
+
+            // Level 2 Check: Remote debugger verification querying kernel handles directly
+            let mut is_remote_debugger = 0;
+            let current_proc = GetCurrentProcess();
+            if CheckRemoteDebuggerPresent(current_proc, &mut is_remote_debugger) != 0
+                && is_remote_debugger != 0
+            {
+                eprintln!(
+                    "[SECURITY_FAULT] Remote socket debugging engine intercepted. Access revoked."
+                );
                 std::process::exit(1);
             }
         }
@@ -69,24 +90,21 @@ impl SecurityValidator {
     pub fn enforce_vm_detection() {
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
-            // FIXED: Removed unsafe completely! Rust considers __cpuid memory-safe natively.
             let leaf_1 = __cpuid(1);
 
             // Bit 31 of ECX is the hypervisor present bit (set by virtual machines)
             if (leaf_1.ecx & (1 << 31)) != 0 {
-                // Query hypervisor signature information string (Leaf 0x40000000)
                 let signature_leaf = __cpuid(0x40000000);
 
-                // Reconstruct the brand character sequence from EBX, ECX, and EDX registers safely
                 let mut brand_bytes = Vec::new();
                 brand_bytes.extend_from_slice(&signature_leaf.ebx.to_le_bytes());
                 brand_bytes.extend_from_slice(&signature_leaf.ecx.to_le_bytes());
                 brand_bytes.extend_from_slice(&signature_leaf.edx.to_le_bytes());
-                
+
                 let vm_signature = String::from_utf8_lossy(&brand_bytes).trim().to_string();
 
-                println!(
-                    "[SECURITY_FAULT] Virtualized architecture intercepted (Type: {}). Execution blocked.",
+                eprintln!(
+                    "[SECURITY_FAULT] Virtualized sandbox environment intercepted (Type: {}). Execution blocked.",
                     vm_signature
                 );
                 std::process::exit(1);
@@ -95,7 +113,6 @@ impl SecurityValidator {
     }
 }
 
-// Global scope export hooks mapping to your main terminal loop structure
 pub fn enforce_anti_debug() {
     SecurityValidator::enforce_anti_debug();
 }

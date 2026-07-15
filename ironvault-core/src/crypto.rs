@@ -7,6 +7,7 @@ use aes_gcm::{
     Aes256Gcm, Key, Nonce,
 };
 use chrono::Utc;
+use rand::rngs::OsRng; // HARDENED: Switched to hardware/OS entropy pool
 use rand::RngCore;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -73,7 +74,10 @@ impl Encryptor {
         aad: Option<&[u8]>,
     ) -> Result<EncryptedPayload, CryptoError> {
         let mut nonce_bytes = [0u8; 12];
-        rand::thread_rng().fill_bytes(&mut nonce_bytes);
+
+        // HARDENED: Use OsRng instead of thread_rng to extract cryptographically secure entropy
+        // sourced directly from hardware random number generators (e.g., RDRAND instruction or OS kernel pools).
+        OsRng.fill_bytes(&mut nonce_bytes);
         let nonce = Nonce::from_slice(&nonce_bytes);
 
         let cipher = Aes256Gcm::new(&self.key);

@@ -539,7 +539,6 @@ async fn main() -> Result<(), slint::PlatformError> {
         tokio::spawn(async move {
             let pool = db.get_pool().clone();
             if let Ok(Some(row)) = sqlx::query("SELECT section FROM ironvault.users WHERE username = $1 OR LOWER(username) = LOWER($1)").bind(&user_str).fetch_optional(&pool).await {
-                // FIXED: Specified the generic type parameter generic <String, _> cleanly using a turbofish operator override to prevent E0282 panic checks
                 let section_str: String = row.try_get::<String, _>("section").unwrap_or_default().to_lowercase();
                 slint::invoke_from_event_loop(move || {
                     if let Some(ui) = ui_weak.upgrade() {
@@ -597,6 +596,9 @@ async fn main() -> Result<(), slint::PlatformError> {
         }
     });
 
+    // =========================================================================
+    // --- GPFFP MODULE LISTENER CLONES FIXED PLACEMENT ---
+    // =========================================================================
     let app_weak_find = app_weak_main.clone();
     let oracle_find = Arc::clone(&oracle_master);
     app.on_request_find_gpf_case(move |regd_no| {
@@ -660,6 +662,36 @@ async fn main() -> Result<(), slint::PlatformError> {
             match oracle.gpffp_delete_from_pre_calculation(&r_no).await {
                 Ok(_) => { slint::invoke_from_event_loop(move || { if let Some(ui) = ui_weak.upgrade() { ui.set_op_is_error(false); ui.set_op_status_msg("SUCCESS: GPFFP Pre-Calculation values updated.".into()); ui.set_op_regd_no("".into()); ui.set_gpf_case_found(false); } }).unwrap(); }
                 Err(e) => { slint::invoke_from_event_loop(move || { if let Some(ui) = ui_weak.upgrade() { ui.set_op_is_error(true); ui.set_op_status_msg(format!("GPFFP TRANSACTION FAILURE: {}", e).into()); } }).unwrap(); }
+            }
+        });
+    });
+
+    let app_weak_op4 = app_weak_main.clone();
+    let oracle_op4 = Arc::clone(&oracle_master);
+    app.on_request_delete_auth_reports(move |regd_no| {
+        let ui_weak = app_weak_op4.clone(); 
+        let oracle = oracle_op4.clone(); 
+        let r_no = regd_no.to_string();
+        tokio::spawn(async move {
+            match oracle.gpffp_delete_authority_reports(&r_no).await {
+                Ok(_) => {
+                    slint::invoke_from_event_loop(move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_op_is_error(false);
+                            ui.set_op_status_msg("SUCCESS: Associated Signed Authority & Uploaded Reports completely dropped from transaction registry.".into());
+                            ui.set_op_regd_no("".into());
+                            ui.set_gpf_case_found(false);
+                        }
+                    }).unwrap();
+                }
+                Err(e) => {
+                    slint::invoke_from_event_loop(move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_op_is_error(true);
+                            ui.set_op_status_msg(format!("GPFFP TRANSACTION FAILURE: {}", e).into());
+                        }
+                    }).unwrap();
+                }
             }
         });
     });
@@ -898,6 +930,27 @@ async fn main() -> Result<(), slint::PlatformError> {
                 }
                 Ok(None) => { slint::invoke_from_event_loop(move || { if let Some(ui) = ui_weak.upgrade() { ui.set_sai_data_found(false); ui.set_op_is_error(true); ui.set_op_status_msg("No settlement matches located for criteria token.".into()); } }).unwrap(); }
                 Err(e) => { slint::invoke_from_event_loop(move || { if let Some(ui) = ui_weak.upgrade() { ui.set_op_is_error(true); ui.set_op_status_msg(format!("Tracking Engine Error: {}", e).into()); } }).unwrap(); }
+            }
+        });
+    });
+
+    let app_weak_chk_fetch = app_weak_main.clone();
+    app.on_request_checkbox_states_fetch(move |target_user| {
+        let ui_weak = app_weak_chk_fetch.clone();
+        let db = db_clone.clone();
+        let user_str = target_user.to_string().trim().to_string();
+        tokio::spawn(async move {
+            let pool = db.get_pool().clone();
+            if let Ok(Some(row)) = sqlx::query("SELECT section FROM ironvault.users WHERE username = $1 OR LOWER(username) = LOWER($1)").bind(&user_str).fetch_optional(&pool).await {
+                let section_str: String = row.try_get::<String, _>("section").unwrap_or_default().to_lowercase();
+                slint::invoke_from_event_loop(move || {
+                    if let Some(ui) = ui_weak.upgrade() {
+                        ui.set_cb_gpf(section_str.contains("gpffp"));
+                        ui.set_cb_vlcs(section_str.contains("vlcs"));
+                        ui.set_cb_sai(section_str.contains("sai_agartala"));
+                        ui.set_cb_dak(section_str.contains("pendak"));
+                    }
+                }).unwrap();
             }
         });
     });

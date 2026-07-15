@@ -50,7 +50,6 @@ impl OracleConnection {
         tokio::task::spawn_blocking(move || {
             conn.execute("DELETE FROM FP_APPLICATION WHERE REGD_NO = :1", &[&r_no]).map_err(|e| e.to_string())?;
 
-            // Secure Static Parametrization Execution avoids runtime concatenation vulnerabilities
             let _ = conn.execute("DELETE FROM FP_INWARD_DAIRY WHERE REGD_NO = :1", &[&r_no]);
             let _ = conn.execute("DELETE FROM FP_INWARD_DIARY WHERE REGD_NO = :1", &[&r_no]);
             let _ = conn.execute("DELETE FROM FP_MAIN WHERE REGD_NO = :1", &[&r_no]);
@@ -87,6 +86,20 @@ impl OracleConnection {
             let _ = conn.execute("DELETE FROM FP_MISSING_CREDIT WHERE REGD_NO = :1", &[&r_no]);
             let _ = conn.execute("DELETE FROM FP_ACCOUNT_CALCULATION WHERE REGD_NO = :1", &[&r_no]);
             conn.execute("UPDATE FP_APPLICATION SET CALCULATION_DATE = NULL WHERE REGD_NO = :1", &[&r_no]).map_err(|e| e.to_string())?;
+            conn.commit().map_err(|e| e.to_string())?;
+            Ok(())
+        }).await.unwrap()
+    }
+
+    // NEW LOGICAL FUNCTION PROTOCOL IMPLEMENTATION
+    pub async fn gpffp_delete_authority_reports(&self, regd_no: &str) -> Result<(), String> {
+        let r_no = regd_no.to_string();
+        let conn = self.get_connection(OracleTarget::Gpffp)?;
+        tokio::task::spawn_blocking(move || {
+            conn.execute("DELETE FROM FP_SIGNED_AUTH_REPORT WHERE REGD_NO = :1", &[&r_no]).map_err(|e| e.to_string())?;
+            conn.execute("DELETE FROM FP_AUTHORITY_REPORTS_UPLOAD WHERE REGD_NO = :1", &[&r_no]).map_err(|e| e.to_string())?;
+            conn.execute("DELETE FROM DLIS_AUTHORITY_REPORTS_UPLOAD WHERE REGD_NO = :1", &[&r_no]).map_err(|e| e.to_string())?;
+            conn.execute("DELETE FROM DLIS_SIGNED_AUTH_REPORT WHERE REGD_NO = :1", &[&r_no]).map_err(|e| e.to_string())?;
             conn.commit().map_err(|e| e.to_string())?;
             Ok(())
         }).await.unwrap()

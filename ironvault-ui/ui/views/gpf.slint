@@ -26,28 +26,26 @@ export component GpfFinalPaymentView inherits VerticalLayout {
     callback request_delete_application(string);
     callback request_delete_precalc(string);
     callback request_update_gpf_status(string, string);
+    callback request_delete_auth_reports(string); // NEW EXPOSED EVENT HOOK
 
     spacing: 20px;
     
     HorizontalLayout {
         spacing: 12px;
-        
-        // FIXED: Replaced nested Image with the clean 'icon' property approach
         SchemaAction { 
-            // icon: @image-url("assets/information-circle.svg");
             icon_text: "🔍";
             title: "Get Case Details"; 
             active: root.active_schema_action == "gpffp_find"; 
             clicked => { root.active_schema_action = "gpffp_find"; root.op_status_msg = ""; } 
         }
         SchemaAction { 
-            icon_text: "✏️"; 
+            icon_text: "✏️";
             title: "Update Case Status"; 
             active: root.active_schema_action == "gpffp_update"; 
             clicked => { root.active_schema_action = "gpffp_update"; root.op_status_msg = ""; } 
         }
         SchemaAction { 
-            icon_text: "🗑️"; 
+            icon_text: "🗑️";
             title: "Destructive Options"; 
             active: root.active_schema_action == "gpffp_delete"; 
             clicked => { root.active_schema_action = "gpffp_delete"; root.op_status_msg = ""; } 
@@ -57,13 +55,14 @@ export component GpfFinalPaymentView inherits VerticalLayout {
     Rectangle { height: 1px; background: Theme.border-color; opacity: 0.3; }
     
     if (root.active_schema_action == "gpffp_find") : Rectangle {
-        background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.brand-primary; drop-shadow-blur: 15px; drop-shadow-color: #00E5FF1A;
+        background: Theme.bg-card;
+        border-radius: 16px; border-width: 1px; border-color: Theme.brand-primary; drop-shadow-blur: 15px; drop-shadow-color: #00E5FF1A;
         VerticalLayout {
             padding: 30px; spacing: 20px;
             Text { text: "GPF CASE DISCOVERY ENGINE"; font-size: 16px; font-weight: 900; color: Theme.brand-primary; letter-spacing: 1px; }
             HorizontalLayout { spacing: 15px; VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "REGISTRATION NUMBER (REGD_NO)"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.op_regd_no; placeholder_text: "Enter REGD_NO identity..."; height: 38px; } } }
             HorizontalLayout { 
-                spacing: 15px; 
+                spacing: 15px;
                 Button { 
                     text: "🔍   Discover Case Profile Natively";
                     height: 42px;
@@ -72,11 +71,14 @@ export component GpfFinalPaymentView inherits VerticalLayout {
                 } 
             }
             if (root.gpf_case_found) : VerticalLayout {
-                spacing: 0px; Rectangle { height: 10px; }
+                spacing: 0px;
+                Rectangle { height: 10px; }
                 Rectangle {
-                    background: #00E5FF05; border-radius: 12px; border-width: 1px; border-color: #00E5FF33;
+                    background: #00E5FF05;
+                    border-radius: 12px; border-width: 1px; border-color: #00E5FF33;
                     VerticalLayout {
-                        padding: 20px; spacing: 14px;
+                        padding: 20px;
+                        spacing: 14px;
                         Text { text: "DISCOVERED FILE PROFILE META ATTRIBUTES"; font-size: 13px; font-weight: 900; color: Theme.brand-warning; letter-spacing: 0.5px; }
                         HorizontalLayout {
                             spacing: 20px;
@@ -97,9 +99,11 @@ export component GpfFinalPaymentView inherits VerticalLayout {
     }
     
     if (root.active_schema_action == "gpffp_update") : Rectangle {
-        background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.brand-warning; drop-shadow-blur: 15px; drop-shadow-color: #F59E0B1A;
+        background: Theme.bg-card; border-radius: 16px; border-width: 1px;
+        border-color: Theme.brand-warning; drop-shadow-blur: 15px; drop-shadow-color: #F59E0B1A;
         VerticalLayout {
-            padding: 30px; spacing: 20px;
+            padding: 30px;
+            spacing: 20px;
             Text { text: "UPDATE GPF CASE STATUS OVERRIDE"; font-size: 16px; font-weight: 900; color: Theme.brand-warning; letter-spacing: 1px; }
             HorizontalLayout { 
                 spacing: 15px;
@@ -111,12 +115,43 @@ export component GpfFinalPaymentView inherits VerticalLayout {
     }
     
     if (root.active_schema_action == "gpffp_delete") : Rectangle {
-        background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.brand-danger; drop-shadow-blur: 15px; drop-shadow-color: #EF44441A;
+        background: Theme.bg-card;
+        border-radius: 16px; border-width: 1px; border-color: Theme.brand-danger; drop-shadow-blur: 15px; drop-shadow-color: #EF44441A;
         VerticalLayout {
             padding: 30px; spacing: 20px;
             Text { text: "GPFFP DESTRUCTIVE PROTOCOLS"; font-size: 16px; font-weight: 900; color: Theme.brand-danger; letter-spacing: 1px; }
             HorizontalLayout { spacing: 15px; VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "TARGET REGD_NO"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.op_regd_no; placeholder_text: "Application No"; height: 38px; } } VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "SERIES ID"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.op_series_id; placeholder_text: "Series"; height: 38px; } } VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "ACCOUNT NO"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.op_account_no; placeholder_text: "Account"; height: 38px; } } }
-            HorizontalLayout { spacing: 15px; Button { text: "Delete Full Case"; height: 42px; horizontal-stretch: 1; clicked => { root.request_delete_full_case(root.op_regd_no, root.op_series_id, root.op_account_no); } } Button { text: "Delete Application"; height: 42px; horizontal-stretch: 1; clicked => { root.request_delete_application(root.op_regd_no); } } Button { text: "Delete Pre-Calculation"; height: 42px; horizontal-stretch: 1; clicked => { root.request_delete_precalc(root.op_regd_no); } } }
+            
+            // EXPANDED CONTROLS ROW BINDING THE FOURTH BUTTON OPTION
+            GridLayout { 
+                spacing: 15px; 
+                // wrap: wrap; // <- Remove this, Flow wraps by default
+
+                Button { 
+                    text: "Delete Full Case"; 
+                    height: 42px; 
+                    min-width: 150px; // Gives them a base size to wrap nicely
+                    clicked => { root.request_delete_full_case(root.op_regd_no, root.op_series_id, root.op_account_no); } 
+                } 
+                Button { 
+                    text: "Delete Application"; 
+                    height: 42px; 
+                    min-width: 150px; 
+                    clicked => { root.request_delete_application(root.op_regd_no); } 
+                } 
+                Button { 
+                    text: "Delete Pre-Calculation"; 
+                    height: 42px; 
+                    min-width: 150px; 
+                    clicked => { root.request_delete_precalc(root.op_regd_no); } 
+                } 
+                Button { 
+                    text: "🗑️ Delete Auth Reports"; 
+                    height: 42px; 
+                    min-width: 150px; 
+                    clicked => { root.request_delete_auth_reports(root.op_regd_no); } 
+                }
+            }
         }
     }
 }

@@ -30,9 +30,21 @@ export component GpfFinalPaymentView inherits VerticalLayout {
     spacing: 20px;
     HorizontalLayout {
         spacing: 12px;
-        SchemaAction { icon_text: "🔍"; title: "Get Case Details"; active: root.active_schema_action == "gpffp_find"; clicked => { root.active_schema_action = "gpffp_find"; root.op_status_msg = ""; } }
-        SchemaAction { icon_text: "✏️"; title: "Update Case Status"; active: root.active_schema_action == "gpffp_update"; clicked => { root.active_schema_action = "gpffp_update"; root.op_status_msg = ""; } }
-        SchemaAction { icon_text: "🗑️"; title: "Destructive Options"; active: root.active_schema_action == "gpffp_delete"; clicked => { root.active_schema_action = "gpffp_delete"; root.op_status_msg = ""; } }
+        SchemaAction { 
+            icon_text: "🔍"; 
+            title: "Get Case Details"; 
+            active: root.active_schema_action == "gpffp_find"; 
+            clicked => { root.active_schema_action = "gpffp_find"; root.op_status_msg = ""; } }
+        SchemaAction { 
+            icon_text: "✏️"; 
+            title: "Update Case Status"; 
+            active: root.active_schema_action == "gpffp_update"; 
+            clicked => { root.active_schema_action = "gpffp_update"; root.op_status_msg = ""; } }
+        SchemaAction { 
+            icon_text: "🗑️"; 
+            title: "Destructive Options"; 
+            active: root.active_schema_action == "gpffp_delete"; 
+            clicked => { root.active_schema_action = "gpffp_delete"; root.op_status_msg = ""; } }
     }
     Rectangle { height: 1px; background: Theme.border-color; opacity: 0.3; }
     
@@ -42,7 +54,13 @@ export component GpfFinalPaymentView inherits VerticalLayout {
             padding: 30px; spacing: 20px;
             Text { text: "GPF CASE DISCOVERY ENGINE"; font-size: 16px; font-weight: 900; color: Theme.brand-primary; letter-spacing: 1px; }
             HorizontalLayout { spacing: 15px; VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "REGISTRATION NUMBER (REGD_NO)"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.op_regd_no; placeholder_text: "Enter REGD_NO identity..."; height: 38px; } } }
-            HorizontalLayout { spacing: 15px; Button { text: "🔍  Discover Case Profile Natively"; height: 42px; horizontal-stretch: 1; clicked => { root.request_find_gpf_case(root.op_regd_no); } } }
+            HorizontalLayout { 
+                spacing: 15px; 
+                Button { 
+                    text: "🔍  Discover Case Profile Natively";
+                    height: 42px;
+                    horizontal-stretch: 1; 
+                    clicked => { root.request_find_gpf_case(root.op_regd_no); } } }
             if (root.gpf_case_found) : VerticalLayout {
                 spacing: 0px; Rectangle { height: 10px; }
                 Rectangle {

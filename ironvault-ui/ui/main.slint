@@ -206,12 +206,27 @@ export component AppWindow inherits Window {
                         alignment: root.sidebar_collapsed ? LayoutAlignment.center : LayoutAlignment.start; padding-bottom: 16px; spacing: 12px;
                         Rectangle { 
                             width: 38px; height: 38px; border-radius: 8px; background: logo_ta.has-hover ? Theme.bg-card : transparent; 
-                            Image { source: @image-url("assets/settings.svg"); width: 20px; height: 20px; colorize: Theme.brand-primary; horizontal-alignment: center; vertical-alignment: center; }
+                            Image { 
+                                source: @image-url("assets/vultr-icon.svg"); 
+                                width: 42px; height: 42px; 
+                                colorize: Theme.brand-primary; 
+                                horizontal-alignment: center; 
+                                vertical-alignment: center; }
                             logo_ta := TouchArea { clicked => { root.sidebar_collapsed = !root.sidebar_collapsed; } } 
                         }
                         if (!root.sidebar_collapsed) : VerticalLayout { spacing: 2px; alignment: center;
-                            Text { text: "IRONVAULT"; font-size: 18px; font-weight: 900; color: Theme.text-primary; letter-spacing: 2px; }
-                            Text { text: "SECURE ENCLAVE NODE"; font-size: 9px; color: Theme.brand-primary; font-weight: 800; letter-spacing: 0.5px; } }
+                            Text { 
+                                text: "IRONVAULT"; 
+                                font-size: 18px; 
+                                font-weight: 900; 
+                                color: Theme.text-primary; 
+                                letter-spacing: 2px; }
+                            Text { 
+                                text: "SECURE ENCLAVE NODE"; 
+                                font-size: 9px; 
+                                color: Theme.brand-primary; 
+                                font-weight: 800; 
+                                letter-spacing: 0.5px; } }
                     }
                     Rectangle { height: 1px; background: Theme.border-dark; opacity: 0.5; } Rectangle { height: 8px; }
                     NavItem { text: "Command Dashboard"; icon_image: @image-url("assets/layout-dashboard.svg"); active: root.active_tab == "overview"; collapsed: root.sidebar_collapsed; clicked => { root.active_tab = "overview"; } }
@@ -255,8 +270,22 @@ export component AppWindow inherits Window {
                                 VerticalLayout {
                                     alignment: center;
                                     Rectangle {
-                                        width: 120px; height: 34px; border-radius: 6px; background: Theme.bg-card; border-width: 1px; border-color: Theme.border-color;
-                                        HorizontalLayout { padding: 4px; alignment: center; Text { text: Theme.is-light-mode ? "🌙 Dark Mode" : "☀️ Light Mode"; font-size: 12px; font-weight: 800; color: Theme.text-primary; vertical-alignment: center; } }
+                                        width: 34px; height: 34px; border-radius: 6px; background: Theme.bg-card; border-width: 1px; border-color: Theme.border-color;
+                                        HorizontalLayout 
+                                        { padding: 4px; alignment: center; 
+                                            // Put Image element right here, before the Text label:
+                                            Image {
+                                                source: Theme.is-light-mode ? @image-url("assets/falling-stars-fill.svg") : @image-url("assets/light-bulb.svg");
+                                                // 34px parent - 8px total padding = 26px max image size
+                                                width: 26px;
+                                                height: 26px;
+                                            }
+                                            // Text 
+                                            // { text: Theme.is-light-mode ? "🌙 Dark Mode" : "Light Mode";
+                                            //  font-size: 12px; font-weight: 800; color: Theme.text-primary; 
+                                            //  vertical-alignment: center; 
+                                            // }
+                                        }
                                         TouchArea { clicked => { Theme.is-light-mode = !Theme.is-light-mode; } }
                                     }
                                 }
@@ -389,8 +418,20 @@ export component AppWindow inherits Window {
                                                     VerticalLayout { spacing: 4px; Text { text: "OPERATOR IDENTIFICATION INDEX"; font-size: 10px; color: Theme.text-muted; } Text { text: "@" + p_user.username + " (" + p_user.full_name + ")"; font-size: 16px; font-weight: 900; color: Theme.brand-primary; } }
                                                     HorizontalLayout {
                                                         spacing: 12px; alignment: LayoutAlignment.center;
-                                                        Button { text: "🛡️ Sign Authorization"; clicked => { root.approve_pending_operator(p_user.username, "Operator"); } }
-                                                        Button { text: "🚫 Terminate Signal"; clicked => { root.deny_pending_operator(p_user.username); } }
+                                                        Button { 
+                                                            icon: @image-url("assets/check-badge.svg"); // Path to your authorization icon
+                                                            // text: "Sign Authorization"; 
+                                                            clicked => { 
+                                                                root.approve_pending_operator(p_user.username, "Operator"); 
+                                                            } 
+                                                        }
+                                                        Button { 
+                                                            icon: @image-url("assets/allowances-no-talking.svg"); // Path to your termination icon
+                                                            // text: "Terminate Signal"; 
+                                                            clicked => { 
+                                                                root.deny_pending_operator(p_user.username); 
+                                                            } 
+                                                        }
                                                     }
                                                 }
                                             }
@@ -467,7 +508,8 @@ export component AppWindow inherits Window {
                                                             VerticalLayout {
                                                                 alignment: center;
                                                                 Button {
-                                                                    text: "⚙️ Select Configuration"; height: 32px;
+                                                                    text: "Select Configuration"; height: 32px;
+                                                                    icon: @image-url("assets/cog.svg"); // The icon asset goes here
                                                                     clicked => { 
                                                                         root.lease_target_user = user.username; 
                                                                         root.lease_target_role = user.role; 
@@ -508,9 +550,25 @@ export component AppWindow inherits Window {
                                                         HorizontalLayout {
                                                             alignment: LayoutAlignment.space-between;
                                                             Text { text: "1. PROFILE METADATA IDENTITY"; font-size: 11px; font-weight: 900; color: Theme.brand-primary; vertical-alignment: center; }
+                                                            // Close button circle container
                                                             Rectangle {
-                                                                width: 26px; height: 26px; border-radius: 13px; background: close_panel_ta.has-hover ? #FF336622 : transparent;
-                                                                Text { text: "✕"; font-size: 11px; font-weight: 900; color: close_panel_ta.has-hover ? Theme.brand-danger : Theme.text-muted; horizontal-alignment: center; vertical-alignment: center; }
+                                                                width: 26px; 
+                                                                height: 26px; 
+                                                                border-radius: 13px; 
+                                                                background: close_panel_ta.has-hover ? #FF336622 : transparent;                                                                
+                                                                // Swapped out the "✕" text element for your SVG icon
+                                                                Image {
+                                                                    source: @image-url("assets/subtract-circle.svg");
+                                                                    width: 14px;
+                                                                    height: 14px;
+                                                                    
+                                                                    // Centers the image inside the parent Rectangle bounds
+                                                                    x: (parent.width - self.width) / 2;
+                                                                    y: (parent.height - self.height) / 2;
+                                                                    
+                                                                    // Optional: Changes the icon color dynamically on hover if using a monochrome SVG
+                                                                    colorize: close_panel_ta.has-hover ? Theme.brand-danger : Theme.text-muted;
+                                                                }
                                                                 close_panel_ta := TouchArea { clicked => { root.lease_target_user = ""; } }
                                                             }
                                                         }
@@ -537,7 +595,8 @@ export component AppWindow inherits Window {
                                                         HorizontalLayout {
                                                             alignment: LayoutAlignment.end; spacing: 12px; padding-top: 4px;
                                                             Button { 
-                                                                text: "✏️ Save Modification Pass"; height: 36px; 
+                                                                icon: @image-url("assets/shield-check-1.svg"); // Path to your authorization icon
+                                                                text: "Save Modification Pass"; height: 36px; 
                                                                 clicked => { 
                                                                     root.commit_schema_toggles(root.lease_target_user, root.cb_gpf, root.cb_vlcs, root.cb_sai, root.cb_dak);
                                                                     root.extend_user_lease(root.lease_target_user, root.lease_target_role, root.lease_target_days, root.lease_target_schemas); 
@@ -565,7 +624,10 @@ export component AppWindow inherits Window {
                                                         
                                                         HorizontalLayout {
                                                             padding-top: 4px;
-                                                            Button { text: "Dismiss Panel Focus Configuration"; height: 34px; horizontal-stretch: 1; clicked => { root.lease_target_user = ""; } }
+                                                            Button { 
+                                                                icon: @image-url("assets/navigation-left.svg");
+                                                                text: "Dismiss Panel Focus Configuration"; height: 34px; horizontal-stretch: 1; 
+                                                                clicked => { root.lease_target_user = ""; } }
                                                         }
                                                     }
                                                 }

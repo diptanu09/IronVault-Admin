@@ -8,6 +8,9 @@ fn main() {
     // 1. Tell Cargo when to rerun this script (improves incremental build speeds)
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=ui/main.slint");
+    // Add rerun rules for your Windows resource files so changes trigger a rebuild
+    println!("cargo:rerun-if-changed=ironvault.rc");
+    println!("cargo:rerun-if-changed=ui/assets/ironvault.ico");
 
     // Register all required Lucide vector mappings (CDN name, local filename)
     let required_icons = vec![

@@ -1,6 +1,6 @@
 //! IronVault Admin UI - Bootstrapper & Main Thread
 //! Initializes the Slint UI framework and establishes connections
-//! to the core security and database layers
+//! to the core security and database layers with automated relational tracking.
 
 slint::include_modules!();
 use slint::ComponentHandle;
@@ -21,7 +21,7 @@ extern "C" {
 }
 
 /// Helper function to log user movements directly into the PostgreSQL relational audit table
-#[allow(dead_code)] // Suppresses warning during granular module attachment passes
+#[allow(dead_code)]
 async fn log_to_db(pool: &sqlx::PgPool, operator: &str, action: &str, level: &str, schema: &str) {
     let query = "INSERT INTO ironvault.db_audit_logs (operator_id, operation_action, impact_level, target_schema) VALUES ($1, $2, $3, $4)";
     let _ = sqlx::query(query)
@@ -213,6 +213,7 @@ async fn main() -> Result<(), slint::PlatformError> {
                         }
                     }).unwrap();
                     
+                    log_to_db(&pool, &username_val, "USER_LOGIN_SUCCESS", "NOMINAL", "SYSTEM").await;
                     let core_user = ironvault_core::auth::User { id: Default::default(), username: username_val, role: role_assigned.into(), last_login: last_login_val };
                     audit.log_action(&core_user, "OPERATOR_DB_LOGIN_SUCCESS", "CRITICAL").ok();
                 },
@@ -230,7 +231,6 @@ async fn main() -> Result<(), slint::PlatformError> {
         let ui_weak = app_weak_logout.clone();
         let db = db_logout.clone();
         
-        // FIX: Capture the current user name immediately while on the Slint UI thread
         let username_str = if let Some(ui) = ui_weak.upgrade() {
             ui.get_current_user_name().to_string()
         } else {
@@ -241,10 +241,8 @@ async fn main() -> Result<(), slint::PlatformError> {
             let pool = db.get_pool().clone();
             let ui_weak_clear = ui_weak.clone();
             
-            // Execute the UI register cleanup pass back onto the event loop
             let _ = slint::invoke_from_event_loop(move || {
                 if let Some(ui) = ui_weak_clear.upgrade() {
-                    // Flush session registers back to default structural states
                     ui.set_is_logged_in(false);
                     ui.set_current_user_name("GUEST".into());
                     ui.set_current_user_role("UNAUTHORIZED".into());
@@ -257,14 +255,12 @@ async fn main() -> Result<(), slint::PlatformError> {
                 }
             });
             
-            // Safely write the persistent tracking log entry using the pre-captured string
             if username_str != "UNKNOWN" && !username_str.is_empty() {
                 log_to_db(&pool, &username_str, "USER_LOGOUT_SUCCESS", "NOMINAL", "SYSTEM").await;
             }
         });
     });
 
-    
     let app_weak_reg = app_weak_main.clone();
     let db_reg = Arc::clone(&db_clone);
     let hwid_reg = target_hwid_main.clone();
@@ -367,6 +363,7 @@ async fn main() -> Result<(), slint::PlatformError> {
     });
 
     let app_weak_pnd_list = app_weak_main.clone();
+    // CORRECTED: Captured from db_clone context instead of unallocated self reference
     let db_pnd_list = Arc::clone(&db_clone);
     app.on_load_pending_users_list(move || {
         let ui_weak = app_weak_pnd_list.clone();
@@ -815,13 +812,13 @@ async fn main() -> Result<(), slint::PlatformError> {
 
         let mut recipients = Vec::new();
         if copies_count >= 1 {
-            recipients.push(ironvault_db::oracle::DakRecipientDetail { addressee: ui.get_dak_adr_1().to_string(), barcode: ui.get_dak_bar_1().to_string(), sent_by: ui.get_dak_sent_1().to_string(), service_book: ui.get_dak_sb_1().to_string() });
+            recipients.push(ironvault_db::oracle::DakRecipientDetail { addressee: ui.get_dak_adr_1().to_string(), barcode: ui.get_dak_bar_1().to_string(), sent_by: ui.get_dak_sent_1().to_string(), service_book: "N".to_string() });
         }
         if copies_count >= 2 && (copies_str == "2" || copies_str == "3") {
-            recipients.push(ironvault_db::oracle::DakRecipientDetail { addressee: ui.get_dak_adr_2().to_string(), barcode: ui.get_dak_bar_2().to_string(), sent_by: ui.get_dak_sent_2().to_string(), service_book: ui.get_dak_sb_2().to_string() });
+            recipients.push(ironvault_db::oracle::DakRecipientDetail { addressee: ui.get_dak_adr_2().to_string(), barcode: ui.get_dak_bar_2().to_string(), sent_by: ui.get_dak_sent_2().to_string(), service_book: "N".to_string() });
         }
         if copies_count == 3 && copies_str == "3" {
-            recipients.push(ironvault_db::oracle::DakRecipientDetail { addressee: ui.get_dak_adr_3().to_string(), barcode: ui.get_dak_bar_3().to_string(), sent_by: ui.get_dak_sent_3().to_string(), service_book: ui.get_dak_sb_3().to_string() });
+            recipients.push(ironvault_db::oracle::DakRecipientDetail { addressee: ui.get_dak_adr_3().to_string(), barcode: ui.get_dak_bar_3().to_string(), sent_by: ui.get_dak_sent_3().to_string(), service_book: "N".to_string() });
         }
 
         let ui_weak = app_weak_dak.clone();
@@ -938,6 +935,9 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
+    // =========================================================================
+    // --- P-SAI CORE PENSION BINDINGS FIXED SETTERS MATRIX ---
+    // =========================================================================
     let app_weak_pnsr_det = app_weak_main.clone();
     let oracle_pnsr_det = Arc::clone(&oracle_master);
     app.on_request_pension_details(move |query_term| {
@@ -955,6 +955,7 @@ async fn main() -> Result<(), slint::PlatformError> {
                     }).collect();
                     slint::invoke_from_event_loop(move || {
                         if let Some(ui) = ui_weak.upgrade() {
+                            // FIXED: Linked to explicit Slint property definitions
                             ui.set_sai_data_found(!slint_records.is_empty());
                             ui.set_sai_biographical_list(slint::ModelRc::from(std::rc::Rc::new(slint::VecModel::from(slint_records))));
                             ui.set_op_is_error(false);
@@ -983,7 +984,10 @@ async fn main() -> Result<(), slint::PlatformError> {
                     };
                     slint::invoke_from_event_loop(move || {
                         if let Some(ui) = ui_weak.upgrade() {
-                            ui.set_sai_data_found(true); ui.set_op_is_error(false); ui.set_sai_status_record(slint_record);
+                            // FIXED: Linked to matching prefix setters
+                            ui.set_sai_data_found(true); 
+                            ui.set_op_is_error(false); 
+                            ui.set_sai_status_record(slint_record);
                         }
                     }).unwrap();
                 }

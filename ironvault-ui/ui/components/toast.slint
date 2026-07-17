@@ -1,0 +1,45 @@
+export component AnimatedToast inherits Rectangle {
+    in property <string> message;
+    in property <bool> is_error;
+    in property <bool> active;
+
+    width: 380px;
+    height: 54px;
+    
+    background: is_error ? #ef4444f2 : #10b981f2; 
+    border-radius: 10px;
+    border-width: 1px;
+    border-color: #ffffff26;
+    
+    drop-shadow-blur: 12px;
+    drop-shadow-offset-y: 6px;
+    drop-shadow-color: #00000033;
+
+    y: active ? 24px : -80px;
+    opacity: active ? 1.0 : 0.0;
+    
+    animate y { duration: 400ms; easing: ease-out; }
+    animate opacity { duration: 300ms; easing: ease-in-out; }
+
+    HorizontalLayout {
+        padding: 14px;
+        spacing: 12px;
+        alignment: start;
+        
+        Text {
+            text: is_error ? "🚨" : "✅";
+            font-size: 16px;
+            vertical-alignment: center;
+        }
+        
+        Text {
+            text: root.message;
+            font-size: 12px;
+            font-weight: 700;
+            color: white;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            wrap: word-wrap;
+        }
+    }
+}

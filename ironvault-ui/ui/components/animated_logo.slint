@@ -1,0 +1,37 @@
+export component SecurityLogo inherits Rectangle {
+    in property <image> source;
+    in property <bool> is_processing;
+
+    property <float> pulse_scale: 1.0;
+    property <angle> rotation_angle: 0deg;
+
+    width: 48px;
+    height: 48px;
+    background: transparent;
+
+    Image {
+        source: root.source;
+        // Dynamically compute pixel scaling vectors natively
+        width: parent.width * root.pulse_scale;
+        height: parent.height * root.pulse_scale;
+        colorize: #3b82f6; 
+        
+        // Fixed: Use Slint's standard transform-rotation property
+        transform-rotation: root.rotation_angle;
+    }
+
+    states [
+        processing when root.is_processing : {
+            rotation_angle: 360deg;
+            in {
+                animate rotation_angle { duration: 1000ms; iteration-count: -1; easing: linear; }
+            }
+        }
+        idle when !root.is_processing : {
+            pulse_scale: 1.08;
+            in {
+                animate pulse_scale { duration: 1800ms; iteration-count: -1; direction: alternate; easing: ease-in-out; }
+            }
+        }
+    ]
+}

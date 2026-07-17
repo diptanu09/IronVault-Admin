@@ -1,5 +1,5 @@
 import { Button, LineEdit, ScrollView } from "std-widgets.slint";
-import { Theme } from "../theme.slint";
+import { Theme, FluidButton } from "../theme.slint"; // Import FluidButton here
 
 export struct GpfCaseDetails {
     regd_no: string,
@@ -14,7 +14,7 @@ export component GpfFinalPaymentView inherits Rectangle {
     in-out property <string> active_schema_action;
     in-out property <string> op_status_msg;
     in-out property <bool> op_is_error;
-   
+    
     in-out property <string> op_regd_no;
     in-out property <string> op_series_id;
     in-out property <string> op_account_no;
@@ -26,261 +26,165 @@ export component GpfFinalPaymentView inherits Rectangle {
     callback request_delete_full_case(string, string, string);
     callback request_delete_application(string);
     callback request_delete_precalc(string);
-    callback request_delete_auth_reports(string);
     callback request_update_gpf_status(string, string);
+    callback request_delete_auth_reports(string);
 
     background: transparent;
 
+    // Use a Z-Stack (overlapping rectangles) to allow items to fade over one another
     VerticalLayout {
-        spacing: 20px;
-        padding: 24px;
+        spacing: 12px; 
+        padding: 0px;
 
-        // =========================================================================
-        // MODERN ACCENT NAVIGATION
-        // =========================================================================
+        // Sub-Navigation Chips Menu
         HorizontalLayout {
-            spacing: 12px;
+            spacing: 8px;
             alignment: start;
-
-            Button {
-                text: "🔍 Profile Acquisition Core";
-                height: 42px;
+            
+            Button { 
+                text: "🔍 Profile Acquisition Core"; 
+                height: 32px;
                 checked: root.active_schema_action == "gpffp_find";
-                clicked => { root.active_schema_action = "gpffp_find"; }
+                clicked => { root.active_schema_action = "gpffp_find"; } 
             }
-
-            Button {
-                text: "🚨 Destructive Override Safehouse";
-                height: 42px;
+            Button { 
+                text: "🚨 Destructive Override Safehouse"; 
+                height: 32px;
                 checked: root.active_schema_action == "gpffp_clear";
-                clicked => { root.active_schema_action = "gpffp_clear"; }
+                clicked => { root.active_schema_action = "gpffp_clear"; } 
             }
         }
 
-        // =========================================================================
-        // FIND VIEW
-        // =========================================================================
-        if (root.active_schema_action == "gpffp_find") : Rectangle {
-            background: @linear-gradient(145deg, #1e2937, #0f172a);
-            border-radius: 20px;
-            border-width: 1px;
-            border-color: #6366f155;
+        // Master View Container Frame
+        Rectangle {
+            vertical-stretch: 1;
 
-            VerticalLayout {
-                padding: 28px;
-                spacing: 20px;
-
-                Text {
-                    text: "GPF RELATIONAL ENCLAVE INQUIRY";
-                    font-size: 15px;
-                    font-weight: 800;
-                    letter-spacing: 1.5px;
-                    color: #a5b4fc;
-                }
-
-                HorizontalLayout {
-                    spacing: 16px;
-                    alignment: start;
-
-                    VerticalLayout {
-                        spacing: 6px;
-                        width: 320px;
-
-                        Text {
-                            text: "REGISTRATION INDEX KEY";
-                            font-size: 11px;
-                            font-weight: 700;
-                            color: #64748b;
-                            letter-spacing: 0.8px;
-                        }
-                        LineEdit {
-                            text <=> root.op_regd_no;
-                            placeholder_text: "Ex: 45102/FP";
-                            height: 48px;
-                            font-size: 15px;
-                        }
-                    }
-
-                    VerticalLayout {
-                        alignment: end;
-                        width: 160px;
-
-                        Button {
-                            text: "SCAN SECURE RING";
-                            height: 48px;
-                            clicked => { root.request_find_gpf_case(root.op_regd_no); }
-                        }
-                    }
-                }
-
-                // RESULT CARD
-                if (root.gpf_case_found) : Rectangle {
-                    background: #10b98110;
-                    border-radius: 18px;
-                    border-width: 1px;
-                    border-color: #34d39966;
-
-                    VerticalLayout {
-                        padding: 24px;
-                        spacing: 18px;
-
-                        HorizontalLayout {
-                            alignment: space-between;
-                            VerticalLayout {
-                                spacing: 4px;
-                                Text {
-                                    text: "ACTIVE LEDGER MATCH VERIFIED";
-                                    font-size: 15px;
-                                    font-weight: 800;
-                                    color: #34d399;
-                                }
-                                Text {
-                                    text: "Cryptographic session bound successfully";
-                                    font-size: 12px;
-                                    color: #a1a1aa;
-                                }
-                            }
-                            Rectangle {
-                                width: 12px;
-                                height: 12px;
-                                background: #34d399;
-                            }
-                        }
-
-                        Rectangle { height: 1px; background: #334155; opacity: 0.6; }
-
-                        HorizontalLayout {
-                            spacing: 32px;
-                            alignment: start;
-
-                            VerticalLayout {
-                                spacing: 4px;
-                                width: 220px;
-                                Text { text: "ACCOUNT HOLDER"; font-size: 10px; font-weight: 700; color: #64748b; letter-spacing: 1px; }
-                                Text { text: root.active_gpf_case.holder_name; font-size: 16px; font-weight: 700; color: #e0f2fe; }
-                            }
-
-                            VerticalLayout {
-                                spacing: 4px;
-                                width: 110px;
-                                Text { text: "SERIES"; font-size: 10px; font-weight: 700; color: #64748b; letter-spacing: 1px; }
-                                Text { text: root.active_gpf_case.series_id; font-size: 16px; font-family: "Consolas"; font-weight: 700; color: #fbbf24; }
-                            }
-
-                            VerticalLayout {
-                                spacing: 4px;
-                                width: 150px;
-                                Text { text: "ACCOUNT NO"; font-size: 10px; font-weight: 700; color: #64748b; letter-spacing: 1px; }
-                                Text { text: root.active_gpf_case.account_no; font-size: 16px; font-family: "Consolas"; color: #e0e7ff; }
-                            }
-
-                            VerticalLayout {
-                                spacing: 4px;
-                                width: 160px;
-                                Text { text: "CLOSING BALANCE"; font-size: 10px; font-weight: 700; color: #64748b; letter-spacing: 1px; }
-                                Text { text: "₹ " + root.active_gpf_case.balance; font-size: 18px; font-weight: 900; color: #67e8f9; }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // =========================================================================
-        // DESTRUCTIVE VIEW
-        // =========================================================================
-        if (root.active_schema_action == "gpffp_clear") : Rectangle {
-            background: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 100%); //  Fixed!
-            border-radius: 20px;
-            border-width: 1px;
-            border-color: #f8717166;
-
-            VerticalLayout {
-                padding: 28px;
-                spacing: 24px;
+            // =========================================================================
+            // 🔍 VIEW 1: PROFILE ACQUISITION CORE (CROSS-FADING)
+            // =========================================================================
+            Rectangle {
+                // Kinetic Fade Properties
+                opacity: root.active_schema_action == "gpffp_find" ? 1.0 : 0.0;
+                visible: self.opacity > 0.05; // Hide from hit-tests entirely when collapsed
+                
+                animate opacity { duration: 250ms; easing: ease-in-out; }
 
                 VerticalLayout {
-                    spacing: 6px;
-                    Text {
-                        text: "CRITICAL ADMINISTRATIVE INTERFACE";
-                        font-size: 15px;
-                        font-weight: 800;
-                        color: #fda4af;
-                        letter-spacing: 1.2px;
-                    }
-                    Text {
-                        text: "All actions are irreversible. Confirm targets before execution.";
-                        font-size: 13px;
-                        color: #fda4af88;
-                    }
-                }
-
-                Rectangle { height: 1px; background: #f8717166; }
-
-                HorizontalLayout {
-                    spacing: 16px;
-                    alignment: start;
-
-                    VerticalLayout {
-                        spacing: 6px;
-                        width: 210px;
-                        Text { text: "APPLICATION / REGD NO"; font-size: 11px; font-weight: 700; color: #94a3b8; }
-                        LineEdit {
-                            text <=> root.op_regd_no;
-                            placeholder_text: "Ex: 45102/FP";
-                            height: 46px;
-                        }
-                    }
-
-                    VerticalLayout {
-                        spacing: 6px;
-                        width: 150px;
-                        Text { text: "SERIES PREFIX"; font-size: 11px; font-weight: 700; color: #94a3b8; }
-                        LineEdit {
-                            text <=> root.op_series_id;
-                            placeholder_text: "Ex: EDN";
-                            height: 46px;
-                        }
-                    }
-
-                    VerticalLayout {
-                        spacing: 6px;
-                        width: 210px;
-                        Text { text: "ACCOUNT NO REFERENCE"; font-size: 11px; font-weight: 700; color: #94a3b8; }
-                        LineEdit {
-                            text <=> root.op_account_no;
-                            placeholder_text: "Ex: 12435";
-                            height: 46px;
-                        }
-                    }
-                }
-
-                Rectangle { height: 1px; background: #f8717166; }
-
-                GridLayout {
                     spacing: 12px;
-                    Row {
-                        Button {
-                            text: "💥 DROP FULL SETTLEMENT PROFILE";
-                            height: 52px;
-                            clicked => { root.request_delete_full_case(root.op_regd_no, root.op_series_id, root.op_account_no); }
-                        }
-                        Button {
-                            text: "🗑️ PURGE APPLICATION ROW";
-                            height: 52px;
-                            clicked => { root.request_delete_application(root.op_regd_no); }
+                    
+                    Rectangle {
+                        background: Theme.bg-card; 
+                        border-radius: 12px; 
+                        border-width: 1px; 
+                        border-color: Theme.border-color;
+                        height: 100px; 
+                        
+                        VerticalLayout {
+                            padding-left: 16px; padding-right: 16px; padding-top: 12px; padding-bottom: 12px;
+                            spacing: 8px;
+                            
+                            Text { 
+                                text: "GPF RELATIONAL ENCLAVE INQUIRY"; 
+                                font-size: 12px; font-weight: 900; color: Theme.brand-primary; letter-spacing: 0.5px; 
+                            }
+                            
+                            HorizontalLayout {
+                                spacing: 12px; alignment: start;
+                                
+                                VerticalLayout { 
+                                    spacing: 4px; width: 280px; 
+                                    Text { text: "REGISTRATION INDEX KEY *"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } 
+                                    LineEdit { text <=> root.op_regd_no; placeholder_text: "Ex: 45102/FP"; height: 32px; } 
+                                }
+                                
+                                VerticalLayout { 
+                                    alignment: end; 
+                                    Button { 
+                                        text: "Scan Secure Ring"; height: 32px; 
+                                        clicked => { root.request_find_gpf_case(root.op_regd_no); } 
+                                    } 
+                                }
+                            }
                         }
                     }
-                    Row {
-                        Button {
-                            text: "📊 FLUSH PRE-CALCULATIONS";
-                            height: 52px;
-                            clicked => { root.request_delete_precalc(root.op_regd_no); }
+
+                    if (root.gpf_case_found) : Rectangle {
+                        background: #10b98106; border-radius: 12px; border-width: 1px; border-color: #10b98133;
+                        VerticalLayout {
+                            padding: 14px; spacing: 10px;
+                            HorizontalLayout {
+                                alignment: space-between;
+                                VerticalLayout {
+                                    spacing: 2px;
+                                    Text { text: "Active Ledger Match Verified"; font-size: 13px; font-weight: 800; color: Theme.text-primary; }
+                                    Text { text: "Cryptographic runtime session maps bound smoothly."; font-size: 11px; color: Theme.text-secondary; }
+                                }
+                                Rectangle { width: 8px; height: 8px; border-radius: 4px; background: Theme.brand-success; y: 4px; }
+                            }
+                            Rectangle { height: 1px; background: Theme.border-color; opacity: 0.15; }
+                            HorizontalLayout {
+                                spacing: 28px; alignment: start; 
+                                VerticalLayout { spacing: 4px; width: 200px; Text { text: "ACCOUNT HOLDER NAME"; font-size: 9px; color: Theme.text-muted; } Text { text: root.active_gpf_case.holder_name; font-size: 13px; font-weight: 700; color: Theme.text-primary; } }
+                                VerticalLayout { spacing: 4px; width: 90px; Text { text: "SERIES PREFIX"; font-size: 9px; color: Theme.text-muted; } Text { text: root.active_gpf_case.series_id; font-size: 13px; font-family: "Consolas"; font-weight: 700; color: Theme.brand-warning; } }
+                                VerticalLayout { spacing: 4px; width: 120px; Text { text: "LEDGER ACCOUNT NO"; font-size: 9px; color: Theme.text-muted; } Text { text: root.active_gpf_case.account_no; font-size: 13px; font-family: "Consolas"; color: Theme.text-primary; } }
+                                VerticalLayout { spacing: 4px; width: 140px; Text { text: "CLOSING VALUATION"; font-size: 9px; color: Theme.text-muted; } Text { text: "₹ " + root.active_gpf_case.balance; font-size: 14px; font-weight: 900; color: Theme.brand-primary; } }
+                            }
                         }
-                        Button {
-                            text: "📜 DROP SIGNED CERTIFICATES";
-                            height: 52px;
-                            clicked => { root.request_delete_auth_reports(root.op_regd_no); }
+                    }
+                }
+            }
+
+            // =========================================================================
+            // 🚨 VIEW 2: DESTRUCTIVE OVERRIDE SAFEHOUSE (CROSS-FADING)
+            // =========================================================================
+            Rectangle {
+                // Kinetic Fade Properties
+                opacity: root.active_schema_action == "gpffp_clear" ? 1.0 : 0.0;
+                visible: self.opacity > 0.05;
+                
+                animate opacity { duration: 250ms; easing: ease-in-out; }
+
+                Rectangle {
+                    background: #ef444403; border-radius: 12px; border-width: 1px; border-color: #ef444426;
+                    VerticalLayout {
+                        padding: 16px; spacing: 12px;
+                        VerticalLayout {
+                            spacing: 2px;
+                            Text { text: "CRITICAL REGULATORY ADMINISTRATIVE INTERFACE"; font-size: 12px; font-weight: 900; color: Theme.brand-danger; letter-spacing: 0.5px; }
+                            Text { text: "Cascading deletions directly modify layout sectors. Provide explicit targets before execution."; font-size: 11px; color: Theme.text-secondary; }
+                        }
+                        Rectangle { height: 1px; background: Theme.border-color; opacity: 0.1; }
+                        HorizontalLayout {
+                            spacing: 12px; alignment: start;
+                            VerticalLayout { spacing: 4px; width: 180px; Text { text: "APPLICATION / REGD NO"; font-size: 10px; color: Theme.text-muted; } LineEdit { text <=> root.op_regd_no; placeholder_text: "Ex: 45102/FP"; height: 30px; } }
+                            VerticalLayout { spacing: 4px; width: 140px; Text { text: "SERIES PREFIX CODE"; font-size: 10px; color: Theme.text-muted; } LineEdit { text <=> root.op_series_id; placeholder_text: "Ex: EDN"; height: 30px; } }
+                            VerticalLayout { spacing: 4px; width: 180px; Text { text: "ACCOUNT NO REFERENCE"; font-size: 10px; color: Theme.text-muted; } LineEdit { text <=> root.op_account_no; placeholder_text: "Ex: 12435"; height: 30px; } }
+                        }
+                        Rectangle { height: 1px; background: Theme.border-color; opacity: 0.1; }
+                        
+                        // Integrated our new premium FluidButtons for tactile interactions!
+                        GridLayout {
+                            spacing: 10px;
+                            Row {
+                                FluidButton { 
+                                    text: "💥 Drop Full Settlement Profile"; is_destructive: true;
+                                    clicked => { root.request_delete_full_case(root.op_regd_no, root.op_series_id, root.op_account_no); } 
+                                }
+                                FluidButton { 
+                                    text: "🗑️ Purge Application Row Element"; is_destructive: true;
+                                    clicked => { root.request_delete_application(root.op_regd_no); } 
+                                }
+                            }
+                            Row {
+                                FluidButton { 
+                                    text: "📊 Flush Pre-Calculations Cluster"; 
+                                    clicked => { root.request_delete_precalc(root.op_regd_no); } 
+                                }
+                                FluidButton { 
+                                    text: "📜 Drop Signed Authority Certificates"; 
+                                    clicked => { root.request_delete_auth_reports(root.op_regd_no); } 
+                                }
+                            }
                         }
                     }
                 }

@@ -1,0 +1,56 @@
+export component FluidButton inherits Rectangle {
+    in property <string> text;
+    in property <string> icon;
+    in property <bool> is_destructive: false;
+    
+    // Explicit style defaults to keep out of recursive theme scoping loops
+    in property <color> primary_color: #3b82f6;
+    in property <color> danger_color: #ef4444;
+
+    callback clicked;
+
+    height: 36px;
+    border-radius: 8px;
+    
+    background: is_destructive ? root.danger_color : root.primary_color;
+    opacity: touch.has-hover ? 0.85 : 1.0;
+    
+    // Drop shadow values stay here since they don't fight layouts
+    drop-shadow-blur: touch.has-hover ? 12px : 0px;
+    drop-shadow-color: is_destructive ? root.danger_color : root.primary_color;
+    drop-shadow-offset-y: touch.has-hover ? 6px : 0px;
+
+    animate drop-shadow-blur { duration: 150ms; }
+    animate opacity { duration: 100ms; }
+
+    // 🚀 FIX: We wrap the layout inside an empty element so we can safely animate its y position
+    Rectangle {
+        y: touch.has-hover ? -2px : 0px;
+        animate y { duration: 150ms; easing: ease-out; }
+
+        HorizontalLayout {
+            alignment: center;
+            padding-left: 16px; padding-right: 16px;
+            spacing: 8px;
+            
+            if (root.icon != "") : Text {
+                text: root.icon;
+                vertical-alignment: center;
+                font-size: 14px;
+            }
+            
+            Text {
+                text: root.text;
+                color: white;
+                font-weight: 800;
+                font-size: 12px;
+                letter-spacing: 0.5px;
+                vertical-alignment: center;
+            }
+        }
+    }
+
+    touch := TouchArea {
+        clicked => { root.clicked(); }
+    }
+}

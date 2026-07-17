@@ -1,10 +1,11 @@
 import { Button, LineEdit } from "std-widgets.slint";
-import { Theme, SchemaAction } from "../theme.slint";
+import { Theme } from "../theme.slint";
 
-export component VlcsComputerizedView inherits VerticalLayout {
+export component VlcsComputerizedView inherits Rectangle {
     in-out property <string> active_schema_action;
     in-out property <string> op_status_msg;
     in-out property <bool> op_is_error;
+    
     in-out property <string> vlcs_ddo_code;
     in-out property <string> vlcs_emp_code;
     in-out property <string> vlcs_emp_mobile;
@@ -14,30 +15,49 @@ export component VlcsComputerizedView inherits VerticalLayout {
     callback request_vlcs_get_emp(string);
     callback request_vlcs_update_emp(string, string);
 
-    spacing: 20px;
-    HorizontalLayout {
-        spacing: 12px;
-        SchemaAction { icon_text: "🏢"; title: "DDO Operations"; active: root.active_schema_action == "vlcs_ddo"; clicked => { root.active_schema_action = "vlcs_ddo"; root.op_status_msg = ""; } }
-        SchemaAction { icon_text: "👥"; title: "Employee Operations"; active: root.active_schema_action == "vlcs_emp"; clicked => { root.active_schema_action = "vlcs_emp"; root.op_status_msg = ""; } }
-    }
-    Rectangle { height: 1px; background: Theme.border-color; opacity: 0.3; }
-    
-    if (root.active_schema_action == "vlcs_ddo") : Rectangle {
-        background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.brand-primary; drop-shadow-blur: 15px; drop-shadow-color: #00E5FF1A;
-        VerticalLayout {
-            padding: 30px; spacing: 20px;
-            Text { text: "VLCS DDO MANAGEMENT TERMINAL"; font-size: 16px; font-weight: 900; color: Theme.brand-primary; letter-spacing: 1px; }
-            HorizontalLayout { spacing: 15px; VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "DDO IDENTIFIER CODE"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.vlcs_ddo_code; placeholder_text: "Enter DDO routing code..."; height: 38px; } } }
-            HorizontalLayout { spacing: 15px; Button { text: "🏢  Get DDO Details"; height: 42px; horizontal-stretch: 1; clicked => { root.request_vlcs_get_ddo(root.vlcs_ddo_code); } } Button { text: "✏️  Update DDO Details"; height: 42px; horizontal-stretch: 1; clicked => { root.request_vlcs_update_ddo(root.vlcs_ddo_code); } } }
+    background: transparent;
+
+    VerticalLayout {
+        spacing: 24px;
+        HorizontalLayout {
+            spacing: 12px;
+            Button { text: "🏢 DDO Operations Console"; clicked => { root.active_schema_action = "vlcs_ddo"; } }
+            Button { text: "👤 Employee Operations Node"; clicked => { root.active_schema_action = "vlcs_emp"; } }
         }
-    }
-    if (root.active_schema_action == "vlcs_emp") : Rectangle {
-        background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.brand-primary; drop-shadow-blur: 15px; drop-shadow-color: #00E5FF1A;
-        VerticalLayout {
-            padding: 30px; spacing: 20px;
-            Text { text: "VLCS EMPLOYEE MATRIX TERMINAL"; font-size: 16px; font-weight: 900; color: Theme.brand-primary; letter-spacing: 1px; }
-            HorizontalLayout { spacing: 15px; VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "EMPLOYEE ID"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.vlcs_emp_code; placeholder_text: "Enter Employee Code..."; height: 38px; } } VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "NEW MOBILE NUMBER"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.vlcs_emp_mobile; placeholder_text: "Enter 10-digit mobile..."; height: 38px; } } }
-            HorizontalLayout { spacing: 15px; Button { text: "👥  Get Employee Details"; height: 42px; horizontal-stretch: 1; clicked => { root.request_vlcs_get_emp(root.vlcs_emp_code); } } Button { text: "📱  Update Mobile Sync"; height: 42px; horizontal-stretch: 1; clicked => { root.request_vlcs_update_emp(root.vlcs_emp_code, root.vlcs_emp_mobile); } } }
+
+        Rectangle {
+            background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.border-color;
+            VerticalLayout {
+                padding: 24px; spacing: 20px;
+                if (root.active_schema_action == "vlcs_ddo") : VerticalLayout {
+                    spacing: 16px;
+                    Text { text: "DRAWING AND DISBURSING OFFICER REGISTRY CONFIGURATION"; font-size: 13px; font-weight: 900; color: Theme.brand-primary; }
+                    HorizontalLayout {
+                        spacing: 16px; alignment: start;
+                        VerticalLayout { spacing: 6px; width: 280px; Text { text: "DDO ALLOCATION CODE *"; font-size: 11px; color: Theme.text-muted; } LineEdit { text <=> root.vlcs_ddo_code; placeholder_text: "e.g. WBGTRD001"; height: 36px; } }
+                    }
+                    HorizontalLayout {
+                        spacing: 12px;
+                        Button { text: "Query Allocation Matrix"; clicked => { root.request_vlcs_get_ddo(root.vlcs_ddo_code); } }
+                        Button { text: "Commit Re-Allocation Pass"; clicked => { root.request_vlcs_update_ddo(root.vlcs_ddo_code); } }
+                    }
+                }
+
+                if (root.active_schema_action == "vlcs_emp") : VerticalLayout {
+                    spacing: 16px;
+                    Text { text: "EMPLOYEE TELEMETRY AND FIELD RECORD METRICS"; font-size: 13px; font-weight: 900; color: Theme.brand-primary; }
+                    HorizontalLayout {
+                        spacing: 16px;
+                        VerticalLayout { spacing: 6px; width: 240px; Text { text: "HRMS EMPLOYEE CODE *"; font-size: 11px; color: Theme.text-muted; } LineEdit { text <=> root.vlcs_emp_code; placeholder_text: "e.g. 20241105"; height: 36px; } }
+                        VerticalLayout { spacing: 6px; width: 240px; Text { text: "TARGET TELEPHONE PHONE FIELD *"; font-size: 11px; color: Theme.text-muted; } LineEdit { text <=> root.vlcs_emp_mobile; placeholder_text: "e.g. +91XXXXXXXXXX"; height: 36px; } }
+                    }
+                    HorizontalLayout {
+                        spacing: 12px;
+                        Button { text: "Query Core Fields"; clicked => { root.request_vlcs_get_emp(root.vlcs_emp_code); } }
+                        Button { text: "Update Field Metrics"; clicked => { root.request_vlcs_update_emp(root.vlcs_emp_code, root.vlcs_emp_mobile); } }
+                    }
+                }
+            }
         }
     }
 }

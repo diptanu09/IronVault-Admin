@@ -27,6 +27,7 @@ fn main() {
         "cargo:rustc-link-search=native={}",
         absolute_lib_dir.display()
     );
+    println!("cargo:rustc-link-search=native={}", absolute_lib_dir.display());
     println!("cargo:rustc-link-lib=static=VMProtectSDK64");
     println!("cargo:rustc-link-lib=static=SecureEngineSDK64");
 

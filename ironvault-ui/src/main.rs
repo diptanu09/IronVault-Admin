@@ -20,6 +20,19 @@ extern "C" {
     fn VMEnd();
 }
 
+/// Helper function to log user movements directly into the PostgreSQL relational audit table
+#[allow(dead_code)] // Suppresses warning during granular module attachment passes
+async fn log_to_db(pool: &sqlx::PgPool, operator: &str, action: &str, level: &str, schema: &str) {
+    let query = "INSERT INTO ironvault.db_audit_logs (operator_id, operation_action, impact_level, target_schema) VALUES ($1, $2, $3, $4)";
+    let _ = sqlx::query(query)
+        .bind(operator)
+        .bind(action)
+        .bind(level)
+        .bind(schema)
+        .execute(pool)
+        .await;
+}
+
 #[tokio::main]
 async fn main() -> Result<(), slint::PlatformError> {
     println!("[BOOT] Engaging IronVault Core Security...");
@@ -209,7 +222,49 @@ async fn main() -> Result<(), slint::PlatformError> {
             unsafe { VMEnd(); } // Themida Wrapping Gate Closure
         });
     });
+    
+    // --- INTEGRATED OPERATIONAL BACKEND LOGOUT HANDLER CONTROL ---
+    let app_weak_logout = app_weak_main.clone();
+    let db_logout = Arc::clone(&db_clone);
+    app.on_request_logout(move || {
+        let ui_weak = app_weak_logout.clone();
+        let db = db_logout.clone();
+        
+        // FIX: Capture the current user name immediately while on the Slint UI thread
+        let username_str = if let Some(ui) = ui_weak.upgrade() {
+            ui.get_current_user_name().to_string()
+        } else {
+            "UNKNOWN".to_string()
+        };
+        
+        tokio::spawn(async move {
+            let pool = db.get_pool().clone();
+            let ui_weak_clear = ui_weak.clone();
+            
+            // Execute the UI register cleanup pass back onto the event loop
+            let _ = slint::invoke_from_event_loop(move || {
+                if let Some(ui) = ui_weak_clear.upgrade() {
+                    // Flush session registers back to default structural states
+                    ui.set_is_logged_in(false);
+                    ui.set_current_user_name("GUEST".into());
+                    ui.set_current_user_role("UNAUTHORIZED".into());
+                    ui.set_current_user_full_name("Unknown Operator".into());
+                    ui.set_current_user_designation("Unassigned".into());
+                    ui.set_form_user("".into());
+                    ui.set_form_pass("".into());
+                    ui.set_form_captcha_login("".into());
+                    ui.set_auth_screen_state("landing".into());
+                }
+            });
+            
+            // Safely write the persistent tracking log entry using the pre-captured string
+            if username_str != "UNKNOWN" && !username_str.is_empty() {
+                log_to_db(&pool, &username_str, "USER_LOGOUT_SUCCESS", "NOMINAL", "SYSTEM").await;
+            }
+        });
+    });
 
+    
     let app_weak_reg = app_weak_main.clone();
     let db_reg = Arc::clone(&db_clone);
     let hwid_reg = target_hwid_main.clone();

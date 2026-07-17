@@ -1,5 +1,5 @@
 import { Button, LineEdit, ScrollView } from "std-widgets.slint";
-import { Theme, SchemaAction } from "../theme.slint";
+import { Theme } from "../theme.slint";
 
 export struct PensionDetailsSlint {
     application_no: string,
@@ -7,7 +7,7 @@ export struct PensionDetailsSlint {
     employee_code: string,
     designation: string,
     mobile_no: string,
-    date_of_birth: string,
+    date_of_birth: string
 }
 
 export struct PensionStatusSlint {
@@ -22,101 +22,121 @@ export struct PensionStatusSlint {
     cpo: string,
     dak_outward_date: string,
     speed_post: string,
-    treasury: string,
+    treasury: string
 }
 
-export component PensionView inherits VerticalLayout {
+export component PensionView inherits Rectangle {
     in-out property <string> active_schema_action;
     in-out property <string> op_status_msg;
     in-out property <bool> op_is_error;
-    in-out property <string> search_query;
-    in-out property <bool> data_found: false;
     
-    in-out property <[PensionDetailsSlint]> biographical_list: [];
+    in-out property <string> search_query;
+    in-out property <bool> data_found;
+    in-out property <[PensionDetailsSlint]> biographical_list;
     in-out property <PensionStatusSlint> status_record;
 
     callback request_pension_details(string);
     callback request_pension_status(string);
 
-    spacing: 20px;
-    HorizontalLayout {
-        spacing: 12px;
-        SchemaAction { icon_text: "👤"; title: "Pensioner Profiles"; active: root.active_schema_action == "sai_biographical"; clicked => { root.active_schema_action = "sai_biographical"; root.op_status_msg = ""; root.data_found = false; } }
-        SchemaAction { icon_text: "📈"; title: "Lifecycle Settlement Tracker"; active: root.active_schema_action == "sai_lifecycle"; clicked => { root.active_schema_action = "sai_lifecycle"; root.op_status_msg = ""; root.data_found = false; } }
-    }
-    Rectangle { height: 1px; background: Theme.border-color; opacity: 0.3; }
+    background: transparent;
 
-    if (root.active_schema_action == "sai_biographical") : Rectangle {
-        background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.border-color;
-        VerticalLayout {
-            padding: 30px; spacing: 20px;
-            Text { text: "SAI_AGARTALA PENSIONERS PROFILE QUERY ENGINE"; font-size: 16px; font-weight: 900; color: Theme.brand-primary; }
-            HorizontalLayout { spacing: 15px; VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "SEARCH TERM (APPLICATION NO / EMP CODE / NAME)"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.search_query; placeholder_text: "Type criteria identity details..."; height: 38px; } } }
-            Button { text: "🔍  Scan Biographical Ledger Context"; height: 42px; clicked => { root.request_pension_details(root.search_query); } }
-            
-            if (root.data_found) : ScrollView {
-                height: 250px;
-                VerticalLayout {
-                    spacing: 10px;
-                    for pnsr in root.biographical_list : Rectangle {
-                        background: #FFFFFF03; border-radius: 8px; border-width: 1px; border-color: #FFFFFF0A;
-                        VerticalLayout {
-                            padding: 14px; spacing: 8px;
+    VerticalLayout {
+        spacing: 24px;
+        
+        // Ribbon Navigation
+        HorizontalLayout {
+            spacing: 12px;
+            alignment: start;
+            Button { text: "📇 Pensioner Profiles View"; checked: root.active_schema_action == "sai_biographical"; clicked => { root.active_schema_action = "sai_biographical"; } }
+            Button { text: "🔄 Lifecycle Settlement Tracker"; checked: root.active_schema_action == "sai_tracking"; clicked => { root.active_schema_action = "sai_tracking"; } }
+        }
+
+        Rectangle {
+            background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.border-color; vertical-stretch: 1;
+            VerticalLayout {
+                padding: 24px; spacing: 20px;
+                
+                HorizontalLayout {
+                    spacing: 16px; alignment: start;
+                    VerticalLayout { 
+                        spacing: 6px; width: 360px; 
+                        Text { text: "SEARCH BIOGRAPHICAL CRITERIA TARGET"; font-size: 11px; font-weight: 800; color: Theme.text-muted; } 
+                        LineEdit { text <=> root.search_query; placeholder_text: "Enter App No / PPO Identifier Token..."; height: 36px; } 
+                    }
+                    VerticalLayout { 
+                        alignment: end; 
+                        Button { 
+                            text: "Query P-SAI Cluster"; height: 36px; 
+                            clicked => { 
+                                if (root.active_schema_action == "sai_biographical") { root.request_pension_details(root.search_query); } 
+                                else { root.request_pension_status(root.search_query); } 
+                            } 
+                        } 
+                    }
+                }
+
+                Rectangle { height: 1px; background: Theme.border-color; opacity: 0.2; }
+
+                if (root.active_schema_action == "sai_biographical") : ScrollView {
+                    VerticalLayout {
+                        spacing: 8px;
+                        if (root.biographical_list.length == 0) : Text { text: "No matching pensioner profiles indexed."; font-italic: true; color: Theme.text-muted; font-size: 13px; horizontal-alignment: center; }
+                        for r in root.biographical_list : Rectangle {
+                            height: 52px; background: #FFFFFF02; border-radius: 10px; border-width: 1px; border-color: Theme.border-color;
                             HorizontalLayout {
-                                alignment: space-between;
-                                Text { text: pnsr.pensioner_name; font-size: 14px; font-weight: 800; color: Theme.brand-primary; }
-                                Text { text: "App No: " + pnsr.application_no; font-size: 12px; color: Theme.text-muted; }
-                            }
-                            HorizontalLayout {
-                                spacing: 20px;
-                                Text { text: "Designation: " + pnsr.designation; font-size: 12px; color: Theme.text-secondary; }
-                                Text { text: "Code: " + pnsr.employee_code; font-size: 12px; color: Theme.text-secondary; }
-                                Text { text: "Mobile: " + pnsr.mobile_no; font-size: 12px; color: Theme.brand-success; }
+                                padding-left: 16px; padding-right: 16px; alignment: center;
+                                Text { text: r.application_no; width: 160px; font-weight: 800; color: Theme.brand-primary; vertical-alignment: center; }
+                                Text { text: r.pensioner_name; horizontal-stretch: 1; font-weight: 700; vertical-alignment: center; }
+                                Text { text: "ID: " + r.employee_code; width: 130px; font-family: "Consolas"; color: Theme.brand-warning; vertical-alignment: center; }
+                                Text { text: r.designation; width: 220px; color: Theme.text-secondary; vertical-alignment: center; overflow: elide; }
                             }
                         }
                     }
                 }
-            }
-        }
-    }
 
-    if (root.active_schema_action == "sai_lifecycle") : Rectangle {
-        background: Theme.bg-card; border-radius: 16px; border-width: 1px; border-color: Theme.border-color;
-        VerticalLayout {
-            padding: 30px; spacing: 20px;
-            Text { text: "PENSION LIFECYCLE SETTLEMENT MATRIX STATUS TRACKER"; font-size: 16px; font-weight: 900; color: Theme.brand-primary; }
-            HorizontalLayout { spacing: 15px; VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "TARGET APPLICATION TRACKING NUMBER"; font-size: 11px; font-weight: 800; color: Theme.text-secondary; } LineEdit { text <=> root.search_query; placeholder_text: "Enter exact APPLN_NO..."; height: 38px; } } }
-            Button { text: "📈  Extract Real-Time Dispatch Pipeline Logs"; height: 42px; clicked => { root.request_pension_status(root.search_query); } }
-            
-            if (root.data_found) : VerticalLayout {
-                spacing: 16px;
-                Rectangle { height: 1px; background: Theme.border-color; opacity: 0.3; }
-                HorizontalLayout {
-                    spacing: 20px;
-                    VerticalLayout { spacing: 4px; horizontal-stretch: 2; Text { text: "BENEFICIARY NAME"; font-size: 9px; color: Theme.text-muted; } Text { text: root.status_record.name; font-size: 15px; font-weight: 900; color: Theme.text-primary; } }
-                    VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "APPLICATION DATE"; font-size: 9px; color: Theme.text-muted; } Text { text: root.status_record.application_date; font-size: 14px; font-weight: 700; color: Theme.text-secondary; } }
-                    VerticalLayout { spacing: 4px; horizontal-stretch: 1; Text { text: "CURRENT STATUS"; font-size: 9px; color: Theme.text-muted; } Text { text: root.status_record.status; font-size: 14px; font-weight: 800; color: Theme.brand-warning; } }
-                }
-                
-                // FIXED: Wrapped inside HorizontalLayout container to safely apply layout padding properties
-                Rectangle {
-                    background: #FFFFFF02; border-radius: 8px;
-                    HorizontalLayout {
-                        padding: 12px; spacing: 20px;
-                        VerticalLayout { spacing: 2px; horizontal-stretch: 1; Text { text: "PPO AUTHORITY"; font-size: 9px; color: Theme.text-muted; } Text { text: root.status_record.ppo; font-size: 13px; font-weight: 700; color: Theme.brand-primary; } }
-                        VerticalLayout { spacing: 2px; horizontal-stretch: 1; Text { text: "GPO AUTHORITY"; font-size: 9px; color: Theme.text-muted; } Text { text: root.status_record.gpo; font-size: 13px; font-weight: 700; color: Theme.brand-primary; } }
-                        VerticalLayout { spacing: 2px; horizontal-stretch: 1; Text { text: "CPO AUTHORITY"; font-size: 9px; color: Theme.text-muted; } Text { text: root.status_record.cpo; font-size: 13px; font-weight: 700; color: Theme.brand-primary; } }
+                if (root.active_schema_action == "sai_tracking") : ScrollView {
+                    if (root.data_found) : VerticalLayout {
+                        spacing: 20px;
+                        Rectangle {
+                            background: #1118274D; border-radius: 12px; border-width: 1px; border-color: Theme.border-color;
+                            // FIXED: Alignment warnings cleared by moving padding configuration to layout element
+                            VerticalLayout {
+                                padding: 24px;
+                                spacing: 16px;
+                                Text { text: "LIVE LIFECYCLE SETTLEMENT TRACKER FORENSICS"; font-size: 12px; font-weight: 900; color: Theme.brand-success; letter-spacing: 0.5px; }
+                                
+                                GridLayout {
+                                    spacing: 16px;
+                                    Row {
+                                        Text { text: "App Number:"; color: Theme.text-muted; } Text { text: root.status_record.application_no; font-weight: 700; }
+                                        Text { text: "Settle Date:"; color: Theme.text-muted; } Text { text: root.status_record.date_of_settle; }
+                                    }
+                                    Row {
+                                        Text { text: "Current Status:"; color: Theme.text-muted; } Text { text: root.status_record.status; font-weight: 800; color: Theme.brand-warning; }
+                                        Text { text: "Assigned PPO:"; color: Theme.text-muted; } Text { text: root.status_record.ppo; font-family: "Consolas"; }
+                                    }
+                                }
+                                
+                                Rectangle { height: 1px; background: Theme.border-color; opacity: 0.2; }
+                                HorizontalLayout {
+                                    spacing: 32px;
+                                    VerticalLayout { spacing: 4px; Text { text: "ALLOCATED PPO"; font-size: 10px; color: Theme.text-muted; } Text { text: root.status_record.ppo; font-family: "Consolas"; } }
+                                    VerticalLayout { spacing: 4px; Text { text: "ALLOCATED GPO"; font-size: 10px; color: Theme.text-muted; } Text { text: root.status_record.gpo; font-family: "Consolas"; } }
+                                    VerticalLayout { spacing: 4px; Text { text: "ALLOCATED CPO"; font-size: 10px; color: Theme.text-muted; } Text { text: root.status_record.cpo; font-family: "Consolas"; } }
+                                    VerticalLayout { spacing: 4px; Text { text: "TREASURY GATEWAY"; font-size: 10px; color: Theme.text-muted; } Text { text: root.status_record.treasury; font-weight: 700; } }
+                                }
+                                Rectangle { height: 1px; background: Theme.border-color; opacity: 0.2; }
+                                HorizontalLayout {
+                                    spacing: 32px;
+                                    VerticalLayout { spacing: 4px; Text { text: "OUTWARD DATE"; font-size: 10px; color: Theme.text-muted; } Text { text: root.status_record.dak_outward_date; } }
+                                    VerticalLayout { horizontal-stretch: 1; spacing: 4px; Text { text: "SPEED POST BARCODE REFERENCE"; font-size: 10px; color: Theme.text-muted; } Text { text: root.status_record.speed_post; font-family: "Consolas"; color: Theme.brand-primary; } }
+                                }
+                            }
+                        }
                     }
-                }
-                
-                // FIXED: Wrapped inside HorizontalLayout container to safely apply layout padding properties
-                Rectangle {
-                    background: #00E5FF05; border-radius: 8px; border-width: 1px; border-color: #00E5FF22;
-                    HorizontalLayout {
-                        padding: 12px; spacing: 20px;
-                        VerticalLayout { spacing: 2px; horizontal-stretch: 1; Text { text: "LAST FORWARDED WORKING OFFICE"; font-size: 9px; color: Theme.text-muted; } Text { text: root.status_record.last_work_office_name; font-size: 13px; color: Theme.text-secondary; } }
-                        VerticalLayout { spacing: 2px; width: 150px; Text { text: "DAK OUTWARD DATE"; font-size: 9px; color: Theme.text-muted; } Text { text: root.status_record.dak_outward_date; font-size: 13px; font-weight: 700; color: Theme.brand-success; } }
-                        VerticalLayout { spacing: 2px; horizontal-stretch: 1; Text { text: "SPEED POST / BARCODE DISPATCH LOG"; font-size: 9px; color: Theme.text-muted; } Text { text: root.status_record.speed_post; font-size: 13px; font-weight: 900; color: Theme.brand-warning; } }
+                    if (!root.data_found) : VerticalLayout {
+                        padding-top: 40px;
+                        Text { text: "No tracking parameters found. Execute a valid system query search above."; font-italic: true; color: Theme.text-muted; font-size: 13px; horizontal-alignment: center; }
                     }
                 }
             }

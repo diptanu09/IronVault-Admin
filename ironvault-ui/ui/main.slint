@@ -409,8 +409,8 @@ export component AppWindow inherits Window {
     callback request_logout();
     callback load_users_list();
     callback request_profile_pic_update();
-    callback extend_user_lease(string, string, string, string);
-    callback ban_user(string);
+    callback commit_user_settings_pass(string, string, string, bool, bool, bool, bool);
+    callback ban_user(string);    
     callback request_find_gpf_case(string);
     callback request_delete_full_case(string, string, string);
     callback request_delete_application(string);
@@ -429,12 +429,10 @@ export component AppWindow inherits Window {
     callback request_submit_correspondence();
     callback request_pension_details(string);
     callback request_pension_status(string);
-
     callback reset_user_password(string);
     callback commit_forced_password_update(string, string);
     callback load_pending_users_list();
-    callback request_hwid_unblock(string);
-    callback commit_schema_toggles(string, bool, bool, bool, bool);
+    callback request_hwid_unblock(string);    
     callback request_checkbox_states_fetch(string);
     callback trigger_log_stream_reload();
 
@@ -1956,8 +1954,15 @@ export component AppWindow inherits Window {
                                                                 text: "Save Modification Pass";
                                                                 height: 36px;
                                                                 clicked => {
-                                                                    root.commit_schema_toggles(root.lease_target_user, root.cb_gpf, root.cb_vlcs, root.cb_sai, root.cb_dak);
-                                                                    root.extend_user_lease(root.lease_target_user, root.lease_target_role, root.lease_target_days, root.lease_target_schemas);
+                                                                    root.commit_user_settings_pass(
+                                                                        root.lease_target_user,
+                                                                        root.lease_target_role,
+                                                                        root.lease_target_days,
+                                                                        root.cb_gpf,
+                                                                        root.cb_vlcs,
+                                                                        root.cb_sai,
+                                                                        root.cb_dak
+                                                                    );
                                                                     root.lease_target_user = "";
                                                                 }
                                                             }

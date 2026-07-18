@@ -55,13 +55,6 @@ impl DbClient {
         password_plain: &str,
         hwid: &str,
     ) -> Result<DbUser, String> {
-        // FIXED: fetch by username/hwid/status/expiry first — bcrypt hashes can't be
-        // compared with `=` in SQL, so the password check now happens in Rust via
-        // crypto::verify_password after the row is retrieved.
-        //
-        // FIXED: the old query's role-vs-expiry OR-clause let any SuperAdmin-cased
-        // row bypass expiry entirely. This now requires expiry to hold for every
-        // role, including SuperAdmin — role no longer grants an expiry bypass.
         let row = sqlx::query(
             "SELECT username, password, role, \
              COALESCE(TO_CHAR(last_login_at, 'YYYY-MM-DD HH24:MI'), 'NEVER') as last_login \
@@ -87,10 +80,6 @@ impl DbClient {
 
         let stored_hash: String = row.get("password");
 
-        // Constant-behavior verification: bcrypt::verify already runs in roughly
-        // constant time relative to the hash itself, so no separate timing-safe
-        // compare is needed here (unlike the old raw string `=` comparison, which
-        // additionally leaked timing information via SQL/string comparison).
         if !ironvault_core::crypto::verify_password(password_plain, &stored_hash) {
             return Err(
                 "Authentication Failed: Invalid token, HWID mismatch, or account subscription has EXPIRED."
@@ -114,7 +103,7 @@ impl DbClient {
     pub async fn register_user(
         &self,
         username: &str,
-        password_plain: &str, // FIXED: now takes the raw secret, hashes internally
+        password_plain: &str,
         hwid: &str,
         first: &str,
         middle: &str,
@@ -128,15 +117,14 @@ impl DbClient {
             format!("{} {} {}", first.trim(), middle.trim(), last.trim())
         };
 
-        // FIXED: bcrypt hashing happens here, at the single point of entry for new
-        // credentials, so no call site can accidentally store a weakly-hashed
-        // (or unhashed) password.
         let secure_hashed_pass = ironvault_core::crypto::hash_password(password_plain)
             .map_err(|_| "Registration record reject: password hashing failed".to_string())?;
 
+        // FIXED: Removed ON CONFLICT DO NOTHING so that duplicate registrations
+        // return an explicit database error code down to the user interface.
         sqlx::query(
             "INSERT INTO ironvault.users (username, password, role, status, hardware_fingerprint, first_name, middle_name, last_name, full_name, designation, section, expires_at) \
-             VALUES ($1, $2, 'Operator', 'PENDING', $3, $4, $5, $6, $7, $8, $9, NOW() + '30 days'::INTERVAL) ON CONFLICT DO NOTHING"
+             VALUES ($1, $2, 'Operator', 'PENDING', $3, $4, $5, $6, $7, $8, $9, NOW() + INTERVAL '30 days')"
         )
         .bind(username)
         .bind(&secure_hashed_pass)
@@ -149,7 +137,7 @@ impl DbClient {
         .bind(section)
         .execute(&self.pool)
         .await
-        .map_err(|e| format!("Registration record reject: {}", e))?;
+        .map_err(|e| format!("Registration record reject (Username may already exist): {}", e))?;
         Ok(())
     }
 
@@ -165,14 +153,14 @@ impl DbClient {
 
     pub async fn approve_user(
         &self,
-        admin: &str, // was `_admin` — now genuinely used
+        admin: &str,
         target_user: &str,
         assigned_role: &str,
     ) -> Result<(), String> {
         sqlx::query(
-            "UPDATE ironvault.users SET status = 'ACTIVE', role = $1, expires_at = NOW() + '30 days'::INTERVAL, \
-            approved_by = $3 \
-            WHERE username = $2"
+            "UPDATE ironvault.users SET status = 'ACTIVE', role = $1, expires_at = NOW() + INTERVAL '30 days', \
+             approved_by = $3 \
+             WHERE username = $2"
         )
         .bind(assigned_role)
         .bind(target_user)
@@ -184,8 +172,6 @@ impl DbClient {
     }
 
     pub async fn deny_user(&self, admin: &str, target_user: &str) -> Result<(), String> {
-        // Log who denied it before the row is deleted, since the row itself won't
-        // survive to tell you later.
         log::info!(
             "[AUDIT] Operator @{} denied pending registration for @{}",
             admin,
@@ -246,9 +232,10 @@ impl DbClient {
         new_role: &str,
         days_valid: i32,
     ) -> Result<(), String> {
+        // FIXED: String concatenation interval casting vulnerability eliminated
         sqlx::query(
             "UPDATE ironvault.users \
-             SET role = $1, expires_at = NOW() + ($2 || ' days')::INTERVAL \
+             SET role = $1, expires_at = NOW() + ($2 * INTERVAL '1 day') \
              WHERE username = $3 AND status = 'ACTIVE'",
         )
         .bind(new_role)
@@ -262,10 +249,16 @@ impl DbClient {
 
     pub async fn update_user_role(
         &self,
-        _admin_name: &str,
+        admin_name: &str,
         target_user: &str,
         new_role: &str,
     ) -> Result<(), String> {
+        log::info!(
+            "[AUDIT] Operator @{} altered role profile for @{} to {}",
+            admin_name,
+            target_user,
+            new_role
+        );
         sqlx::query(
             "UPDATE ironvault.users SET role = $1 WHERE username = $2 AND status = 'ACTIVE'",
         )
@@ -274,6 +267,32 @@ impl DbClient {
         .execute(&self.pool)
         .await
         .map_err(|e| format!("Failed to update role state: {}", e))?;
+        Ok(())
+    }
+
+    pub async fn update_user_full_access(
+        &self,
+        target_user: &str,
+        new_role: &str,
+        days_valid: i32,
+        schemas: &str,
+    ) -> Result<(), String> {
+        // FIXED: String concatenation interval casting vulnerability eliminated
+        sqlx::query(
+            "UPDATE ironvault.users \
+             SET role = $1, \
+                 expires_at = NOW() + ($2 * INTERVAL '1 day'), \
+                 section = $3, \
+                 status = 'ACTIVE' \
+             WHERE username = $4",
+        )
+        .bind(new_role)
+        .bind(days_valid)
+        .bind(schemas)
+        .bind(target_user)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| format!("Failed to update access matrix: {}", e))?;
         Ok(())
     }
 }

@@ -332,7 +332,7 @@ async fn main() -> Result<(), slint::PlatformError> {
     });
 
     // =========================================================================
-    // --- OPERATOR APPROVAL / DENIAL ---
+    // --- OPERATOR APPROVAL / DENIAL (audited, real acting user + role) ---
     // =========================================================================
     let app_weak_approve = app_weak_main.clone();
     let db_approve = Arc::clone(&db_clone);
@@ -344,9 +344,6 @@ async fn main() -> Result<(), slint::PlatformError> {
         let target = target_user.to_string().trim().to_string();
         let assigned_role = role_str.to_string();
 
-        // FIXED: capture both the acting username AND their real role from the UI
-        // state, rather than assuming SuperAdmin. If the UI handle is gone for
-        // some reason, fall back to Viewer (least-privilege) rather than guessing up.
         let (acting_user, acting_role_str) = if let Some(ui) = ui_weak.upgrade() {
             (
                 ui.get_current_user_name().to_string(),
@@ -464,6 +461,33 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
+    let app_weak_pnd_list = app_weak_main.clone();
+    let db_pnd_list = Arc::clone(&db_clone);
+    app.on_load_pending_users_list(move || {
+        let ui_weak = app_weak_pnd_list.clone();
+        let db = Arc::clone(&db_pnd_list);
+        tokio::spawn(async move {
+            let pool = db.get_pool().clone();
+            let query = "SELECT username, role, full_name, designation, section FROM ironvault.users WHERE status = 'PENDING'";
+            if let Ok(rows) = sqlx::query(query).fetch_all(&pool).await {
+                let mut slint_pending = Vec::new();
+                for r in rows {
+                    let u: String = r.try_get("username").unwrap_or_default();
+                    let ro: String = r.try_get("role").unwrap_or_default();
+                    let f: String = r.try_get("full_name").unwrap_or_default();
+                    let d: String = r.try_get("designation").unwrap_or_default();
+                    let s: String = r.try_get("section").unwrap_or_default();
+                    slint_pending.push(UserData { username: u.into(), role: ro.into(), last_login: "PENDING".into(), full_name: f.into(), designation: d.into(), expires_at: "".into(), allowed_schemas: s.into() });
+                }
+                slint::invoke_from_event_loop(move || {
+                    if let Some(ui) = ui_weak.upgrade() {
+                        ui.set_pending_users_list(ModelRc::from(Rc::new(VecModel::from(slint_pending))));
+                    }
+                }).unwrap();
+            }
+        });
+    });
+
     // =========================================================================
     // --- ACTIVE OPERATOR LEDGER ---
     // =========================================================================
@@ -497,24 +521,76 @@ async fn main() -> Result<(), slint::PlatformError> {
         });
     });
 
-    let app_weak_lease = app_weak_main.clone();
-    let db_lease = Arc::clone(&db_clone);
-    app.on_extend_user_lease(move |target_user, new_role, days_string, new_schemas| {
-        let ui_weak = app_weak_lease.clone();
-        let db = Arc::clone(&db_lease);
+    // =========================================================================
+    // --- COMBINED ACCESS SETTINGS COMMIT (role + lease + schema, atomic) ---
+    // FIXED (schema-toggle race, item #8): previously `extend_user_lease` and
+    // `commit_schema_toggles` fired as two independent async writes to the same
+    // `section` column, and could overwrite each other depending on which
+    // completed last. This single callback + single SQL statement removes the
+    // race entirely, and is now audited like the other privilege-affecting
+    // actions above.
+    // =========================================================================
+    let app_weak_settings = app_weak_main.clone();
+    let db_settings = Arc::clone(&db_clone);
+    let audit_settings = Arc::clone(&audit_clone);
+    app.on_commit_user_settings_pass(move |target_user, new_role, days_string, gpf, vlcs, sai, dak| {
+        let ui_weak = app_weak_settings.clone();
+        let db = Arc::clone(&db_settings);
+        let audit = Arc::clone(&audit_settings);
+
         let user_str = target_user.to_string().trim().to_string();
         let role_str = new_role.to_string();
-        let schema_str = new_schemas.to_string().to_lowercase();
         let days_valid: i32 = days_string.to_string().parse().unwrap_or(30);
+
+        let mut schema_str = String::new();
+        if gpf { schema_str.push_str("gpffp,"); }
+        if vlcs { schema_str.push_str("vlcs,"); }
+        if sai { schema_str.push_str("sai_agartala,"); }
+        if dak { schema_str.push_str("pendak,"); }
+
+        let (acting_user, acting_role_str) = if let Some(ui) = ui_weak.upgrade() {
+            (ui.get_current_user_name().to_string(), ui.get_current_user_role().to_string())
+        } else {
+            ("UNKNOWN".to_string(), "Viewer".to_string())
+        };
+        let acting_role: ironvault_core::auth::Role = acting_role_str.into();
+
         tokio::spawn(async move {
-            if db.update_user_lease(&user_str, &role_str, days_valid).await.is_ok() {
-                let pool = db.get_pool().clone();
-                let _ = sqlx::query("UPDATE ironvault.users SET section = $1, status = 'ACTIVE' WHERE username = $2").bind(&schema_str).bind(&user_str).execute(&pool).await;
-                slint::invoke_from_event_loop(move || {
-                    if let Some(ui) = ui_weak.upgrade() {
-                        ui.invoke_load_users_list();
-                    }
-                }).unwrap();
+            match db.update_user_full_access(&user_str, &role_str, days_valid, &schema_str).await {
+                Ok(_) => {
+                    let core_user = ironvault_core::auth::User {
+                        id: Default::default(),
+                        username: acting_user.clone(),
+                        role: acting_role,
+                        last_login: "".to_string(),
+                    };
+                    audit.log_action(
+                        &core_user,
+                        &format!(
+                            "UPDATED_ACCESS target=@{} role={} lease_days={} schemas=[{}]",
+                            user_str, role_str, days_valid, schema_str
+                        ),
+                        "CRITICAL",
+                    ).ok();
+
+                    slint::invoke_from_event_loop(move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_op_is_error(false);
+                            ui.set_op_status_msg(
+                                format!("🛡️ MATRIX SUCCESS: Access updated for @{} — role={}, schemas=[{}]", user_str, role_str, schema_str).into()
+                            );
+                            ui.invoke_load_users_list();
+                        }
+                    }).unwrap();
+                }
+                Err(e) => {
+                    slint::invoke_from_event_loop(move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_op_is_error(true);
+                            ui.set_op_status_msg(format!("Matrix Fault: {}", e).into());
+                        }
+                    }).unwrap();
+                }
             }
         });
     });
@@ -679,40 +755,6 @@ async fn main() -> Result<(), slint::PlatformError> {
                     if let Some(ui) = ui_weak.upgrade() {
                         ui.set_op_is_error(true);
                         ui.set_op_status_msg(format!("HWID Override Error: {}", e).into());
-                    }
-                }).unwrap()
-            }
-        });
-    });
-
-    let app_weak_toggles = app_weak_main.clone();
-    let db_toggles = Arc::clone(&db_clone);
-    app.on_commit_schema_toggles(move |target_user, gpf, vlcs, sai, dak| {
-        let ui_weak = app_weak_toggles.clone();
-        let db = Arc::clone(&db_toggles);
-        let user_str = target_user.to_string().trim().to_string();
-
-        tokio::spawn(async move {
-            let pool = db.get_pool().clone();
-            let mut out_str = String::new();
-            if gpf { out_str.push_str("gpffp,"); }
-            if vlcs { out_str.push_str("vlcs,"); }
-            if sai { out_str.push_str("sai_agartala,"); }
-            if dak { out_str.push_str("pendak,"); }
-
-            let query = "UPDATE ironvault.users SET section = $1 WHERE username = $2 OR LOWER(username) = LOWER($2)";
-            match sqlx::query(query).bind(&out_str).bind(&user_str).execute(&pool).await {
-                Ok(_) => slint::invoke_from_event_loop(move || {
-                    if let Some(ui) = ui_weak.upgrade() {
-                        ui.set_op_is_error(false);
-                        ui.set_op_status_msg(format!("🛡️ MATRIX SUCCESS: Active partitions re-routed to [ {} ] for @{}", out_str, user_str).into());
-                        ui.invoke_load_users_list();
-                    }
-                }).unwrap(),
-                Err(e) => slint::invoke_from_event_loop(move || {
-                    if let Some(ui) = ui_weak.upgrade() {
-                        ui.set_op_is_error(true);
-                        ui.set_op_status_msg(format!("Matrix Fault: {}", e).into());
                     }
                 }).unwrap()
             }

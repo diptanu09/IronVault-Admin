@@ -57,6 +57,7 @@ async fn record_audit(
 
 #[tokio::main]
 async fn main() -> Result<(), slint::PlatformError> {
+    env_logger::init();
     println!("[BOOT] Engaging IronVault Core Security...");
 
     // Load .env into the process environment (no-op if the file doesn't exist,

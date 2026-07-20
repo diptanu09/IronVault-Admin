@@ -143,89 +143,164 @@ async fn main() -> Result<(), slint::PlatformError> {
         let plain_password = password.to_string().trim().to_string();
 
         tokio::spawn(async move {
-            unsafe { VMStart(); } // Themida API Wrapping Gate Entry
-
+            unsafe { VMStart(); } 
+            // Themida API Wrapping Gate Entry
             // Password verification (bcrypt) now happens inside authenticate_user,
             // so the plaintext is passed straight through instead of pre-hashing here.
-            match db.authenticate_user(&typed_username, &plain_password, &target_hwid).await {
-                Ok(user) => {
-                    let pool = db.get_pool().clone();
+                match db.authenticate_user(&typed_username, &plain_password, &target_hwid).await {
+                    Ok(user) => {
+                        let pool = db.get_pool().clone();
 
-                    let profile_query = sqlx::query("SELECT full_name, designation, section, expires_at FROM ironvault.users WHERE username = $1")
+                        let profile_query = sqlx::query(
+                            "SELECT full_name, designation, section, expires_at
+                            FROM ironvault.users
+                            WHERE username = $1"
+                        )
                         .bind(&user.username)
-                        .fetch_optional(&pool).await.unwrap_or(None);
+                        .fetch_optional(&pool)
+                        .await
+                        .unwrap_or(None);
 
-                    let mut full_name = "System Operator".to_string();
-                    let mut designation_str = "Personnel Node".to_string();
-                    let mut allowed_schemas_str = "".to_string();
-                    let mut expires = "Unknown".to_string();
+                        let mut full_name = "System Operator".to_string();
+                        let mut designation_str = "Personnel Node".to_string();
+                        let mut allowed_schemas_str = "".to_string();
+                        let mut expires = "Unknown".to_string();
 
-                    if let Some(p_row) = profile_query {
-                        full_name = p_row.try_get("full_name").unwrap_or(full_name);
-                        designation_str = p_row.try_get("designation").unwrap_or(designation_str);
-                        allowed_schemas_str = p_row.try_get("section").unwrap_or(allowed_schemas_str).to_lowercase();
+                        if let Some(p_row) = profile_query {
+                            full_name = p_row.try_get("full_name").unwrap_or(full_name);
+                            designation_str = p_row.try_get("designation").unwrap_or(designation_str);
+                            allowed_schemas_str = p_row
+                                .try_get("section")
+                                .unwrap_or(allowed_schemas_str)
+                                .to_lowercase();
 
-                        if let Ok(dt) = p_row.try_get::<chrono::DateTime<chrono::Utc>, _>("expires_at") {
-                            expires = dt.format("%Y-%m-%d").to_string();
-                        }
-                    }
-
-                    let is_super = user.role.to_lowercase().contains("superadmin");
-                    let mut schema_str_display = if is_super { "ALL SYSTEMS AUTHORIZED (SUPERADMIN)".to_string() } else { allowed_schemas_str.clone() };
-                    if schema_str_display.trim().is_empty() { schema_str_display = "NO SCHEMAS ASSIGNED".to_string(); }
-
-                    let access = SchemaAccessState {
-                        gpffp: is_super || allowed_schemas_str.contains("gpffp"),
-                        vlcs: is_super || allowed_schemas_str.contains("vlcs"),
-                        agtall: is_super || allowed_schemas_str.contains("gpffp"),
-                        agdak: is_super || allowed_schemas_str.contains("pendak"),
-                        sai_agartala: is_super || allowed_schemas_str.contains("sai_agartala") || allowed_schemas_str.contains("sai"),
-                        pendak: is_super || allowed_schemas_str.contains("pendak"),
-                        penindex: is_super || allowed_schemas_str.contains("sai_agartala"),
-                    };
-
-                    let ui_username = user.username.clone();
-                    let ui_role = user.role.clone();
-                    let avatar_path = std::path::Path::new("./storage/avatars/").join(format!("{}.png", ui_username));
-
-                    slint::invoke_from_event_loop(move || {
-                        if let Some(ui) = ui_weak.upgrade() {
-                            ui.set_login_error("".into());
-                            ui.set_current_user_name(ui_username.into());
-                            ui.set_current_user_role(ui_role.into());
-                            ui.set_current_user_full_name(full_name.into());
-                            ui.set_current_user_designation(designation_str.into());
-                            ui.set_current_user_expires(expires.into());
-                            ui.set_current_user_schemas_string(schema_str_display.into());
-                            ui.set_schema_access(access);
-                            ui.set_is_logged_in(true);
-                            ui.set_show_welcome_popup(true);
-                            ui.set_active_tab("overview".into());
-                            ui.invoke_trigger_log_stream_reload();
-
-                            if avatar_path.exists() {
-                                if let Ok(slint_img) = slint::Image::load_from_path(&avatar_path) {
-                                    ui.set_current_avatar_image(slint_img);
-                                    ui.set_current_avatar_loaded(true);
-                                }
+                            if let Ok(dt) =
+                                p_row.try_get::<chrono::DateTime<chrono::Utc>, _>("expires_at")
+                            {
+                                expires = dt.format("%Y-%m-%d").to_string();
                             }
                         }
-                    }).unwrap();
 
-                    // FIXED (item #10): single unified audit call replacing the
-                    // previous log_to_db + audit.log_action duplicate pair.
-                    let role_for_audit: ironvault_core::auth::Role = user.role.clone().into();
-                    record_audit(&db, &audit, &user.username, role_for_audit, "USER_LOGIN_SUCCESS", "CRITICAL").await;
-                }
-                Err(err_msg) => {
-                    slint::invoke_from_event_loop(move || {
-                        if let Some(ui) = ui_weak.upgrade() {
-                            ui.set_login_error(err_msg.into());
+                        let is_super = user.role.to_lowercase().contains("superadmin");
+
+                        let mut schema_str_display = if is_super {
+                            "ALL SYSTEMS AUTHORIZED (SUPERADMIN)".to_string()
+                        } else {
+                            allowed_schemas_str.clone()
+                        };
+
+                        if schema_str_display.trim().is_empty() {
+                            schema_str_display = "NO SCHEMAS ASSIGNED".to_string();
                         }
-                    }).unwrap();
-                }
-            }
 
+                        let access = SchemaAccessState {
+                            gpffp: is_super || allowed_schemas_str.contains("gpffp"),
+                            vlcs: is_super || allowed_schemas_str.contains("vlcs"),
+                            agtall: is_super || allowed_schemas_str.contains("gpffp"),
+                            agdak: is_super || allowed_schemas_str.contains("pendak"),
+                            sai_agartala: is_super
+                                || allowed_schemas_str.contains("sai_agartala")
+                                || allowed_schemas_str.contains("sai"),
+                            pendak: is_super || allowed_schemas_str.contains("pendak"),
+                            penindex: is_super || allowed_schemas_str.contains("sai_agartala"),
+                        };
+
+                        let ui_username = user.username.clone();
+                        let ui_role = user.role.clone();
+
+                        let avatar_path = std::path::Path::new("./storage/avatars/")
+                            .join(format!("{}.png", ui_username));
+
+                        slint::invoke_from_event_loop(move || {
+                            if let Some(ui) = ui_weak.upgrade() {
+                                ui.set_login_error("".into());
+                                ui.set_current_user_name(ui_username.into());
+                                ui.set_current_user_role(ui_role.into());
+                                ui.set_current_user_full_name(full_name.into());
+                                ui.set_current_user_designation(designation_str.into());
+                                ui.set_current_user_expires(expires.into());
+                                ui.set_current_user_schemas_string(schema_str_display.into());
+                                ui.set_schema_access(access);
+                                ui.set_is_logged_in(true);
+                                ui.set_show_welcome_popup(true);
+                                ui.set_active_tab("overview".into());
+                                ui.invoke_trigger_log_stream_reload();
+
+                                if avatar_path.exists() {
+                                    if let Ok(img) = slint::Image::load_from_path(&avatar_path) {
+                                        ui.set_current_avatar_image(img);
+                                        ui.set_current_avatar_loaded(true);
+                                    }
+                                }
+                            }
+                        })
+                        .unwrap();
+
+                        let role_for_audit: ironvault_core::auth::Role =
+                            user.role.clone().into();
+
+                        record_audit(
+                            &db,
+                            &audit,
+                            &user.username,
+                            role_for_audit,
+                            "USER_LOGIN_SUCCESS",
+                            "CRITICAL",
+                        )
+                        .await;
+                    }
+
+                    Err(_normal_auth_err) => {
+                        // Password authentication failed.
+                        // Try one-time reset token authentication.
+                        match db
+                            .authenticate_via_temp_token(
+                                &typed_username,
+                                &plain_password,
+                                &target_hwid,
+                            )
+                            .await
+                        {
+                            Ok(user) => {
+                                let ui_username = user.username.clone();
+
+                                record_audit(
+                                    &db,
+                                    &audit,
+                                    &ui_username,
+                                    user.role.clone().into(),
+                                    "OTA_TOKEN_LOGIN_SUCCESS",
+                                    "CRITICAL",
+                                )
+                                .await;
+
+                                slint::invoke_from_event_loop(move || {
+                                    if let Some(ui) = ui_weak.upgrade() {
+                                        ui.set_login_error("".into());
+                                        ui.set_current_user_name(ui_username.into());
+
+                                        // Force password reset.
+                                        // Do NOT mark the user as logged in yet.
+                                        ui.set_forced_password_reset_state(true);
+                                    }
+                                })
+                                .unwrap();
+                            }
+
+                            Err(_) => {
+                                slint::invoke_from_event_loop(move || {
+                                    if let Some(ui) = ui_weak.upgrade() {
+                                        ui.set_login_error(
+                                            "Authentication Failed: Invalid credentials, token, or HWID mismatch."
+                                                .into(),
+                                        );
+                                    }
+                                })
+                                .unwrap();
+                            }
+                        }
+                    }
+                }
             unsafe { VMEnd(); } // Themida Wrapping Gate Closure
         });
     });
@@ -654,10 +729,19 @@ async fn main() -> Result<(), slint::PlatformError> {
     // =========================================================================
     let app_weak_reset = app_weak_main.clone();
     let db_reset = Arc::clone(&db_clone);
+    let audit_reset = Arc::clone(&audit_clone);
     app.on_reset_user_password(move |target_user| {
         let ui_weak = app_weak_reset.clone();
         let db = Arc::clone(&db_reset);
+        let audit = Arc::clone(&audit_reset);
         let user_str = target_user.to_string().trim().to_string();
+
+        let (acting_user, acting_role_str) = if let Some(ui) = ui_weak.upgrade() {
+            (ui.get_current_user_name().to_string(), ui.get_current_user_role().to_string())
+        } else {
+            ("UNKNOWN".to_string(), "Viewer".to_string())
+        };
+        let acting_role: ironvault_core::auth::Role = acting_role_str.into();
 
         tokio::spawn(async move {
             let pool = db.get_pool().clone();
@@ -668,20 +752,41 @@ async fn main() -> Result<(), slint::PlatformError> {
                 .map(char::from)
                 .collect();
 
+            // FIXED (regression): store a hash of the token, not the token
+            // itself, since authenticate_via_temp_token now verifies against
+            // a hash — matching the pattern used for real passwords.
+            let token_hash = ironvault_core::crypto::hash_token(&dynamic_token);
+
             let query = "UPDATE ironvault.users SET password = 'RESET_PENDING', temp_token = $1, status = 'EXPIRED' WHERE username = $2 OR LOWER(username) = LOWER($2)";
             match sqlx::query(query)
-                .bind(&dynamic_token)
+                .bind(&token_hash)
                 .bind(&user_str)
                 .execute(&pool)
                 .await
             {
-                Ok(_) => slint::invoke_from_event_loop(move || {
-                    if let Some(ui) = ui_weak.upgrade() {
-                        ui.set_op_is_error(false);
-                        ui.set_op_status_msg(format!("🛡️ OTA ACTIVATED: Temporary token generated for @{} -> [ {} ]", user_str, dynamic_token).into());
-                        ui.invoke_load_users_list();
-                    }
-                }).unwrap(),
+                Ok(_) => {
+                    // FIXED (item #6): audit the *event*, never the secret value
+                    // itself — the raw token must never end up in a persisted
+                    // log, only shown once to the acting admin in the UI.
+                    record_audit(
+                        &db, &audit, &acting_user, acting_role,
+                        &format!("ISSUED_OTA_TOKEN target=@{}", user_str),
+                        "CRITICAL",
+                    ).await;
+
+                    slint::invoke_from_event_loop(move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            // FIXED (item #6): shown via a dedicated one-time-reveal
+                            // overlay (see main.slint) rather than the general
+                            // op_status_msg banner, which persists indefinitely
+                            // across tab navigation until manually dismissed.
+                            ui.set_reveal_secret_value(dynamic_token.into());
+                            ui.set_reveal_secret_label(format!("One-time token for @{}", user_str).into());
+                            ui.set_reveal_secret_visible(true);
+                            ui.invoke_load_users_list();
+                        }
+                    }).unwrap();
+                }
                 Err(e) => slint::invoke_from_event_loop(move || {
                     if let Some(ui) = ui_weak.upgrade() {
                         ui.set_op_is_error(true);
@@ -694,17 +799,17 @@ async fn main() -> Result<(), slint::PlatformError> {
 
     let app_weak_commit = app_weak_main.clone();
     let db_commit = Arc::clone(&db_clone);
+    let audit_commit = Arc::clone(&audit_clone);
     app.on_commit_forced_password_update(move |username, new_password| {
         let ui_weak = app_weak_commit.clone();
         let db = Arc::clone(&db_commit);
+        let audit = Arc::clone(&audit_commit);
         let u_name = username.to_string().trim().to_string();
         let new_pass = new_password.to_string();
 
         tokio::spawn(async move {
             let pool = db.get_pool().clone();
 
-            // hash_password now takes only the password (bcrypt embeds its own salt)
-            // and returns a Result, so it must be unwrapped before binding to the query.
             let final_secure_hash = match ironvault_core::crypto::hash_password(&new_pass) {
                 Ok(h) => h,
                 Err(_) => {
@@ -719,16 +824,23 @@ async fn main() -> Result<(), slint::PlatformError> {
 
             let query = "UPDATE ironvault.users SET password = $1, temp_token = NULL, status = 'ACTIVE' WHERE username = $2 OR LOWER(username) = LOWER($2)";
             match sqlx::query(query).bind(&final_secure_hash).bind(&u_name).execute(&pool).await {
-                Ok(_) => slint::invoke_from_event_loop(move || {
-                    if let Some(ui) = ui_weak.upgrade() {
-                        ui.set_forced_password_reset_state(false);
-                        ui.set_form_new_pass("".into());
-                        ui.set_form_confirm_pass("".into());
-                        ui.set_password_reset_error("".into());
-                        ui.set_show_welcome_popup(true);
-                        ui.set_active_tab("overview".into());
-                    }
-                }).unwrap(),
+                Ok(_) => {
+                    // FIXED: this action previously left no audit trail — a user
+                    // completing a forced reset (their own credential, but still a
+                    // security-relevant event worth recording) was invisible.
+                    record_audit(&db, &audit, &u_name, ironvault_core::auth::Role::Operator, "COMPLETED_FORCED_PASSWORD_RESET", "NOMINAL").await;
+
+                    slint::invoke_from_event_loop(move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_forced_password_reset_state(false);
+                            ui.set_form_new_pass("".into());
+                            ui.set_form_confirm_pass("".into());
+                            ui.set_password_reset_error("".into());
+                            ui.set_show_welcome_popup(true);
+                            ui.set_active_tab("overview".into());
+                        }
+                    }).unwrap();
+                }
                 Err(e) => slint::invoke_from_event_loop(move || {
                     if let Some(ui) = ui_weak.upgrade() {
                         ui.set_password_reset_error(format!("Database Fault: {}", e).into());
@@ -740,20 +852,38 @@ async fn main() -> Result<(), slint::PlatformError> {
 
     let app_weak_hwid = app_weak_main.clone();
     let db_hwid = Arc::clone(&db_clone);
+    let audit_hwid = Arc::clone(&audit_clone);
     app.on_request_hwid_unblock(move |target_user| {
         let ui_weak = app_weak_hwid.clone();
         let db = Arc::clone(&db_hwid);
+        let audit = Arc::clone(&audit_hwid);
         let user_str = target_user.to_string().trim().to_string();
+
+        let (acting_user, acting_role_str) = if let Some(ui) = ui_weak.upgrade() {
+            (ui.get_current_user_name().to_string(), ui.get_current_user_role().to_string())
+        } else {
+            ("UNKNOWN".to_string(), "Viewer".to_string())
+        };
+        let acting_role: ironvault_core::auth::Role = acting_role_str.into();
+
         tokio::spawn(async move {
             let pool = db.get_pool().clone();
             let query = "UPDATE ironvault.users SET hardware_fingerprint = 'UNKNOWN' WHERE username = $1 OR LOWER(username) = LOWER($1)";
             match sqlx::query(query).bind(&user_str).execute(&pool).await {
-                Ok(_) => slint::invoke_from_event_loop(move || {
-                    if let Some(ui) = ui_weak.upgrade() {
-                        ui.set_op_is_error(false);
-                        ui.set_op_status_msg(format!("🔓 HWID RELEASE SUCCESS: Hardware fingerprint bindings cleared for @{}", user_str).into());
-                    }
-                }).unwrap(),
+                Ok(_) => {
+                    record_audit(
+                        &db, &audit, &acting_user, acting_role,
+                        &format!("HWID_UNBOUND target=@{}", user_str),
+                        "WARNING",
+                    ).await;
+
+                    slint::invoke_from_event_loop(move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_op_is_error(false);
+                            ui.set_op_status_msg(format!("🔓 HWID RELEASE SUCCESS: Hardware fingerprint bindings cleared for @{}", user_str).into());
+                        }
+                    }).unwrap();
+                }
                 Err(e) => slint::invoke_from_event_loop(move || {
                     if let Some(ui) = ui_weak.upgrade() {
                         ui.set_op_is_error(true);

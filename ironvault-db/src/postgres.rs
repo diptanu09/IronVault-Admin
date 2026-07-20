@@ -236,6 +236,50 @@ impl DbClient {
         .map_err(|e| e.to_string())?;
         Ok(())
     }
+    /// FIXED (regression from bcrypt migration): restores the ability for an
+    /// operator holding a one-time reset token to authenticate, distinct from
+    /// the normal password path in `authenticate_user`. Returns Ok(DbUser) on
+    /// a valid, matching token for an EXPIRED account on the bound HWID; the
+    /// caller (main.rs) is responsible for routing this into the forced
+    /// password-reset UI state rather than a normal logged-in session.
+    pub async fn authenticate_via_temp_token(
+        &self,
+        username: &str,
+        token_plain: &str,
+        hwid: &str,
+    ) -> Result<DbUser, String> {
+        let row = sqlx::query(
+            "SELECT username, temp_token, role, \
+             COALESCE(TO_CHAR(last_login_at, 'YYYY-MM-DD HH24:MI'), 'NEVER') as last_login \
+             FROM ironvault.users \
+             WHERE username = $1 AND hardware_fingerprint = $2 AND status = 'EXPIRED' AND temp_token IS NOT NULL"
+        )
+        .bind(username)
+        .bind(hwid)
+        .fetch_optional(self.get_pool())
+        .await
+        .map_err(|e| e.to_string())?;
+
+        let row =
+            match row {
+                Some(r) => r,
+                None => return Err(
+                    "Authentication Failed: No pending one-time token for this operator/machine."
+                        .to_string(),
+                ),
+            };
+
+        let stored_hash: String = row.get("temp_token");
+        if !ironvault_core::crypto::verify_token(token_plain, &stored_hash) {
+            return Err("Authentication Failed: Invalid one-time token.".to_string());
+        }
+
+        Ok(DbUser {
+            username: row.get("username"),
+            role: row.get("role"),
+            last_login: row.get("last_login"),
+        })
+    }
 
     pub async fn deny_user(&self, admin: &str, target_user: &str) -> Result<(), String> {
         log::info!(

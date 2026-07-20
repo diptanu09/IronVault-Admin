@@ -11,14 +11,10 @@ export struct RegisterFormFields {
     last-name: string,
     designation: string,
     section: string,
-    captcha-result: string,
 }
 
 export component RegisterView inherits Rectangle {
-    in property <string> captcha-question;
     in property <string> operational-error;
-    
-    // Two-way exposed structural state interface data map
     in-out property <RegisterFormFields> form-data;
     callback submit-registration();
     callback cancel-registration();
@@ -84,19 +80,19 @@ export component RegisterView inherits Rectangle {
         }
         
         // Section C: Challenge Matrix verification field
-        VerticalBox {
-            spacing: 4px;
-            Text { text: "SECURITY CHALLENGE MATRIX"; font-size: 10px; color: Theme.text-secondary; font-weight: 800; }
-            HorizontalBox {
-                spacing: 12px;
-                Rectangle {
-                    background: Theme.border-color;
-                    border-radius: 4px; horizontal-stretch: 1; height: 36px;
-                    Text { text: "Solve Sequence: " + root.captcha-question; font-size: 12px; font-weight: 700; color: Theme.text-primary; vertical-alignment: center; horizontal-alignment: center; }
-                }
-                LineEdit { text <=> root.form-data.captcha-result; width: 110px; height: 36px; placeholder_text: "Result"; }
-            }
-        }
+        // VerticalBox {
+        //     spacing: 4px;
+        //     Text { text: "SECURITY CHALLENGE MATRIX"; font-size: 10px; color: Theme.text-secondary; font-weight: 800; }
+        //     HorizontalBox {
+        //         spacing: 12px;
+        //         Rectangle {
+        //             background: Theme.border-color;
+        //             border-radius: 4px; horizontal-stretch: 1; height: 36px;
+        //             Text { text: "Solve Sequence: " + root.captcha-question; font-size: 12px; font-weight: 700; color: Theme.text-primary; vertical-alignment: center; horizontal-alignment: center; }
+        //         }
+        //         LineEdit { text <=> root.form-data.captcha-result; width: 110px; height: 36px; placeholder_text: "Result"; }
+        //     }
+        // }
 
         if (root.operational-error != "") : Rectangle {
             background: #7F1D1D33;

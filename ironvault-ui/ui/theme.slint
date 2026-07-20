@@ -1,7 +1,7 @@
 // Best-in-Class Frost Enclave / Premium Cyberpunk Hybrid Theme Schema
 
 export global Theme {
-    
+
     // --- LIGHT & DARK DYNAMIC VARIANT CONTROLLERS ---
     in-out property <bool> is-light-mode: false;
 
@@ -17,9 +17,9 @@ export global Theme {
     in-out property <color> badge-pending: #FFB800;
 
     // --- LUXURY ARCHITECTURAL BACKGROUNDS ---
-    in-out property <color> bg-main: root.is-light-mode ? #EDF2F7 : #07090E;       
+    in-out property <color> bg-main: root.is-light-mode ? #EDF2F7 : #07090E;
     in-out property <color> bg-sidebar: root.is-light-mode ? #FFFFFF : #0C0F16;
-    in-out property <color> bg-card: root.is-light-mode ? #FFFFFF : #131822;       
+    in-out property <color> bg-card: root.is-light-mode ? #FFFFFF : #131822;
     in-out property <color> bg-card-hover: root.is-light-mode ? #F1F5F9 : #1B202E;
 
     // --- CHROME/GLASS MORPHIC HIGH-DEFINITION BORDERS ---
@@ -27,145 +27,60 @@ export global Theme {
     in-out property <color> border-dark: root.is-light-mode ? #94A3B8 : #161C28;
 
     // --- HIGH-CONTRAST CHISELED TYPOGRAPHY ---
-    in-out property <color> text-primary: root.is-light-mode ? #0F172A : #FFFFFF;    
-    in-out property <color> text-secondary: root.is-light-mode ? #334155 : #E2E8F0;  
-    in-out property <color> text-muted: root.is-light-mode ? #64748B : #94A3B8;       
+    in-out property <color> text-primary: root.is-light-mode ? #0F172A : #FFFFFF;
+    in-out property <color> text-secondary: root.is-light-mode ? #334155 : #E2E8F0;
+    in-out property <color> text-muted: root.is-light-mode ? #64748B : #94A3B8;
     in-out property <color> text-dark: #64748B;
 
     // --- LAYOUT & STRUCTURAL CONSTANTS ---
     in-out property <length> input-height: 36px;
     in-out property <length> button-height: 44px;
     in-out property <length> corner-radius: 12px;
-
-    // --- SYSTEM LEGACY COMPATIBILITY HOOKS ---
-    in-out property <color> primary: #00d4ff;
-    in-out property <color> primary_dark: #0099cc;
-    in-out property <color> secondary: #ff00ff;
-    in-out property <color> secondary_light: #ff66ff;
-    in-out property <color> bg_primary: #0a0e27;
-    in-out property <color> bg_secondary: #1a1f3a;
-    in-out property <color> bg_surface: #151a32;
-    in-out property <color> success: #00ff41;
-    in-out property <color> error: #ff0033;
-    in-out property <color> accent_border: #00d4ff;
-    in-out property <length> font_size_small: 12px;
-    in-out property <length> font_size_base: 14px;
-    in-out property <length> font_size_large: 16px;
-    in-out property <length> font_size_xlarge: 20px;
-    in-out property <length> spacing_sm: 8px;
-    in-out property <length> spacing_md: 16px;
-    in-out property <length> spacing_lg: 24px;
-    in-out property <length> radius_md: 8px;
-    in-out property <length> radius_lg: 16px;
 }
 
 export component SchemaAction inherits Rectangle {
-    in property <image> icon; // ADDED: Property to support vector image paths
+    in property <image> icon;
     in property <string> icon_text;
     in property <string> title;
     in property <bool> active;
     callback clicked();
 
-    height: Theme.button-height; 
-    border-radius: Theme.corner-radius; 
+    height: Theme.button-height;
+    border-radius: Theme.corner-radius;
     horizontal-stretch: 1;
-    
+
     background: active ? (Theme.is-light-mode ? #00E5FF26 : #00E5FF1F) : Theme.bg-card;
-    border-width: active ? 2px : 1px; 
+    border-width: active ? 2px : 1px;
     border-color: active ? Theme.brand-primary : Theme.border-color;
-    
-    animate background { duration: 150ms; easing: ease-in-out; } 
+
+    animate background { duration: 150ms; easing: ease-in-out; }
     animate border-color { duration: 150ms; easing: ease-in-out; }
 
     HorizontalLayout {
         padding-left: 16px; padding-right: 16px; spacing: 12px; alignment: center;
-        
-        // ADDED: Renders the SVG asset safely when an image path is declared
+
         if (root.icon.width > 0 && root.icon.height > 0) : Image {
             source: root.icon;
             width: 16px;
             height: 16px;
             vertical-alignment: center;
-            // Matches the style by dynamic colorizing if the SVG is monochrome
             colorize: active ? Theme.brand-primary : Theme.text-primary;
         }
-        
-        // Renders only if no image path is provided and an emoji exists instead
-        if ((root.icon.width == 0 || root.icon.height == 0) && icon_text != "") : Text { 
-            text: icon_text; 
-            font-size: 16px; 
-            vertical-alignment: center; 
-            color: Theme.brand-primary; 
+
+        if ((root.icon.width == 0 || root.icon.height == 0) && icon_text != "") : Text {
+            text: icon_text;
+            font-size: 16px;
+            vertical-alignment: center;
+            color: Theme.brand-primary;
         }
-        
+
         Text { text: title; font-size: 13px; font-weight: 800; color: active ? Theme.brand-primary : Theme.text-primary; vertical-alignment: center; letter-spacing: 0.2px; }
     }
     ta := TouchArea { clicked => { root.clicked(); } }
 }
 
-export component NeonButton {
-    in-out property <string> text;
-    in-out property <bool> primary;
-    callback clicked();
-    Rectangle {
-        background: primary ? Theme.primary : Theme.secondary;
-        border-radius: Theme.radius_md;
-        border_width: 2px;
-        border_color: primary ? Theme.primary : Theme.secondary;
-        HorizontalLayout {
-            alignment: center;
-            Text { text: root.text; color: Theme.bg_primary; font-weight: 700; }
-        }
-        TouchArea { clicked => { root.clicked(); } }
-    }
-}
-
-export component NeonInput {
-    in-out property <string> placeholder_text;
-    in-out property <string> input_value;
-    in-out property <bool> is_password;
-    Rectangle {
-        background: Theme.bg_surface;
-        border_radius: Theme.radius_md;
-        border_width: 1px;
-        border_color: Theme.accent_border;
-        if (root.input_value == ""): Text {
-            text: root.placeholder_text;
-            color: Theme.text-secondary;
-            vertical_alignment: center;
-            x: 10px;
-        }
-        TextInput {
-            text <=> root.input_value;
-            color: Theme.text-primary;
-            font_size: Theme.font_size_base;
-            vertical_alignment: center;
-            x: 10px;
-            width: parent.width - 20px;
-        }
-    }
-}
-
-export component NeonCard {
-    in-out property <string> title;
-    Rectangle {
-        background: Theme.bg_secondary;
-        border-radius: Theme.radius_lg;
-        border_width: 1px;
-        border_color: Theme.primary_dark;
-        VerticalLayout {
-            spacing: Theme.spacing_md;
-            padding: Theme.spacing_lg;
-            if (title != ""): Text {
-                text: root.title;
-                color: Theme.text-primary;
-                font_size: Theme.font_size_large;
-                font_weight: 600;
-            }
-        }
-    }
-}
-// Export the new premium components globally
+// Export the premium components globally
 export { AnimatedToast } from "components/toast.slint";
 export { SecurityLogo } from "components/animated_logo.slint";
 export { FluidButton } from "components/fluid_button.slint";
+export { ConfirmButton } from "components/confirm_button.slint";

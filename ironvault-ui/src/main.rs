@@ -114,11 +114,6 @@ async fn main() -> Result<(), slint::PlatformError> {
     let app = AppWindow::new()?;
     app.set_hwid_string(format!("HWID: {}", hwid).into());
 
-    let mut rng = rand::thread_rng();
-    let (v1, v2) = (rng.gen_range(5..20), rng.gen_range(2..10));
-    app.set_captcha_q_main(format!("{} + {}", v1, v2).into());
-    app.set_captcha_a_main((v1 + v2).to_string().into());
-
     // --- INITIALIZE MASTER SMART POINTER REFERENCE CONTEXTS ---
     let app_weak_main = app.as_weak();
     let db_clone = Arc::clone(&db);
@@ -336,8 +331,7 @@ async fn main() -> Result<(), slint::PlatformError> {
                     ui.set_current_user_full_name("Unknown Operator".into());
                     ui.set_current_user_designation("Unassigned".into());
                     ui.set_form_user("".into());
-                    ui.set_form_pass("".into());
-                    ui.set_form_captcha_login("".into());
+                    ui.set_form_pass("".into());                    
                     ui.set_auth_screen_state("landing".into());
                 }
             });

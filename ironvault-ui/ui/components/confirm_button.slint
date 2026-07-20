@@ -1,10 +1,5 @@
 import { Theme } from "../theme.slint";
 
-// A button that requires two clicks to fire: first click arms it (visual
-// warning state + countdown), second click within the window actually
-// invokes the action. Guards against both accidental single-clicks and
-// double-click-triggers-twice, since the first click of any double-click
-// only arms rather than executes.
 export component ConfirmButton inherits Rectangle {
     in property <string> text;
     in property <string> confirm_text: "Confirm?";

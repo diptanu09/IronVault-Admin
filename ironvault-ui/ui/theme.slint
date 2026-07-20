@@ -1,15 +1,14 @@
-// Best-in-Class Frost Enclave / Premium Cyberpunk Hybrid Theme Schema
+// ironvault-ui/ui/theme.slint
 
 export global Theme {
-
     // --- LIGHT & DARK DYNAMIC VARIANT CONTROLLERS ---
     in-out property <bool> is-light-mode: false;
 
     // --- HIGH-CLASS MILITARY ULTRA-ACCENT TOKENS ---
-    in-out property <color> brand-primary: #00E5FF;       // Electric Cyan
-    in-out property <color> brand-success: #00FF9D;       // Emerald Matrix
-    in-out property <color> brand-warning: #FFB800;       // Cyber Gold
-    in-out property <color> brand-danger: #FF3366;        // Crimson Alert
+    in-out property <color> brand-primary: #00E5FF;
+    in-out property <color> brand-success: #00FF9D;
+    in-out property <color> brand-warning: #FFB800;
+    in-out property <color> brand-danger: #FF3366;
 
     // --- ENCLAVE ROLE BADGE METRIC COLORS ---
     in-out property <color> badge-admin: #FF3366;
@@ -52,12 +51,12 @@ export component SchemaAction inherits Rectangle {
     background: active ? (Theme.is-light-mode ? #00E5FF26 : #00E5FF1F) : Theme.bg-card;
     border-width: active ? 2px : 1px;
     border-color: active ? Theme.brand-primary : Theme.border-color;
-
     animate background { duration: 150ms; easing: ease-in-out; }
     animate border-color { duration: 150ms; easing: ease-in-out; }
 
     HorizontalLayout {
-        padding-left: 16px; padding-right: 16px; spacing: 12px; alignment: center;
+        padding-left: 16px; padding-right: 16px; spacing: 12px;
+        alignment: center;
 
         if (root.icon.width > 0 && root.icon.height > 0) : Image {
             source: root.icon;
@@ -74,13 +73,14 @@ export component SchemaAction inherits Rectangle {
             color: Theme.brand-primary;
         }
 
-        Text { text: title; font-size: 13px; font-weight: 800; color: active ? Theme.brand-primary : Theme.text-primary; vertical-alignment: center; letter-spacing: 0.2px; }
+        Text {
+            text: title;
+            font-size: 13px;
+            font-weight: 800;
+            color: active ? Theme.brand-primary : Theme.text-primary;
+            vertical-alignment: center;
+            letter-spacing: 0.2px;
+        }
     }
     ta := TouchArea { clicked => { root.clicked(); } }
 }
-
-// Export the premium components globally
-export { AnimatedToast } from "components/toast.slint";
-export { SecurityLogo } from "components/animated_logo.slint";
-export { FluidButton } from "components/fluid_button.slint";
-export { ConfirmButton } from "components/confirm_button.slint";

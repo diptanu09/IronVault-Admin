@@ -1,5 +1,6 @@
 import { Button, LineEdit, ScrollView } from "std-widgets.slint";
-import { Theme, FluidButton } from "../theme.slint"; // Import FluidButton here
+import { Theme } from "../theme.slint";
+import { FluidButton } from "../components/fluid_button.slint";
 import { ConfirmButton } from "../components/confirm_button.slint";
 
 export struct GpfCaseDetails {
@@ -100,7 +101,7 @@ export component GpfFinalPaymentView inherits Rectangle {
                                 
                                 VerticalLayout { 
                                     alignment: end; 
-                                    Button { 
+                                    FluidButton { 
                                         text: "Scan Secure Ring"; height: 32px; 
                                         clicked => { root.request_find_gpf_case(root.op_regd_no); } 
                                     } 

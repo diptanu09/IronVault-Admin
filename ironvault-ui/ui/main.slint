@@ -2,16 +2,15 @@
 import { Button, LineEdit, ScrollView } from "std-widgets.slint";
 import { Theme, SchemaAction } from "theme.slint";
 import { RegisterView, RegisterFormFields } from "views/register.slint";
-
 import { GpfFinalPaymentView, GpfCaseDetails } from "views/gpf.slint";
 import { VlcsComputerizedView } from "views/vlcs.slint";
 import { PenDakView } from "views/pendak.slint";
-import {
-    PensionView,
-    PensionDetailsSlint,
-    PensionStatusSlint,
-} from "views/pension.slint";
+import { PensionView, PensionDetailsSlint, PensionStatusSlint,} from "views/pension.slint";
 import { ConfirmButton } from "components/confirm_button.slint";
+import { AnimatedToast } from "components/toast.slint";
+import { SecurityLogo } from "components/animated_logo.slint";
+import { FluidButton } from "components/fluid_button.slint";
+
 
 component NavItem inherits Rectangle {
     in property <string> text;

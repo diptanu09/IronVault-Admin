@@ -1,5 +1,8 @@
 //! VMProtect Native SDK Bindings
 //! Enforces hardware virtualization and mutation markers at compile time.
+//! This is the SINGLE source of truth for the VMProtectSDK64 FFI boundary —
+//! no other module in this crate should declare its own `extern "C"` block
+//! for these symbols. Call the safe wrappers below instead.
 
 use std::ffi::CString;
 
@@ -11,6 +14,14 @@ extern "C" {
     fn VMProtectEnd();
     fn VMProtectIsDebuggerPresent(check_kernel_mode: bool) -> bool;
     fn VMProtectIsVirtualMachinePresent() -> bool;
+}
+
+pub fn vmp_begin(marker_name: &str) {
+    if let Ok(c_name) = CString::new(marker_name) {
+        unsafe {
+            VMProtectBegin(c_name.as_ptr());
+        }
+    }
 }
 
 pub fn vmp_begin_ultra(marker_name: &str) {

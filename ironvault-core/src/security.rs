@@ -1,6 +1,11 @@
 //! Security validation for anti-debug, anti-dump, and VM detection
 //!
-//! Provides runtime security checks to prevent unauthorized access and tampering
+//! Provides runtime security checks to prevent unauthorized access and
+//! tampering. All VMProtect FFI calls are routed through `sdk_vmp`, which is
+//! the single source of truth for that library's ABI — this module contains
+//! no `extern "C"` declarations of its own, avoiding the risk of two
+//! independent, potentially-drifting declarations for the same native
+//! function signatures.
 
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::System::Diagnostics::Debug::{
@@ -9,6 +14,7 @@ use windows_sys::Win32::System::Diagnostics::Debug::{
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::System::Threading::GetCurrentProcess;
 
+use crate::sdk_vmp;
 use std::time::Duration;
 
 // Idiomatic CPUID intrinsics to safely bypass LLVM rbx/ebx register constraints
@@ -17,23 +23,10 @@ use std::arch::x86::__cpuid;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::__cpuid;
 
-// FFI Link definitions for VMProtect Core Functions
-#[link(name = "VMProtectSDK64")]
-extern "C" {
-    fn VMProtectBeginUltra(marker: *const std::ffi::c_char);
-    fn VMProtectBeginMutation(marker: *const std::ffi::c_char);
-    fn VMProtectEnd();
-    fn VMProtectIsDebuggerPresent(check_kernel: bool) -> bool;
-    fn VMProtectIsVirtualMachinePresent() -> bool;
-}
-
 /// Executes critical system checks wrapped in native VMProtect virtualization markers.
 /// Spawns a background worker loop thread to continuously check system integrity states.
 pub fn enforce_core_security_checks(current_hwid: &str) {
-    unsafe {
-        let name = std::ffi::CString::new("CoreEnforceChecks").unwrap();
-        VMProtectBeginUltra(name.as_ptr());
-    }
+    sdk_vmp::vmp_begin_ultra("CoreEnforceChecks");
 
     std::hint::black_box(current_hwid);
 
@@ -52,9 +45,7 @@ pub fn enforce_core_security_checks(current_hwid: &str) {
 
     println!("[SECURITY Engine] All runtime environment integrity tokens verified and active monitor engaged.");
 
-    unsafe {
-        VMProtectEnd();
-    }
+    sdk_vmp::vmp_end();
 }
 
 pub struct SecurityValidator;
@@ -66,17 +57,15 @@ impl SecurityValidator {
 
     /// Multi-layered baseline check to intercept basic local and remote debuggers
     pub fn enforce_anti_debug() {
-        unsafe {
-            let marker = std::ffi::CString::new("AntiDebugCheck").unwrap();
-            VMProtectBeginMutation(marker.as_ptr());
-        }
+        sdk_vmp::vmp_begin_mutation("AntiDebugCheck");
 
-        // Tier 1 SDK Engine Check
-        unsafe {
-            if VMProtectIsDebuggerPresent(true) {
-                eprintln!("[SECURITY_FAULT] Hardware debugger intercepted via ring-0 virtualization hook.");
-                std::process::exit(1);
-            }
+        // Tier 1 SDK Engine Check (routed through the shared sdk_vmp module,
+        // not a locally-declared FFI signature).
+        if sdk_vmp::vmp_check_debugger() {
+            eprintln!(
+                "[SECURITY_FAULT] Hardware debugger intercepted via ring-0 virtualization hook."
+            );
+            std::process::exit(1);
         }
 
         #[cfg(target_os = "windows")]
@@ -102,23 +91,16 @@ impl SecurityValidator {
             }
         }
 
-        unsafe {
-            VMProtectEnd();
-        }
+        sdk_vmp::vmp_end();
     }
 
     /// Hardened hardware-level hypervisor validation using intrinsic x86/x64 CPUID registers
     pub fn enforce_vm_detection() {
-        unsafe {
-            let marker = std::ffi::CString::new("VmDetectionCheck").unwrap();
-            VMProtectBeginMutation(marker.as_ptr());
-        }
+        sdk_vmp::vmp_begin_mutation("VmDetectionCheck");
 
-        unsafe {
-            if VMProtectIsVirtualMachinePresent() {
-                eprintln!("[SECURITY_FAULT] Dynamic virtualization runtime container identified.");
-                std::process::exit(1);
-            }
+        if sdk_vmp::vmp_check_vm() {
+            eprintln!("[SECURITY_FAULT] Dynamic virtualization runtime container identified.");
+            std::process::exit(1);
         }
 
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -144,9 +126,7 @@ impl SecurityValidator {
             }
         }
 
-        unsafe {
-            VMProtectEnd();
-        }
+        sdk_vmp::vmp_end();
     }
 }
 

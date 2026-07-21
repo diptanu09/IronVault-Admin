@@ -185,11 +185,11 @@ impl DbClient {
     /// below to match.
     pub async fn fetch_recent_audit_logs(&self, limit: i64) -> Result<Vec<DbAuditEntry>, String> {
         let rows = sqlx::query(
-            "SELECT COALESCE(TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI'), 'UNKNOWN') as ts, \
+            "SELECT COALESCE(TO_CHAR(created_at AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD HH24:MI'), 'UNKNOWN') as ts, \
                     operator_id, operation_action, impact_level \
              FROM ironvault.db_audit_logs \
              ORDER BY created_at DESC \
-             LIMIT $1",
+             LIMIT $1"
         )
         .bind(limit)
         .fetch_all(&self.pool)

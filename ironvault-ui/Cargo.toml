@@ -16,7 +16,7 @@ chrono = { version = "0.4", features = ["serde"] }
 log = "0.4"
 env_logger = "0.11"
 thiserror = "2.0.18"
-rfd = "0.17.2"
+rfd = { version = "0.17.2", features = ["file-handle-inner"] }
 image = "0.25"
 rand = "0.8"
 sqlx = { version = "0.7", features = ["postgres", "runtime-tokio-rustls", "chrono"] }

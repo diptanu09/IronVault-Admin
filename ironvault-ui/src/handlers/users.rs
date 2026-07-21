@@ -222,6 +222,76 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
         });
     }
 
+    // --- PROFILE PICTURE UPDATE ---
+    {
+        let app_weak = app.as_weak();
+        app.on_request_profile_pic_update(move || {
+            let ui_weak = app_weak.clone();
+
+            let username = if let Some(ui) = ui_weak.upgrade() {
+                ui.get_current_user_name().to_string()
+            } else {
+                return;
+            };
+            if username.is_empty() || username == "GUEST" {
+                return;
+            }
+
+            std::thread::spawn(move || {
+                let picked = rfd::FileDialog::new()
+                    .add_filter("Images", &["png", "jpg", "jpeg"])
+                    .set_title("Select Profile Picture")
+                    .pick_file();
+
+                let Some(source_path) = picked else {
+                    return;
+                };
+
+                let dest_dir = std::path::Path::new("./storage/avatars/");
+                if let Err(e) = std::fs::create_dir_all(dest_dir) {
+                    log::error!("[AVATAR] Failed to create avatars directory: {}", e);
+                    return;
+                }
+                let dest_path = dest_dir.join(format!("{}.png", username));
+
+                let save_result = (|| -> Result<std::path::PathBuf, image::ImageError> {
+                    let img = image::open(&source_path)?;
+                    img.save(&dest_path)?;
+                    Ok(dest_path)
+                })();
+
+                match save_result {
+                    Ok(saved_path) => {
+                        // FIXED: slint::Image is not Send (it wraps a raw
+                        // pointer internally, like the file-dialog handle
+                        // did). We only carry the path — a plain String,
+                        // which IS Send — across into the event-loop
+                        // closure, and construct the actual slint::Image
+                        // there, on the UI thread, where it's safe.
+                        let path_string = saved_path.to_string_lossy().to_string();
+                        slint::invoke_from_event_loop(move || {
+                            if let Some(ui) = ui_weak.upgrade() {
+                                if let Ok(slint_img) =
+                                    slint::Image::load_from_path(std::path::Path::new(&path_string))
+                                {
+                                    ui.set_current_avatar_image(slint_img);
+                                    ui.set_current_avatar_loaded(true);
+                                } else {
+                                    log::error!(
+                                        "[AVATAR] Failed to load saved image back into UI: {}",
+                                        path_string
+                                    );
+                                }
+                            }
+                        })
+                        .unwrap();
+                    }
+                    Err(e) => log::error!("[AVATAR] Failed to save/convert image: {}", e),
+                }
+            });
+        });
+    }
+
     // --- COMBINED ACCESS SETTINGS COMMIT (role + lease + schema, atomic) ---
     {
         let app_weak = app.as_weak();

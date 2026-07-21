@@ -75,6 +75,7 @@ async fn main() -> Result<(), slint::PlatformError> {
         oracle,
         audit,
         hwid: hwid.clone(),
+        rate_limiter: ironvault_core::auth::LoginRateLimiter::new(),
     });
 
     let app = AppWindow::new()?;

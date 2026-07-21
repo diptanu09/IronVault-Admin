@@ -19,6 +19,17 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
             let plain_password = password.to_string().trim().to_string();
 
             tokio::spawn(async move {
+                // Rate Limiter Check: Block immediate processing if the account is currently locked out
+                if let Some(remaining) = ctx.rate_limiter.check_locked(&typed_username, &ctx.hwid) {
+                    let secs = remaining.as_secs();
+                    slint::invoke_from_event_loop(move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_login_error(format!("Account temporarily locked due to repeated failures. Try again in {}s.", secs).into());
+                        }
+                    }).unwrap();
+                    return;
+                }
+
                 let normal_result = ctx.db.authenticate_user(&typed_username, &plain_password, &ctx.hwid).await;
 
                 // Only attempt the temp-token check if the normal path failed — no point
@@ -41,6 +52,8 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
 
                 match decision {
                     AuthDecision::GrantFullSession => {
+                        ctx.rate_limiter.record_success(&typed_username, &ctx.hwid);
+
                         let user = normal_result.expect("GrantFullSession implies normal_result was Ok");
                         
                         let pool = ctx.db.get_pool().clone();
@@ -114,6 +127,8 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
                         record_audit(&ctx, &user.username, role_for_audit, "USER_LOGIN_SUCCESS", "CRITICAL").await;
                     }
                     AuthDecision::RequireForcedPasswordReset => {
+                        ctx.rate_limiter.record_success(&typed_username, &ctx.hwid);
+
                         let user = temp_token_result
                             .expect("RequireForcedPasswordReset implies temp_token_result was Some")
                             .expect("RequireForcedPasswordReset implies temp_token_result was Ok");
@@ -128,6 +143,8 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
                         }).unwrap();
                     }
                     AuthDecision::Deny => {
+                        ctx.rate_limiter.record_failure(&typed_username, &ctx.hwid);
+
                         slint::invoke_from_event_loop(move || {
                             if let Some(ui) = ui_weak.upgrade() {
                                 ui.set_login_error(

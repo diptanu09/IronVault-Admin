@@ -1,13 +1,8 @@
-//! Role-Based Access Control (RBAC)
-//!
-//! Implements four-tier permission hierarchy:
-//! - Super Admin: Full system control
-//! - Admin: Manage users and configurations
-//! - Operator: Execute approved actions
-//! - Viewer: Read-only access
-
 use crate::sdk_vmp;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Role {
@@ -15,6 +10,29 @@ pub enum Role {
     Admin,
     Operator,
     Viewer,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct User {
+    pub id: String,
+    pub username: String,
+    pub role: Role,
+    pub last_login: String,
+}
+
+// Re-added to satisfy ironvault-core/src/lib.rs exports perfectly
+pub struct AuthManager;
+
+impl AuthManager {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+pub struct UserSession {
+    pub username: String,
+    pub role: Role,
+    pub last_login: String,
 }
 
 pub enum AuthDecision {
@@ -63,25 +81,61 @@ impl ToString for Role {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct User {
-    pub id: String,
-    pub username: String,
-    pub role: Role,
-    pub last_login: String,
+/// Tracks recent failed login attempts per (username, hwid) pair, entirely
+/// in memory. This is intentionally simple — a single-instance desktop app
+/// doesn't need a distributed rate limiter, just a guard against rapid
+/// automated retry against the local bcrypt/token checks.
+pub struct LoginRateLimiter {
+    failures: Mutex<HashMap<String, (u32, Instant)>>,
 }
 
-// Re-added to satisfy ironvault-core/src/lib.rs exports perfectly
-pub struct AuthManager;
-
-impl AuthManager {
+impl LoginRateLimiter {
     pub fn new() -> Self {
-        Self
+        Self {
+            failures: Mutex::new(HashMap::new()),
+        }
     }
-}
 
-pub struct UserSession {
-    pub username: String,
-    pub role: Role,
-    pub last_login: String,
+    fn key(username: &str, hwid: &str) -> String {
+        format!("{}::{}", username.to_lowercase(), hwid)
+    }
+
+    /// Returns Some(remaining_lockout) if this pair is currently locked out,
+    /// None if the attempt is allowed to proceed.
+    pub fn check_locked(&self, username: &str, hwid: &str) -> Option<Duration> {
+        let key = Self::key(username, hwid);
+        let map = self.failures.lock().unwrap();
+        if let Some((count, last_attempt)) = map.get(&key) {
+            let lockout = Self::lockout_duration(*count);
+            let elapsed = last_attempt.elapsed();
+            if elapsed < lockout {
+                return Some(lockout - elapsed);
+            }
+        }
+        None
+    }
+
+    pub fn record_failure(&self, username: &str, hwid: &str) {
+        let key = Self::key(username, hwid);
+        let mut map = self.failures.lock().unwrap();
+        let entry = map.entry(key).or_insert((0, Instant::now()));
+        entry.0 += 1;
+        entry.1 = Instant::now();
+    }
+
+    pub fn record_success(&self, username: &str, hwid: &str) {
+        let key = Self::key(username, hwid);
+        self.failures.lock().unwrap().remove(&key);
+    }
+
+    /// Escalating lockout: 3 fails -> 30s, 5 fails -> 2min, 8+ fails -> 15min.
+    /// Tune these to taste; the shape (escalating, not fixed) is what matters.
+    fn lockout_duration(failure_count: u32) -> Duration {
+        match failure_count {
+            0..=2 => Duration::from_secs(0),
+            3..=4 => Duration::from_secs(30),
+            5..=7 => Duration::from_secs(120),
+            _ => Duration::from_secs(900),
+        }
+    }
 }

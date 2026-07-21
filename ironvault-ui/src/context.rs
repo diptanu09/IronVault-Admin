@@ -3,6 +3,7 @@
 //! each handler module needing to know how these are constructed.
 
 use ironvault_core::audit::AuditLogger;
+use ironvault_core::auth::LoginRateLimiter;
 use ironvault_db::{DbClient, OracleConnection};
 use std::sync::Arc;
 
@@ -11,6 +12,7 @@ pub struct AppContext {
     pub oracle: Arc<OracleConnection>,
     pub audit: Arc<AuditLogger>,
     pub hwid: String,
+    pub rate_limiter: LoginRateLimiter, // new
 }
 
 /// Single entry point for recording an audit event. Writes to Postgres first

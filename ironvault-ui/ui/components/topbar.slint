@@ -1,30 +1,81 @@
-// Top bar component - User info, role, last login
-
 import { Theme } from "../theme.slint";
 
 export component TopBar inherits Rectangle {
-    in property <string> user_name;
-    in property <string> user_role;
+    in property <string> page_title: "COMMAND NODE OVERVIEW";
+    in property <string> page_subtitle: "System Integrity Level: Nominal Enclave Operational";
+    in property <string> user_full_name: "Unknown Operator";
+    in property <string> user_role: "UNAUTHORIZED";
+    in property <string> user_name: "GUEST";
+    in property <image> avatar_source;
+    in property <bool> has_avatar: false;
 
+    callback toggle_theme();
     callback logout();
 
-    height: 60px;
-    background: Theme.bg_tertiary;
-
-    // FIXED: Using standard Slint Rectangle border constraints
-    border_width: 1px;
-    border_color: Theme.primary_dark;
+    height: 70px;
+    background: Theme.bg-sidebar;
+    border-width: 1px;
+    border-color: Theme.border-dark;
 
     HorizontalLayout {
-        padding: Theme.spacing_md;
-        spacing: Theme.spacing_lg;
+        padding-left: 32px;
+        padding-right: 32px;
+        alignment: space-between;
 
-        Text {
-            text: "  Active";
-            color: Theme.success;
-            font_size: Theme.font_size_base;
-            font_weight: 600;
-            vertical_alignment: center;
+        VerticalLayout {
+            alignment: center; spacing: 4px;
+            Text { text: root.page_title; font-size: 11px; font-weight: 900; color: Theme.brand-primary; letter-spacing: 1.5px; }
+            Text { text: root.page_subtitle; font-size: 13px; font-weight: 700; color: Theme.text-secondary; }
+        }
+
+        HorizontalLayout {
+            spacing: 24px; alignment: center;
+
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 34px; height: 34px; border-radius: 6px;
+                    background: Theme.bg-card; border-width: 1px; border-color: Theme.border-color;
+                    HorizontalLayout {
+                        padding: 4px; alignment: center;
+                        Image { source: Theme.is-light-mode ? @image-url("../assets/falling-stars-fill.svg") : @image-url("../assets/light-bulb.svg"); width: 26px; height: 26px; }
+                    }
+                    TouchArea { clicked => { root.toggle_theme(); } }
+                }
+            }
+
+            Rectangle { width: 1px; background: Theme.border-color; height: 30px; y: 20px; }
+
+            HorizontalLayout {
+                spacing: 12px; alignment: center;
+                VerticalLayout {
+                    alignment: center; spacing: 2px;
+                    Text { text: root.user_full_name; font-size: 14px; font-weight: 800; color: Theme.text-primary; horizontal-alignment: TextHorizontalAlignment.right; }
+                    Text { text: root.user_role; font-size: 11px; font-weight: 800; color: Theme.brand-warning; horizontal-alignment: TextHorizontalAlignment.right; }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 36px; height: 36px; border-radius: 18px;
+                        background: Theme.bg-main; border-width: 1.5px; border-color: Theme.brand-primary; clip: true;
+                        if (!root.has_avatar): Text { text: root.user_name == "" ? "U" : root.user_name; font-size: 16px; font-weight: 900; color: Theme.brand-primary; horizontal-alignment: center; vertical-alignment: center; }
+                        if (root.has_avatar): Image { source: root.avatar_source; width: 100%; height: 100%; image-fit: cover; }
+                    }
+                }
+            }
+
+            Rectangle { width: 1px; background: Theme.border-color; height: 30px; y: 20px; }
+
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 36px; height: 36px; border-radius: 18px;
+                    background: logout_ta.has-hover ? #FF33661A : #FFFFFF0A;
+                    border-width: 1px; border-color: logout_ta.has-hover ? Theme.brand-danger : Theme.border-color;
+                    Image { source: @image-url("../assets/log-out.svg"); width: 16px; height: 16px; image-fit: contain; colorize: logout_ta.has-hover ? Theme.brand-danger : Theme.text-secondary; }
+                    logout_ta := TouchArea { clicked => { root.logout(); } }
+                }
+            }
         }
     }
 }

@@ -1,6 +1,8 @@
 // Login view - Secure authentication form
 
 import { Button, LineEdit, VerticalBox, HorizontalBox } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { RegisterView, RegisterFormFields } from "register.slint";
 
 export component LoginView inherits Rectangle {
     callback login_requested(string, string);
@@ -11,6 +13,13 @@ export component LoginView inherits Rectangle {
 
     in-out property <string> captcha_question: "";
     in-out property <string> captcha_answer: "";
+
+    in-out property <string> form_user: "";
+    in-out property <string> form_pass: "";
+    in-out property <string> login_error: "";
+    in-out property <RegisterFormFields> registration_fields;
+    property <string> screen_state: "landing";
+
     
     background: #0B0F19;
     

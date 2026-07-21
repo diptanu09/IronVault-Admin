@@ -1,78 +1,101 @@
-// Sidebar component - Navigation and app info
+import { Theme } from "../theme.slint";
 
-import { Theme } from "../theme.slint"; // FIXED: Corrected relative path
+component NavItem inherits Rectangle {
+    in property <string> text;
+    in property <image> icon_image;
+    in property <bool> active;
+    in property <bool> collapsed;
+    callback clicked();
 
-export component Sidebar {
-    in property <string> app_version;
-    in property <string> copyright_text;
-    in property <string> current_view;
+    height: 44px;
+    border-radius: 10px;
+    background: ta.pressed ? Theme.bg-card-hover : (ta.has-hover ? Theme.bg-card : (active ? #00E5FF1A : transparent));
+    border-width: active ? 1px : 0px;
+    border-color: Theme.brand-primary;
 
-    callback navigate_view(string);
-    callback logout();
-
-    width: 240px;
-    background: Theme.bg_surface;
-    border_right_width: 2px;
-    border_right_color: Theme.primary;
-
-    VerticalLayout {
-        spacing: 0;
-        padding: Theme.spacing_lg;
-
-        Rectangle {
-            height: 60px;
-            margin_bottom: Theme.spacing_lg;
-            VerticalLayout {
-                alignment: center;
-                Text {
-                    text: "IRONVAULT";
-                    color: Theme.primary;
-                    font_size: Theme.font_size_xlarge;
-                    font_weight: 900;
-                    letter_spacing: 2px;
+    HorizontalLayout {
+        padding-left: root.collapsed ? 0px : 14px;
+        padding-right: root.collapsed ? 0px : 14px;
+        alignment: root.collapsed ? LayoutAlignment.center : LayoutAlignment.start;
+        spacing: root.collapsed ? 0px : 16px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 24px; height: 24px;
+                Image {
+                    source: root.icon_image;
+                    width: ta.has-hover ? 22px : (root.active ? 20px : 18px);
+                    height: ta.has-hover ? 22px : (root.active ? 20px : 18px);
+                    image-fit: contain;
+                    opacity: root.active ? 1.0 : (ta.has-hover ? 0.95 : 0.6);
+                    colorize: root.active ? Theme.brand-primary : (ta.has-hover ? Theme.text-primary : Theme.text-secondary);
                 }
             }
         }
+        if (!root.collapsed): VerticalLayout {
+            alignment: center;
+            Text { text: root.text; font-size: 14px; font-weight: root.active ? 800 : 600; color: root.active ? Theme.brand-primary : Theme.text-secondary; }
+        }
+    }
+    ta := TouchArea { clicked => { root.clicked(); } }
+}
+
+export component Sidebar inherits Rectangle {
+    in-out property <bool> collapsed: false;
+    in property <string> active_tab: "overview";
+    in property <string> app_version: "v1.0.0";
+    in property <bool> is_super_admin: false;
+
+    callback navigate(string);
+    callback toggle_collapsed();
+
+    width: root.collapsed ? 74px : 260px;
+    background: Theme.bg-sidebar;
+    border-width: 1px;
+    border-color: Theme.border-dark;
+    animate width { duration: 175ms; easing: ease-in-out; }
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 10px;
+        alignment: start;
+
+        HorizontalLayout {
+            alignment: root.collapsed ? LayoutAlignment.center : LayoutAlignment.start;
+            padding-bottom: 16px;
+            spacing: 12px;
+            Rectangle {
+                width: 38px; height: 38px; border-radius: 8px;
+                background: logo_ta.has-hover ? Theme.bg-card : transparent;
+                Image { source: @image-url("../assets/vultr-icon.svg"); width: 42px; height: 42px; colorize: Theme.brand-primary; horizontal-alignment: center; vertical-alignment: center; }
+                logo_ta := TouchArea { clicked => { root.toggle_collapsed(); } }
+            }
+            if (!root.collapsed): VerticalLayout {
+                spacing: 2px; alignment: center;
+                Text { text: "IRONVAULT"; font-size: 18px; font-weight: 900; color: Theme.text-primary; letter-spacing: 2px; }
+                Text { text: "SECURE ENCLAVE NODE"; font-size: 9px; color: Theme.brand-primary; font-weight: 800; letter-spacing: 0.5px; }
+            }
+        }
+
+        Rectangle { height: 1px; background: Theme.border-dark; opacity: 0.5; }
+        Rectangle { height: 8px; }
+
+        NavItem { text: "Command Dashboard"; icon_image: @image-url("../assets/layout-dashboard.svg"); active: root.active_tab == "overview"; collapsed: root.collapsed; clicked => { root.navigate("overview"); } }
+        NavItem { text: "Security Audit Logs"; icon_image: @image-url("../assets/shield.svg"); active: root.active_tab == "audit_logs"; collapsed: root.collapsed; clicked => { root.navigate("audit_logs"); } }
+        NavItem { text: "Operations Matrix"; icon_image: @image-url("../assets/database.svg"); active: root.active_tab == "operations"; collapsed: root.collapsed; clicked => { root.navigate("operations"); } }
+        if (root.is_super_admin): NavItem { text: "Access Requests"; icon_image: @image-url("../assets/bell.svg"); active: root.active_tab == "approvals"; collapsed: root.collapsed; clicked => { root.navigate("approvals"); } }
+        if (root.is_super_admin): NavItem { text: "Operator Control"; icon_image: @image-url("../assets/users.svg"); active: root.active_tab == "users"; collapsed: root.collapsed; clicked => { root.navigate("users"); } }
+
+        Rectangle { vertical-stretch: 1; }
 
         VerticalLayout {
-            spacing: Theme.spacing_sm;
-            padding_top: Theme.spacing_lg;
-            border_top_width: 1px;
-            border_top_color: Theme.primary_dark;
-
-            Text {
-                text: "v\{root.app_version}"; // FIXED: Slint correct string formatting
-                color: Theme.text_tertiary;
-                font_size: Theme.font_size_small;
-                horizontal_alignment: center;
-            }
-
-            Text {
-                text: root.copyright_text;
-                color: Theme.text_tertiary;
-                font_size: Theme.font_size_small;
-                horizontal_alignment: center;
-                wrap: word_wrap;
-            }
-
+            spacing: 4px; padding-left: 4px; padding-right: 4px; padding-bottom: 4px;
+            Rectangle { height: 1px; background: Theme.border-dark; opacity: 0.4; }
+            Rectangle { height: 4px; }
             Rectangle {
-                height: 40px;
-                background: Theme.error;
-                border_radius: Theme.radius_md;
-
-                HorizontalLayout {
-                    alignment: center;
-                    Text {
-                        text: "  Logout";
-                        color: #FFFFFF;
-                        font_weight: 600;
-                        vertical_alignment: center;
-                    }
-                }
-
-                TouchArea {
-                    clicked => { root.logout(); }
-                }
+                background: #00E5FF1A; border-radius: 4px; height: 20px;
+                width: root.collapsed ? 36px : 64px; horizontal-stretch: 0;
+                Text { text: root.app_version; font-size: 10px; font-weight: 900; color: Theme.brand-primary; horizontal-alignment: center; vertical-alignment: center; }
             }
         }
     }

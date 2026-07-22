@@ -19,7 +19,6 @@ pub struct User {
     pub role: Role,
     pub last_login: String,
 }
-
 // Re-added to satisfy ironvault-core/src/lib.rs exports perfectly
 pub struct AuthManager;
 

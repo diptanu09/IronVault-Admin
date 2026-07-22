@@ -1,7 +1,11 @@
 //! PostgreSQL Core User Profile Storage Manager
 //! Handles operator authentication, enrollment, leasing, and account revocations securely.
 
-use sqlx::{postgres::PgPoolOptions, PgPool, Row};
+use sqlx::{
+    postgres::{PgConnectOptions, PgPoolOptions, PgSslMode},
+    PgPool, Row,
+};
+use std::str::FromStr;
 
 #[derive(Clone, Debug)]
 pub struct DbUser {
@@ -45,14 +49,28 @@ impl DbClient {
         db_name: &str,
         user: &str,
         pass: &str,
+        ssl_mode: PgSslMode,
     ) -> Result<Self, String> {
-        let database_url = format!("postgres://{}:{}@{}:{}/{}", user, pass, host, port, db_name);
+        let connect_options = PgConnectOptions::from_str(&format!(
+            "postgres://{}:{}@{}:{}/{}",
+            user, pass, host, port, db_name
+        ))
+        .map_err(|e| format!("Invalid database connection parameters: {}", e))?
+        .ssl_mode(ssl_mode);
 
         let pool = PgPoolOptions::new()
             .max_connections(5)
-            .connect(&database_url)
+            .connect_with(connect_options)
             .await
-            .map_err(|e| format!("Database cluster handshake failed: {}", e))?;
+            // .map_err(|e| format!("Database cluster handshake failed: {}", e))?;
+            .map_err(|e| {
+                format!(
+                    "Database cluster handshake failed (TLS required): {}. \
+                 If this is a local-only Postgres instance without TLS configured, \
+                 see IRONVAULT_DB_SSL_MODE in .env to relax this.",
+                    e
+                )
+            })?;
 
         Ok(Self { pool })
     }
@@ -236,6 +254,7 @@ impl DbClient {
         .map_err(|e| e.to_string())?;
         Ok(())
     }
+
     /// FIXED (regression from bcrypt migration): restores the ability for an
     /// operator holding a one-time reset token to authenticate, distinct from
     /// the normal password path in `authenticate_user`. Returns Ok(DbUser) on

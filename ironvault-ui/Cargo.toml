@@ -19,7 +19,8 @@ thiserror = "2.0.18"
 rfd = { version = "0.17.2", features = ["file-handle-inner"] }
 image = "0.25"
 rand = "0.8"
-sqlx = { version = "0.7", features = ["postgres", "runtime-tokio-rustls", "chrono"] }
+# sqlx = { version = "0.7", features = ["postgres", "runtime-tokio-rustls", "chrono"] }
+sqlx = { version = "0.7", features = ["runtime-tokio-native-tls", "runtime-tokio", "macros", "postgres", "uuid", "chrono", "json"] }
 dotenvy = "0.15"          # <-- ADDED: loads .env into process environment at startup
 chrono-tz = "0.10"
 

@@ -9,6 +9,7 @@ mod handlers;
 use context::AppContext;
 use ironvault_core::audit::AuditLogger;
 use ironvault_db::{DbClient, OracleConnection};
+use sqlx::postgres::PgSslMode;
 use std::sync::Arc;
 
 // FFI Link definitions for Oreans Themida SecureEngine SDK
@@ -44,12 +45,30 @@ async fn main() -> Result<(), slint::PlatformError> {
     let db_password = std::env::var("IRONVAULT_DB_PASSWORD")
         .expect("[FATAL CONFIG ERROR] IRONVAULT_DB_PASSWORD must be set");
 
+    let ssl_mode_str =
+        std::env::var("IRONVAULT_DB_SSL_MODE").unwrap_or_else(|_| "require".to_string());
+    let ssl_mode = match ssl_mode_str.to_lowercase().as_str() {
+        "disable" => PgSslMode::Disable,
+        "prefer" => PgSslMode::Prefer,
+        "verify-full" => PgSslMode::VerifyFull,
+        "verify-ca" => PgSslMode::VerifyCa,
+        _ => PgSslMode::Require, // safe default even on an unrecognized/typo'd value
+    };
+
+    if matches!(ssl_mode, PgSslMode::Disable) {
+        log::warn!(
+            "[CONFIG] IRONVAULT_DB_SSL_MODE=disable — database traffic will NOT be encrypted. \
+             Only use this for a same-machine, localhost-only Postgres instance."
+        );
+    }
+
     let db = match DbClient::connect_with_credentials(
         &db_host,
         db_port,
         &db_name,
         &db_user,
         &db_password,
+        ssl_mode,
     )
     .await
     {

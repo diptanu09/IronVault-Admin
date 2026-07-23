@@ -1,10 +1,8 @@
 //! PostgreSQL Core User Profile Storage Manager
 //! Handles operator authentication, enrollment, leasing, and account revocations securely.
 
-use sqlx::{
-    postgres::{PgConnectOptions, PgPoolOptions, PgSslMode},
-    PgPool, Row,
-};
+use sqlx::postgres::{PgConnectOptions, PgPoolOptions, PgSslMode};
+use sqlx::{PgPool, Row};
 use std::str::FromStr;
 
 #[derive(Clone, Debug)]
@@ -43,6 +41,17 @@ impl DbClient {
         &self.pool
     }
 
+    /// Establishes the primary Postgres connection pool with TLS enforced.
+    ///
+    /// `ssl_mode` and `ssl_root_cert` are read from `.env` by the caller
+    /// (main.rs) rather than hardcoded here, so the deployment can be
+    /// reconfigured (e.g. relaxed for local dev, or the cert path changed
+    /// after rotation) without a rebuild.
+    ///
+    /// The CA certificate is intentionally NOT embedded in the binary.
+    /// Keeping it as an external file means rotating the certificate is a
+    /// file replacement, not a full application rebuild + redeploy — see
+    /// `scripts/rotate_pg_cert.ps1` for the rotation procedure.
     pub async fn connect_with_credentials(
         host: &str,
         port: u16,
@@ -50,24 +59,40 @@ impl DbClient {
         user: &str,
         pass: &str,
         ssl_mode: PgSslMode,
+        ssl_root_cert: Option<&str>,
     ) -> Result<Self, String> {
-        let connect_options = PgConnectOptions::from_str(&format!(
+        let mut connect_options = PgConnectOptions::from_str(&format!(
             "postgres://{}:{}@{}:{}/{}",
             user, pass, host, port, db_name
         ))
         .map_err(|e| format!("Invalid database connection parameters: {}", e))?
         .ssl_mode(ssl_mode);
 
+        if let Some(cert_path) = ssl_root_cert {
+            if !std::path::Path::new(cert_path).exists() {
+                return Err(format!(
+                    "IRONVAULT_DB_SSL_ROOT_CERT is set to '{}' but that file does not exist. \
+                     Check the path, or run scripts/rotate_pg_cert.ps1 if the cert is missing/expired.",
+                    cert_path
+                ));
+            }
+            connect_options = connect_options.ssl_root_cert(cert_path);
+        } else if matches!(ssl_mode, PgSslMode::VerifyFull | PgSslMode::VerifyCa) {
+            return Err(
+                "IRONVAULT_DB_SSL_MODE requires certificate verification (verify-full/verify-ca) \
+                 but IRONVAULT_DB_SSL_ROOT_CERT is not set. Refusing to connect without a known CA cert."
+                    .to_string(),
+            );
+        }
+
         let pool = PgPoolOptions::new()
             .max_connections(5)
             .connect_with(connect_options)
             .await
-            // .map_err(|e| format!("Database cluster handshake failed: {}", e))?;
             .map_err(|e| {
                 format!(
-                    "Database cluster handshake failed (TLS required): {}. \
-                 If this is a local-only Postgres instance without TLS configured, \
-                 see IRONVAULT_DB_SSL_MODE in .env to relax this.",
+                    "Database cluster handshake failed: {}. If the CA certificate recently \
+                 rotated, confirm IRONVAULT_DB_SSL_ROOT_CERT points at the current root.crt.",
                     e
                 )
             })?;
@@ -126,6 +151,45 @@ impl DbClient {
         })
     }
 
+    pub async fn authenticate_via_temp_token(
+        &self,
+        username: &str,
+        token_plain: &str,
+        hwid: &str,
+    ) -> Result<DbUser, String> {
+        let row = sqlx::query(
+            "SELECT username, temp_token, role, \
+             COALESCE(TO_CHAR(last_login_at, 'YYYY-MM-DD HH24:MI'), 'NEVER') as last_login \
+             FROM ironvault.users \
+             WHERE username = $1 AND hardware_fingerprint = $2 AND status = 'EXPIRED' AND temp_token IS NOT NULL"
+        )
+        .bind(username)
+        .bind(hwid)
+        .fetch_optional(self.get_pool())
+        .await
+        .map_err(|e| e.to_string())?;
+
+        let row =
+            match row {
+                Some(r) => r,
+                None => return Err(
+                    "Authentication Failed: No pending one-time token for this operator/machine."
+                        .to_string(),
+                ),
+            };
+
+        let stored_hash: String = row.get("temp_token");
+        if !ironvault_core::crypto::verify_token(token_plain, &stored_hash) {
+            return Err("Authentication Failed: Invalid one-time token.".to_string());
+        }
+
+        Ok(DbUser {
+            username: row.get("username"),
+            role: row.get("role"),
+            last_login: row.get("last_login"),
+        })
+    }
+
     pub async fn register_user(
         &self,
         username: &str,
@@ -146,12 +210,6 @@ impl DbClient {
         let secure_hashed_pass = ironvault_core::crypto::hash_password(password_plain)
             .map_err(|_| "Registration record reject: password hashing failed".to_string())?;
 
-        // FIXED (item #9): expires_at is no longer set at registration time.
-        // A PENDING account has no active lease yet — the 30-day window should
-        // only begin once a SuperAdmin actually approves it (see approve_user),
-        // not while the request is still sitting unreviewed. Leaving this NULL
-        // for PENDING rows also means any future "expiry" queries/dashboards
-        // can't misread a pending request as having an active, ticking lease.
         sqlx::query(
             "INSERT INTO ironvault.users (username, password, role, status, hardware_fingerprint, first_name, middle_name, last_name, full_name, designation, section, expires_at) \
              VALUES ($1, $2, 'Operator', 'PENDING', $3, $4, $5, $6, $7, $8, $9, NULL) ON CONFLICT DO NOTHING"
@@ -192,22 +250,13 @@ impl DbClient {
         Ok(())
     }
 
-    /// FIXED (item #10): reads audit history back from Postgres so the
-    /// dashboard's audit tab reflects the *actual* single source of truth,
-    /// instead of only ever showing file-log entries while DB entries sat
-    /// unused.
-    ///
-    /// NOTE: assumes `ironvault.db_audit_logs` has a `created_at` timestamp
-    /// column with a default of NOW() (standard for an append-only log table).
-    /// If your schema uses a different column name, adjust the SELECT/ORDER BY
-    /// below to match.
     pub async fn fetch_recent_audit_logs(&self, limit: i64) -> Result<Vec<DbAuditEntry>, String> {
         let rows = sqlx::query(
             "SELECT COALESCE(TO_CHAR(created_at AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD HH24:MI'), 'UNKNOWN') as ts, \
                     operator_id, operation_action, impact_level \
              FROM ironvault.db_audit_logs \
              ORDER BY created_at DESC \
-             LIMIT $1"
+             LIMIT $1",
         )
         .bind(limit)
         .fetch_all(&self.pool)
@@ -242,7 +291,7 @@ impl DbClient {
         assigned_role: &str,
     ) -> Result<(), String> {
         sqlx::query(
-            "UPDATE ironvault.users SET status = 'ACTIVE', role = $1, expires_at = NOW() + INTERVAL '30 days', \
+            "UPDATE ironvault.users SET status = 'ACTIVE', role = $1, expires_at = NOW() + '30 days'::INTERVAL, \
              approved_by = $3 \
              WHERE username = $2"
         )
@@ -253,51 +302,6 @@ impl DbClient {
         .await
         .map_err(|e| e.to_string())?;
         Ok(())
-    }
-
-    /// FIXED (regression from bcrypt migration): restores the ability for an
-    /// operator holding a one-time reset token to authenticate, distinct from
-    /// the normal password path in `authenticate_user`. Returns Ok(DbUser) on
-    /// a valid, matching token for an EXPIRED account on the bound HWID; the
-    /// caller (main.rs) is responsible for routing this into the forced
-    /// password-reset UI state rather than a normal logged-in session.
-    pub async fn authenticate_via_temp_token(
-        &self,
-        username: &str,
-        token_plain: &str,
-        hwid: &str,
-    ) -> Result<DbUser, String> {
-        let row = sqlx::query(
-            "SELECT username, temp_token, role, \
-             COALESCE(TO_CHAR(last_login_at, 'YYYY-MM-DD HH24:MI'), 'NEVER') as last_login \
-             FROM ironvault.users \
-             WHERE username = $1 AND hardware_fingerprint = $2 AND status = 'EXPIRED' AND temp_token IS NOT NULL"
-        )
-        .bind(username)
-        .bind(hwid)
-        .fetch_optional(self.get_pool())
-        .await
-        .map_err(|e| e.to_string())?;
-
-        let row =
-            match row {
-                Some(r) => r,
-                None => return Err(
-                    "Authentication Failed: No pending one-time token for this operator/machine."
-                        .to_string(),
-                ),
-            };
-
-        let stored_hash: String = row.get("temp_token");
-        if !ironvault_core::crypto::verify_token(token_plain, &stored_hash) {
-            return Err("Authentication Failed: Invalid one-time token.".to_string());
-        }
-
-        Ok(DbUser {
-            username: row.get("username"),
-            role: row.get("role"),
-            last_login: row.get("last_login"),
-        })
     }
 
     pub async fn deny_user(&self, admin: &str, target_user: &str) -> Result<(), String> {
@@ -331,10 +335,10 @@ impl DbClient {
     pub async fn get_active_users(&self) -> Result<Vec<ActiveUser>, String> {
         let rows = sqlx::query(
             "SELECT username, role, \
-             COALESCE(TO_CHAR(last_login_at, 'YYYY-MM-DD HH24:MI'), 'NEVER') as last_login, \
+             COALESCE(TO_CHAR(last_login_at AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD HH24:MI'), 'NEVER') as last_login, \
              COALESCE(full_name, 'NOT SET') as full_name, \
              COALESCE(designation, 'NOT SET') as designation, \
-             COALESCE(TO_CHAR(expires_at, 'YYYY-MM-DD HH24:MI'), 'LIFETIME') as expires_at \
+             COALESCE(TO_CHAR(expires_at AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD HH24:MI'), 'LIFETIME') as expires_at \
              FROM ironvault.users WHERE status = 'ACTIVE' ORDER BY role, username",
         )
         .fetch_all(&self.pool)
@@ -355,50 +359,6 @@ impl DbClient {
         Ok(users)
     }
 
-    pub async fn update_user_lease(
-        &self,
-        target_user: &str,
-        new_role: &str,
-        days_valid: i32,
-    ) -> Result<(), String> {
-        // FIXED: String concatenation interval casting vulnerability eliminated
-        sqlx::query(
-            "UPDATE ironvault.users \
-             SET role = $1, expires_at = NOW() + ($2 * INTERVAL '1 day') \
-             WHERE username = $3 AND status = 'ACTIVE'",
-        )
-        .bind(new_role)
-        .bind(days_valid)
-        .bind(target_user)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| format!("Failed to update access lease parameters: {}", e))?;
-        Ok(())
-    }
-
-    pub async fn update_user_role(
-        &self,
-        admin_name: &str,
-        target_user: &str,
-        new_role: &str,
-    ) -> Result<(), String> {
-        log::info!(
-            "[AUDIT] Operator @{} altered role profile for @{} to {}",
-            admin_name,
-            target_user,
-            new_role
-        );
-        sqlx::query(
-            "UPDATE ironvault.users SET role = $1 WHERE username = $2 AND status = 'ACTIVE'",
-        )
-        .bind(new_role)
-        .bind(target_user)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| format!("Failed to update role state: {}", e))?;
-        Ok(())
-    }
-
     pub async fn update_user_full_access(
         &self,
         target_user: &str,
@@ -406,11 +366,10 @@ impl DbClient {
         days_valid: i32,
         schemas: &str,
     ) -> Result<(), String> {
-        // FIXED: String concatenation interval casting vulnerability eliminated
         sqlx::query(
             "UPDATE ironvault.users \
              SET role = $1, \
-                 expires_at = NOW() + ($2 * INTERVAL '1 day'), \
+                 expires_at = NOW() + ($2 || ' days')::INTERVAL, \
                  section = $3, \
                  status = 'ACTIVE' \
              WHERE username = $4",

@@ -3,12 +3,14 @@
 //! to the core security and database layers with automated relational tracking.
 
 slint::include_modules!();
-use slint::ComponentHandle;
+
 mod context;
 mod handlers;
+
 use context::AppContext;
 use ironvault_core::audit::AuditLogger;
 use ironvault_db::{DbClient, OracleConnection};
+use slint::ComponentHandle;
 use sqlx::postgres::PgSslMode;
 use std::sync::Arc;
 
@@ -19,15 +21,37 @@ extern "C" {
     fn VMEnd();
 }
 
+/// Searches upward from the current executable's directory (and, as a
+/// fallback, the current working directory) for a `.env` file, so
+/// environment loading works consistently whether launched via
+/// `cargo run` from the workspace root, from a package subdirectory, or
+/// by running the compiled .exe directly from target/debug or
+/// target/release.
+fn find_and_load_dotenv() -> bool {
+    if let Ok(exe_path) = std::env::current_exe() {
+        let mut dir = exe_path.parent().map(|p| p.to_path_buf());
+        while let Some(d) = dir {
+            let candidate = d.join(".env");
+            // println!("[DEBUG] Checking for .env at: {:?}", candidate);
+            if candidate.exists() {
+                // println!("[DEBUG] Found .env at: {:?}", candidate);
+                if dotenvy::from_path(&candidate).is_ok() {
+                    return true;
+                }
+            }
+            dir = d.parent().map(|p| p.to_path_buf());
+        }
+    }
+    dotenvy::dotenv().is_ok()
+}
+
 #[tokio::main]
 async fn main() -> Result<(), slint::PlatformError> {
     println!("[BOOT] Engaging IronVault Core Security...");
 
-    if let Err(e) = dotenvy::dotenv() {
-        log::warn!(
-            "[CONFIG] No .env file loaded ({}). Falling back to process environment / defaults.",
-            e
-        );
+    let env_loaded = find_and_load_dotenv();
+    if !env_loaded {
+        log::warn!("[CONFIG] No .env file found via binary-relative search or CWD. Falling back to process environment / defaults.");
     }
 
     let hwid = ironvault_core::licensing::generate_hwid();
@@ -50,17 +74,20 @@ async fn main() -> Result<(), slint::PlatformError> {
     let ssl_mode = match ssl_mode_str.to_lowercase().as_str() {
         "disable" => PgSslMode::Disable,
         "prefer" => PgSslMode::Prefer,
-        "verify-full" => PgSslMode::VerifyFull,
         "verify-ca" => PgSslMode::VerifyCa,
-        _ => PgSslMode::Require, // safe default even on an unrecognized/typo'd value
+        "verify-full" => PgSslMode::VerifyFull,
+        "require" => PgSslMode::Require,
+        other => {
+            log::warn!(
+                "[CONFIG] Unrecognized IRONVAULT_DB_SSL_MODE '{}', defaulting to 'require'.",
+                other
+            );
+            PgSslMode::Require
+        }
     };
 
-    if matches!(ssl_mode, PgSslMode::Disable) {
-        log::warn!(
-            "[CONFIG] IRONVAULT_DB_SSL_MODE=disable — database traffic will NOT be encrypted. \
-             Only use this for a same-machine, localhost-only Postgres instance."
-        );
-    }
+    let ssl_root_cert = std::env::var("IRONVAULT_DB_SSL_ROOT_CERT").ok();
+    // println!("[DEBUG] ssl_root_cert read as: {:?}", ssl_root_cert);
 
     let db = match DbClient::connect_with_credentials(
         &db_host,
@@ -69,6 +96,7 @@ async fn main() -> Result<(), slint::PlatformError> {
         &db_user,
         &db_password,
         ssl_mode,
+        ssl_root_cert.as_deref(),
     )
     .await
     {

@@ -66,8 +66,30 @@ async fn main() -> Result<(), slint::PlatformError> {
         .expect("[FATAL CONFIG ERROR] IRONVAULT_DB_NAME must be set");
     let db_user = std::env::var("IRONVAULT_DB_USER")
         .expect("[FATAL CONFIG ERROR] IRONVAULT_DB_USER must be set");
-    let db_password = std::env::var("IRONVAULT_DB_PASSWORD")
-        .expect("[FATAL CONFIG ERROR] IRONVAULT_DB_PASSWORD must be set");
+
+    // Prefer Credential Manager, fall back to .env / process environment
+    let db_password = match ironvault_core::credential_store::read_password() {
+        Ok(Some(pw)) => {
+            log::info!("[CONFIG] Database password loaded from Windows Credential Manager.");
+            pw
+        }
+        Ok(None) => {
+            log::warn!(
+                "[CONFIG] No password found in Windows Credential Manager, falling back to IRONVAULT_DB_PASSWORD in .env. \
+                 Run the credential-setup step to move this to Credential Manager."
+            );
+            std::env::var("IRONVAULT_DB_PASSWORD")
+                .expect("[FATAL CONFIG ERROR] IRONVAULT_DB_PASSWORD must be set (in .env or Credential Manager)")
+        }
+        Err(e) => {
+            log::warn!(
+                "[CONFIG] Credential Manager read failed ({}), falling back to .env.",
+                e
+            );
+            std::env::var("IRONVAULT_DB_PASSWORD")
+                .expect("[FATAL CONFIG ERROR] IRONVAULT_DB_PASSWORD must be set (in .env or Credential Manager)")
+        }
+    };
 
     let ssl_mode_str =
         std::env::var("IRONVAULT_DB_SSL_MODE").unwrap_or_else(|_| "require".to_string());

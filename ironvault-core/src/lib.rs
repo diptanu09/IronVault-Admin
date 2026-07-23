@@ -18,3 +18,5 @@ pub use security::SecurityValidator;
 // Re-export audit and cryptographic engines cleanly to the workspace
 pub use audit::AuditLogger;
 pub use crypto::{CryptoError, Decryptor, EncryptedPayload, Encryptor};
+// Windows Credential Manager integration
+pub mod credential_store;

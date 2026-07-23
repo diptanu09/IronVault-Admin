@@ -81,9 +81,11 @@ impl ToString for Role {
 }
 
 /// Tracks recent failed login attempts per (username, hwid) pair, entirely
-/// in memory. This is intentionally simple — a single-instance desktop app
-/// doesn't need a distributed rate limiter, just a guard against rapid
-/// automated retry against the local bcrypt/token checks.
+/// in memory. Resets on app restart — acceptable for a single-instance
+/// desktop admin tool; the goal is to slow down rapid automated retry
+/// against the local bcrypt/token checks, not to build a distributed
+/// rate-limiting service.
+
 pub struct LoginRateLimiter {
     failures: Mutex<HashMap<String, (u32, Instant)>>,
 }
@@ -128,7 +130,6 @@ impl LoginRateLimiter {
     }
 
     /// Escalating lockout: 3 fails -> 30s, 5 fails -> 2min, 8+ fails -> 15min.
-    /// Tune these to taste; the shape (escalating, not fixed) is what matters.
     fn lockout_duration(failure_count: u32) -> Duration {
         match failure_count {
             0..=2 => Duration::from_secs(0),

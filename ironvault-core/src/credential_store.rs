@@ -16,7 +16,7 @@
 
 #[cfg(target_os = "windows")]
 mod windows_impl {
-    use windows::core::PCWSTR;
+    use windows::core::{PCWSTR, PWSTR}; // <-- Added PWSTR import
     use windows::Win32::Foundation::ERROR_NOT_FOUND;
     use windows::Win32::Security::Credentials::{
         CredDeleteW, CredReadW, CredWriteW, CREDENTIALW, CRED_PERSIST_LOCAL_MACHINE,
@@ -30,13 +30,13 @@ mod windows_impl {
     }
 
     pub fn store_password(password: &str) -> Result<(), String> {
-        let target_wide = to_wide(TARGET_NAME);
+        let mut target_wide = to_wide(TARGET_NAME);
         let mut blob = password.as_bytes().to_vec();
 
         let credential = CREDENTIALW {
             Flags: windows::Win32::Security::Credentials::CRED_FLAGS(0),
             Type: CRED_TYPE_GENERIC,
-            TargetName: PCWSTR(target_wide.as_ptr() as *mut u16),
+            TargetName: PWSTR(target_wide.as_mut_ptr()), // <-- Fixed: PWSTR instead of PCWSTR
             Persist: CRED_PERSIST_LOCAL_MACHINE,
             CredentialBlobSize: blob.len() as u32,
             CredentialBlob: blob.as_mut_ptr(),

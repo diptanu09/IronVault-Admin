@@ -85,6 +85,7 @@ export component Sidebar inherits Rectangle {
         NavItem { text: "Operations Matrix"; icon_image: @image-url("../assets/database.svg"); active: root.active_tab == "operations"; collapsed: root.collapsed; clicked => { root.navigate("operations"); } }
         if (root.is_super_admin): NavItem { text: "Access Requests"; icon_image: @image-url("../assets/bell.svg"); active: root.active_tab == "approvals"; collapsed: root.collapsed; clicked => { root.navigate("approvals"); } }
         if (root.is_super_admin): NavItem { text: "Operator Control"; icon_image: @image-url("../assets/users.svg"); active: root.active_tab == "users"; collapsed: root.collapsed; clicked => { root.navigate("users"); } }
+        if (root.is_super_admin): NavItem { text: "System Settings"; icon_image: @image-url("../assets/cog.svg"); active: root.active_tab == "settings"; collapsed: root.collapsed; clicked => { root.navigate("settings"); } }
 
         Rectangle { vertical-stretch: 1; }
 

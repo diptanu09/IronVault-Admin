@@ -110,6 +110,7 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
                                 ui.set_current_user_schemas_string(schema_str_display.into());
                                 ui.set_schema_access(access);
                                 ui.set_is_logged_in(true);
+                                ui.invoke_request_idle_timeout_fetch();
                                 ui.set_show_welcome_popup(true);
                                 ui.set_active_tab("overview".into());
                                 ui.invoke_trigger_log_stream_reload();

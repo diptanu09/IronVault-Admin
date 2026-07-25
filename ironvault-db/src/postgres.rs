@@ -229,6 +229,45 @@ impl DbClient {
         Ok(())
     }
 
+    pub async fn get_idle_timeout_minutes(&self) -> Result<i32, String> {
+        let row = sqlx::query(
+            "SELECT setting_value FROM ironvault.app_settings WHERE setting_key = 'idle_timeout_minutes'"
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+        match row {
+            Some(r) => {
+                let val: String = r.get("setting_value");
+                val.parse::<i32>()
+                    .map_err(|e| format!("Corrupt idle_timeout_minutes setting: {}", e))
+            }
+            None => Ok(10), // safe default if the migration hasn't run somehow
+        }
+    }
+
+    /// SuperAdmin-only in practice (enforced by the UI gate and the caller
+    /// passing the acting admin's username for the audit trail) — this
+    /// function itself does not re-check role, matching the existing pattern
+    /// used by approve_user/ban_user in this codebase.
+    pub async fn set_idle_timeout_minutes(&self, minutes: i32, admin: &str) -> Result<(), String> {
+        if !(1..=240).contains(&minutes) {
+            return Err("Idle timeout must be between 1 and 240 minutes.".to_string());
+        }
+        sqlx::query(
+            "INSERT INTO ironvault.app_settings (setting_key, setting_value, updated_by, updated_at) \
+             VALUES ('idle_timeout_minutes', $1, $2, NOW()) \
+             ON CONFLICT (setting_key) DO UPDATE SET setting_value = $1, updated_by = $2, updated_at = NOW()"
+        )
+        .bind(minutes.to_string())
+        .bind(admin)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| format!("Failed to update idle timeout: {}", e))?;
+        Ok(())
+    }
+
     pub async fn log_audit_event(
         &self,
         operator: &str,

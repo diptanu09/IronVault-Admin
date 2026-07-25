@@ -336,6 +336,84 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
             });
         });
     }
+    // --- IDLE TIMEOUT FETCH ---
+    {
+        let app_weak = app.as_weak();
+        let ctx = ctx.clone();
+        app.on_request_idle_timeout_fetch(move || {
+            let ui_weak = app_weak.clone();
+            let ctx = ctx.clone();
+            tokio::spawn(async move {
+                if let Ok(minutes) = ctx.db.get_idle_timeout_minutes().await {
+                    slint::invoke_from_event_loop(move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_idle_timeout_minutes(minutes);
+                            ui.set_new_idle_timeout_input(minutes.to_string().into());
+                        }
+                    })
+                    .unwrap();
+                }
+            });
+        });
+    }
+
+    // --- IDLE TIMEOUT COMMIT (SuperAdmin only, enforced by UI gate) ---
+    {
+        let app_weak = app.as_weak();
+        let ctx = ctx.clone();
+        app.on_commit_idle_timeout(move |minutes| {
+            let ui_weak = app_weak.clone();
+            let ctx = ctx.clone();
+
+            let (acting_user, acting_role_str) = if let Some(ui) = ui_weak.upgrade() {
+                (
+                    ui.get_current_user_name().to_string(),
+                    ui.get_current_user_role().to_string(),
+                )
+            } else {
+                ("UNKNOWN".to_string(), "Viewer".to_string())
+            };
+            let acting_role: ironvault_core::auth::Role = acting_role_str.into();
+
+            tokio::spawn(async move {
+                match ctx.db.set_idle_timeout_minutes(minutes, &acting_user).await {
+                    Ok(_) => {
+                        record_audit(
+                            &ctx,
+                            &acting_user,
+                            acting_role,
+                            &format!("UPDATED_IDLE_TIMEOUT minutes={}", minutes),
+                            "WARNING",
+                        )
+                        .await;
+                        slint::invoke_from_event_loop(move || {
+                            if let Some(ui) = ui_weak.upgrade() {
+                                ui.set_idle_timeout_minutes(minutes);
+                                ui.set_op_is_error(false);
+                                ui.set_op_status_msg(
+                                    format!(
+                                        "SUCCESS: Idle timeout updated to {} minutes.",
+                                        minutes
+                                    )
+                                    .into(),
+                                );
+                            }
+                        })
+                        .unwrap();
+                    }
+                    Err(e) => {
+                        slint::invoke_from_event_loop(move || {
+                            if let Some(ui) = ui_weak.upgrade() {
+                                ui.set_op_is_error(true);
+                                ui.set_op_status_msg(format!("Settings Fault: {}", e).into());
+                            }
+                        })
+                        .unwrap();
+                    }
+                }
+            });
+        });
+    }
 
     // --- BAN ---
     {

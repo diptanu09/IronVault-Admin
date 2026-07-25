@@ -259,15 +259,12 @@ export component AppWindow inherits Window {
     in-out property <string> reveal_secret_value: "";
     in-out property <string> reveal_secret_label: "";
     in-out property <bool> reveal_secret_visible: false;
-
     in-out property <[UserData]> pending_users_list: [];
     in-out property <bool> show_welcome_popup: false;
-
     in-out property <bool> forced_password_reset_state: false;
     in-out property <string> form_new_pass: "";
     in-out property <string> form_confirm_pass: "";
     in-out property <string> password_reset_error: "";
-
     in-out property <string> lease_target_user: "";
     in-out property <string> lease_target_role: "Operator";
     in-out property <string> lease_target_days: "30";
@@ -276,9 +273,7 @@ export component AppWindow inherits Window {
     in-out property <bool> cb_vlcs: false;
     in-out property <bool> cb_sai: false;
     in-out property <bool> cb_dak: false;
-
     in-out property <[AuditLogUiData]> dashboard_audit_stream: [];
-
     in-out property <string> op_regd_no: "";
     in-out property <string> op_series_id: "";
     in-out property <string> op_account_no: "";
@@ -328,7 +323,13 @@ export component AppWindow inherits Window {
     in-out property <bool> sai_data_found: false;
     in-out property <[PensionDetailsSlint]> sai_biographical_list: [];
     in-out property <PensionStatusSlint> sai_status_record;
+    in-out property <int> idle_timeout_minutes: 10;
+    in-out property <int> idle_seconds_elapsed: 0;
+    in-out property <string> new_idle_timeout_input: "10";
 
+    callback user_activity_detected();
+    callback request_idle_timeout_fetch();
+    callback commit_idle_timeout(int);
     callback request_authentication(string, string);
     callback request_registration(string, string, string, string, string, string, string);
     callback approve_pending_operator(string, string);
@@ -363,6 +364,34 @@ export component AppWindow inherits Window {
     callback request_checkbox_states_fetch(string);
     callback trigger_log_stream_reload();
 
+    // Idle-timeout tracking: ticks every second while logged in; any
+        // user_activity_detected() call (wired to clicks/keys below) resets
+        // the counter. Reaching the configured threshold triggers a forced
+        // logout — separate from a normal manual logout so it can show a
+        // distinct "session expired" message rather than silently landing
+        // back on the login screen.
+        idle_timer := Timer {
+            interval: 1s;
+            running: root.is_logged_in;
+            triggered => {
+                root.idle_seconds_elapsed += 1;
+                if (root.idle_seconds_elapsed >= root.idle_timeout_minutes * 60) {
+                    root.idle_seconds_elapsed = 0;
+                    root.request_logout();
+                    root.login_error = "Session expired due to inactivity. Please log in again.";
+                }
+            }
+        }
+
+        // Catches any click anywhere in the window to reset the idle clock.
+        // Placed as a low-z-order full-window TouchArea so it doesn't
+        // intercept clicks meant for buttons above it (Slint TouchAreas
+        // don't block clicks from reaching elements drawn on top).
+        TouchArea {
+            clicked => { root.idle_seconds_elapsed = 0; }
+            moved => { root.idle_seconds_elapsed = 0; }
+        }
+
     Rectangle {
         HorizontalLayout {
             padding: 0px;
@@ -378,6 +407,7 @@ export component AppWindow inherits Window {
                     if (tab == "users") { root.load_users_list(); }
                     if (tab == "approvals") { root.load_pending_users_list(); }
                     if (tab == "operations") { root.op_status_msg = ""; }
+                    if (tab == "settings") { root.request_idle_timeout_fetch(); }
                 }
                 toggle_collapsed => { root.sidebar_collapsed = !root.sidebar_collapsed; }
             }
@@ -541,6 +571,57 @@ export component AppWindow inherits Window {
 
                             Rectangle {
                                 vertical-stretch: 1;
+                            }
+                        }
+                        if (root.active_tab == "settings"): VerticalLayout {
+                            spacing: 20px;
+                            Text { text: "SYSTEM CONFIGURATION"; font-size: 32px; font-weight: 800; color: Theme.text-primary; }
+
+                            Rectangle {
+                                background: Theme.bg-card;
+                                border-radius: 16px;
+                                border-width: 1px;
+                                border-color: Theme.border-color;
+                                VerticalLayout {
+                                    padding: 28px;
+                                    spacing: 16px;
+
+                                    Text { text: "SESSION IDLE TIMEOUT"; font-size: 13px; font-weight: 900; color: Theme.brand-primary; letter-spacing: 1px; }
+                                    Text {
+                                        text: "Operators are automatically logged out after this many minutes of inactivity. Applies to all accounts, including SuperAdmin sessions.";
+                                        font-size: 12px;
+                                        color: Theme.text-secondary;
+                                        wrap: word-wrap;
+                                    }
+
+                                    HorizontalLayout {
+                                        spacing: 12px;
+                                        alignment: start;
+                                        VerticalLayout {
+                                            spacing: 4px;
+                                            width: 160px;
+                                            Text { text: "MINUTES (1-240)"; font-size: 10px; font-weight: 800; color: Theme.text-muted; }
+                                            LineEdit { text <=> root.new_idle_timeout_input; height: Theme.input-height; }
+                                        }
+                                        VerticalLayout {
+                                            alignment: end;
+                                            Button {
+                                                text: "Apply";
+                                                height: Theme.input-height;
+                                                clicked => {
+                                                    root.commit_idle_timeout(root.new_idle_timeout_input.to_float());
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Text {
+                                        text: "Current active setting: " + root.idle_timeout_minutes + " minutes";
+                                        font-size: 12px;
+                                        font-weight: 700;
+                                        color: Theme.brand-success;
+                                    }
+                                }
                             }
                         }
 

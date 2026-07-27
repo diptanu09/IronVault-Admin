@@ -80,22 +80,20 @@ impl SecurityValidator {
             eprintln!(
                 "[SECURITY_FAULT] Hardware debugger intercepted via ring-0 virtualization hook."
             );
-            log_security_fault_sync("DEBUGGER_DETECTED_VMP");
+            log_security_fault_sync("DEBUGGER_DETECTED_SDK_CHECK");
             std::process::exit(1);
         }
 
         #[cfg(target_os = "windows")]
         unsafe {
-            // Level 1 Check: Basic Process Environment Block flag review
             if IsDebuggerPresent() != 0 {
                 eprintln!(
                     "[SECURITY_FAULT] Unauthorized debug attachment detected. Self-terminating."
                 );
-                log_security_fault_sync("DEBUGGER_DETECTED_PEB");
+                log_security_fault_sync("DEBUGGER_DETECTED_PEB_FLAG");
                 std::process::exit(1);
             }
 
-            // Level 2 Check: Remote debugger verification querying kernel handles directly
             let mut is_remote_debugger = 0;
             let current_proc = GetCurrentProcess();
             if CheckRemoteDebuggerPresent(current_proc, &mut is_remote_debugger) != 0
@@ -118,7 +116,7 @@ impl SecurityValidator {
 
         if sdk_vmp::vmp_check_vm() {
             eprintln!("[SECURITY_FAULT] Dynamic virtualization runtime container identified.");
-            log_security_fault_sync("VM_DETECTED_VMP");
+            log_security_fault_sync("VM_DETECTED_SDK_CHECK");
             std::process::exit(1);
         }
 
@@ -126,7 +124,6 @@ impl SecurityValidator {
         {
             let leaf_1 = __cpuid(1);
 
-            // Bit 31 of ECX is the hypervisor present bit (set by virtual machines)
             if (leaf_1.ecx & (1 << 31)) != 0 {
                 let signature_leaf = __cpuid(0x40000000);
 
@@ -141,7 +138,10 @@ impl SecurityValidator {
                     "[SECURITY_FAULT] Virtualized sandbox environment intercepted (Type: {}). Execution blocked.",
                     vm_signature
                 );
-                log_security_fault_sync(&format!("VM_DETECTED_CPUID_{}", vm_signature));
+                log_security_fault_sync(&format!(
+                    "VM_DETECTED_CPUID_HYPERVISOR_BIT type={}",
+                    vm_signature
+                ));
                 std::process::exit(1);
             }
         }

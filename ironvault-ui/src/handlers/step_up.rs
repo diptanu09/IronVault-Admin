@@ -140,6 +140,7 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
                     }).unwrap();
                 }
                 Err(e) => {
+                    log::error!("[STEP_UP] Action '{}' failed: {}", action, e); // add this
                     slint::invoke_from_event_loop(move || {
                         if let Some(ui) = ui_weak.upgrade() {
                             ui.set_step_up_error(format!("Action failed: {}", e).into());

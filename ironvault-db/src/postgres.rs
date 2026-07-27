@@ -102,7 +102,7 @@ impl DbClient {
         .bind(acting_username)
         .fetch_optional(&self.pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("require_superadmin query failed: {:?}", e))?; // <- temp debug
 
         match row {
             Some(r) => {
@@ -110,7 +110,8 @@ impl DbClient {
                 if role == "SuperAdmin" {
                     Ok(())
                 } else {
-                    Err(format!("Authorization Denied: @{} does not hold SuperAdmin privileges (current role: {}).", acting_username, role))
+                    Err(format!("Authorization Denied: @{} does not hold SuperAdmin privileges (current role: '{}').", acting_username, role))
+                    // <- quoted role for visibility
                 }
             }
             None => Err(format!(
@@ -281,7 +282,7 @@ impl DbClient {
         .bind(admin)
         .execute(&self.pool)
         .await
-        .map_err(|e| format!("Failed to update idle timeout: {}", e))?;
+        .map_err(|e| format!("Failed to update idle timeout: {:?}", e))?;
         Ok(())
     }
 

@@ -29,6 +29,7 @@ pub struct PensionAuthDetails {
     pub fppo_no: String,
     pub gpo_no: String,
     pub cpo_no: String,
+    pub addressee_name: String,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -48,6 +49,7 @@ pub struct FullPensionDakRecord {
 }
 
 impl OracleConnection {
+    /// Fetch associated pension authorities (PPO, FPPO, GPO, CPO) and pensioner addressee name for a given application number
     pub async fn pendak_fetch_auth_details(
         &self,
         appln_no: &str,
@@ -60,10 +62,13 @@ impl OracleConnection {
 
         tokio::task::spawn_blocking(move || {
             let query = "
-                SELECT a.APA_AUTH_TYPE, a.APA_AUTH_NO 
-                FROM SAI_AGARTALA.T_APPLN_AUTHORITY a 
-                INNER JOIN SAI_AGARTALA.T_APPLICATION_HDR b ON a.APA_APPLN_PK = b.APPLN_PK 
-                WHERE b.APPLN_NO = :app_no AND a.APA_AUTH_TYPE IN ('760', '761', '762', '763')
+                SELECT 
+                    a.APA_AUTH_TYPE, 
+                    a.APA_AUTH_NO,
+                    INITCAP(REGEXP_REPLACE(TRIM(REGEXP_REPLACE(b.APPLN_PNSR_SALUTE || ' ' || b.APPLN_PNSNR_NAME, '[.]', '')), '\\s+', ' ')) AS PNSNR_NAME
+                FROM SAI_AGARTALA.T_APPLICATION_HDR b
+                LEFT JOIN SAI_AGARTALA.T_APPLN_AUTHORITY a ON a.APA_APPLN_PK = b.APPLN_PK AND a.APA_AUTH_TYPE IN ('760', '761', '762', '763')
+                WHERE b.APPLN_NO = :app_no
             ";
             let mut stmt = conn.statement(query).build().map_err(|e| e.to_string())?;
             let rows = stmt
@@ -74,15 +79,22 @@ impl OracleConnection {
             let mut found_any = false;
             for row_result in rows {
                 let row = row_result.map_err(|e| e.to_string())?;
-                let auth_type: String = row.get(0).map_err(|e| e.to_string())?;
-                let auth_no: String = row.get(1).map_err(|e| e.to_string())?;
+                let auth_type: Option<String> = row.get(0).unwrap_or(None);
+                let auth_no: Option<String> = row.get(1).unwrap_or(None);
+                let name: String = row.get(2).unwrap_or_default();
+
                 found_any = true;
-                match auth_type.trim() {
-                    "760" => details.ppo_no = auth_no,
-                    "761" => details.gpo_no = auth_no,
-                    "762" => details.cpo_no = auth_no,
-                    "763" => details.fppo_no = auth_no,
-                    _ => {}
+                if !name.is_empty() {
+                    details.addressee_name = name;
+                }
+                if let (Some(at), Some(an)) = (auth_type, auth_no) {
+                    match at.trim() {
+                        "760" => details.ppo_no = an,
+                        "761" => details.gpo_no = an,
+                        "762" => details.cpo_no = an,
+                        "763" => details.fppo_no = an,
+                        _ => {}
+                    }
                 }
             }
             if found_any {
@@ -95,6 +107,7 @@ impl OracleConnection {
         .unwrap()
     }
 
+    /// Insert an outward DAK case entry into PEN_DAK_OUTWARD_DIARY
     pub async fn pendak_insert_outward_case(&self, entry: PensionDakEntry) -> Result<(), String> {
         let conn = self.get_connection(OracleTarget::Pendak)?;
         tokio::task::spawn_blocking(move || {
@@ -137,6 +150,7 @@ impl OracleConnection {
         .unwrap()
     }
 
+    /// Query full details for an outward DAK case record
     pub async fn pendak_select_outward_case_full(
         &self,
         appln_no: &str,
@@ -159,7 +173,6 @@ impl OracleConnection {
             for row_res in rows {
                 let row = row_res.map_err(|e| e.to_string())?;
 
-                // Uses implicit type deductions with core numeric column offsets
                 let app_num_val: i64 = row.get(0).unwrap_or(0);
                 let letter_no_val: String = row.get(1).unwrap_or_default();
                 let ppo_val: i64 = row.get(2).unwrap_or(0);
@@ -193,6 +206,7 @@ impl OracleConnection {
         .unwrap()
     }
 
+    /// Apply section and subject modifications to an existent outward DAK case record
     pub async fn pendak_update_outward_case(
         &self,
         app_num: &str,

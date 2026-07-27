@@ -27,7 +27,7 @@ export component PenDakView inherits Rectangle {
     in-out property <string> letter_letter_no;
     in-out property <string> letter_section;
     in-out property <string> letter_subject;
-    in-out property <string> letter_no_of_copies;
+    in-out property <string> letter_no_of_copies: "1";
     
     in-out property <string> dak_ppo;
     in-out property <string> dak_fppo;
@@ -37,19 +37,19 @@ export component PenDakView inherits Rectangle {
     // Recipient 1
     in-out property <string> dak_adr_1;
     in-out property <string> dak_bar_1;
-    in-out property <string> dak_sent_1;
+    in-out property <string> dak_sent_1: "Speed Post";
     in-out property <string> dak_sb_1: "No";
     
     // Recipient 2
     in-out property <string> dak_adr_2;
     in-out property <string> dak_bar_2;
-    in-out property <string> dak_sent_2;
+    in-out property <string> dak_sent_2: "Speed Post";
     in-out property <string> dak_sb_2: "No";
     
     // Recipient 3
     in-out property <string> dak_adr_3;
     in-out property <string> dak_bar_3;
-    in-out property <string> dak_sent_3;
+    in-out property <string> dak_sent_3: "Speed Post";
     in-out property <string> dak_sb_3: "No";
     
     in-out property <bool> dak_case_found;
@@ -148,7 +148,7 @@ export component PenDakView inherits Rectangle {
                             }
                         }
 
-                        // Auto-fetched authorities panel (PPO/FPPO, GPO, CPO)
+                        // Auto-fetched authorities panel
                         Rectangle {
                             background: #11182788;
                             border-radius: 12px;
@@ -200,7 +200,7 @@ export component PenDakView inherits Rectangle {
                             }
                         }
 
-                        // Section (Required) & Subject (Required)
+                        // Section & Subject Fields
                         HorizontalLayout {
                             spacing: 16px;
                             VerticalLayout {
@@ -265,7 +265,7 @@ export component PenDakView inherits Rectangle {
                             color: #fbbf24; 
                         }
 
-                        // Aligned Recipient Layout Cards
+                        // Recipient Cards
                         VerticalLayout {
                             spacing: 14px;
 
@@ -290,26 +290,38 @@ export component PenDakView inherits Rectangle {
                                     VerticalLayout {
                                         horizontal-stretch: 1;
                                         spacing: 4px;
-                                        Text { text: "Addressee Name"; font-size: 10px; color: #94a3b8; }
-                                        LineEdit { text <=> root.dak_adr_1; placeholder_text: "Recipient Addressee"; height: 36px; }
+                                        Text { text: "Addressee Name (Auto-fetched / Editable)"; font-size: 10px; color: #a5b4fc; font-weight: 700; }
+                                        LineEdit { 
+                                            text <=> root.dak_adr_1; 
+                                            placeholder_text: "Auto-fetching pensioner name..."; 
+                                            height: 36px; 
+                                        }
                                     }
 
                                     VerticalLayout {
-                                        width: 220px;
+                                        width: 200px;
                                         spacing: 4px;
                                         Text { text: "Speed Post Barcode"; font-size: 10px; color: #94a3b8; }
-                                        LineEdit { text <=> root.dak_bar_1; placeholder_text: "Barcode Ref"; height: 36px; }
+                                        LineEdit { 
+                                            text <=> root.dak_bar_1; 
+                                            placeholder_text: "Barcode Ref"; 
+                                            height: 36px; 
+                                        }
                                     }
 
                                     VerticalLayout {
-                                        width: 140px;
+                                        width: 160px;
                                         spacing: 4px;
-                                        Text { text: "Sent By"; font-size: 10px; color: #94a3b8; }
-                                        LineEdit { text <=> root.dak_sent_1; placeholder_text: "Sender ID"; height: 36px; }
+                                        Text { text: "Sent By *"; font-size: 10px; color: #a5b4fc; font-weight: 700; }
+                                        ComboBox {
+                                            model: ["Speed Post", "By Hand", "Registered Post", "Special Messenger"];
+                                            current-value <=> root.dak_sent_1;
+                                            height: 36px;
+                                        }
                                     }
 
                                     VerticalLayout {
-                                        width: 120px;
+                                        width: 110px;
                                         spacing: 4px;
                                         Text { text: "Service Book *"; font-size: 10px; color: #a5b4fc; font-weight: 700; }
                                         ComboBox {
@@ -343,25 +355,29 @@ export component PenDakView inherits Rectangle {
                                         horizontal-stretch: 1;
                                         spacing: 4px;
                                         Text { text: "Addressee Name"; font-size: 10px; color: #94a3b8; }
-                                        LineEdit { text <=> root.dak_adr_2; placeholder_text: "Recipient Addressee"; height: 36px; }
+                                        LineEdit { text <=> root.dak_adr_2; placeholder_text: "Recipient Addressee 2"; height: 36px; }
                                     }
 
                                     VerticalLayout {
-                                        width: 220px;
+                                        width: 200px;
                                         spacing: 4px;
                                         Text { text: "Speed Post Barcode"; font-size: 10px; color: #94a3b8; }
                                         LineEdit { text <=> root.dak_bar_2; placeholder_text: "Barcode Ref"; height: 36px; }
                                     }
 
                                     VerticalLayout {
-                                        width: 140px;
+                                        width: 160px;
                                         spacing: 4px;
-                                        Text { text: "Sent By"; font-size: 10px; color: #94a3b8; }
-                                        LineEdit { text <=> root.dak_sent_2; placeholder_text: "Sender ID"; height: 36px; }
+                                        Text { text: "Sent By *"; font-size: 10px; color: #a5b4fc; font-weight: 700; }
+                                        ComboBox {
+                                            model: ["Speed Post", "By Hand", "Registered Post", "Special Messenger"];
+                                            current-value <=> root.dak_sent_2;
+                                            height: 36px;
+                                        }
                                     }
 
                                     VerticalLayout {
-                                        width: 120px;
+                                        width: 110px;
                                         spacing: 4px;
                                         Text { text: "Service Book *"; font-size: 10px; color: #a5b4fc; font-weight: 700; }
                                         ComboBox {
@@ -395,25 +411,29 @@ export component PenDakView inherits Rectangle {
                                         horizontal-stretch: 1;
                                         spacing: 4px;
                                         Text { text: "Addressee Name"; font-size: 10px; color: #94a3b8; }
-                                        LineEdit { text <=> root.dak_adr_3; placeholder_text: "Recipient Addressee"; height: 36px; }
+                                        LineEdit { text <=> root.dak_adr_3; placeholder_text: "Recipient Addressee 3"; height: 36px; }
                                     }
 
                                     VerticalLayout {
-                                        width: 220px;
+                                        width: 200px;
                                         spacing: 4px;
                                         Text { text: "Speed Post Barcode"; font-size: 10px; color: #94a3b8; }
                                         LineEdit { text <=> root.dak_bar_3; placeholder_text: "Barcode Ref"; height: 36px; }
                                     }
 
                                     VerticalLayout {
-                                        width: 140px;
+                                        width: 160px;
                                         spacing: 4px;
-                                        Text { text: "Sent By"; font-size: 10px; color: #94a3b8; }
-                                        LineEdit { text <=> root.dak_sent_3; placeholder_text: "Sender ID"; height: 36px; }
+                                        Text { text: "Sent By *"; font-size: 10px; color: #a5b4fc; font-weight: 700; }
+                                        ComboBox {
+                                            model: ["Speed Post", "By Hand", "Registered Post", "Special Messenger"];
+                                            current-value <=> root.dak_sent_3;
+                                            height: 36px;
+                                        }
                                     }
 
                                     VerticalLayout {
-                                        width: 120px;
+                                        width: 110px;
                                         spacing: 4px;
                                         Text { text: "Service Book *"; font-size: 10px; color: #a5b4fc; font-weight: 700; }
                                         ComboBox {
@@ -433,7 +453,7 @@ export component PenDakView inherits Rectangle {
                         }
                     }
                 }
-                
+
                 // ==================== FIND MODE ====================
                 if (root.active_schema_action == "pendak_find") : VerticalLayout {
                     spacing: 20px;
@@ -450,19 +470,19 @@ export component PenDakView inherits Rectangle {
                         spacing: 16px;
                         alignment: start;
                         VerticalLayout { 
-                            spacing: 6px; 
+                            spacing: 6px;
                             width: 380px; 
                             LineEdit { 
-                                text <=> root.find_app_num; 
+                                text <=> root.find_app_num;
                                 placeholder_text: "Enter verification app sequence token..."; 
                                 height: 48px; 
                                 font-size: 15px;
                             } 
                         }
                         VerticalLayout { 
-                            alignment: end; 
+                            alignment: end;
                             Button { 
-                                text: "LOCATE TRANSACTION"; 
+                                text: "LOCATE TRANSACTION";
                                 height: 48px; 
                                 clicked => { root.request_find_outward_dak(root.find_app_num); } 
                             } 
@@ -480,7 +500,7 @@ export component PenDakView inherits Rectangle {
                             spacing: 18px;
 
                             Text { 
-                                text: "MATCHED ENCLAVE CASE ENTRY RECORDS"; 
+                                text: "MATCHED ENCLAVE CASE ENTRY RECORDS";
                                 font-size: 14px; 
                                 font-weight: 800; 
                                 color: #fbbf24; 
@@ -512,19 +532,19 @@ export component PenDakView inherits Rectangle {
                     HorizontalLayout {
                         spacing: 16px;
                         VerticalLayout {
-                            spacing: 6px; 
+                            spacing: 6px;
                             width: 240px; 
                             Text { text: "TARGET APP NO"; font-size: 11px; font-weight: 700; color: #64748b; } 
                             LineEdit { text <=> root.edit_app_num; height: 48px; font-size: 15px; } 
                         }
                         VerticalLayout {
-                            spacing: 6px; 
+                            spacing: 6px;
                             width: 240px; 
                             Text { text: "RE-ROUTE NEW SECTION"; font-size: 11px; font-weight: 700; color: #64748b; } 
                             LineEdit { text <=> root.edit_section; height: 48px; font-size: 15px; } 
                         }
                         VerticalLayout {
-                            spacing: 6px; 
+                            spacing: 6px;
                             horizontal-stretch: 1; 
                             Text { text: "REVISED SUBJECT MATTER"; font-size: 11px; font-weight: 700; color: #64748b; } 
                             LineEdit { text <=> root.edit_subject; height: 48px; font-size: 15px; } 
@@ -553,13 +573,13 @@ export component PenDakView inherits Rectangle {
                     HorizontalLayout {
                         spacing: 16px;
                         VerticalLayout {
-                            spacing: 6px; 
+                            spacing: 6px;
                             width: 260px; 
                             Text { text: "PARENT APP NO"; font-size: 11px; font-weight: 700; color: #64748b; } 
                             LineEdit { text <=> root.letter_app_num; height: 48px; font-size: 15px; } 
                         }
                         VerticalLayout {
-                            spacing: 6px; 
+                            spacing: 6px;
                             width: 260px; 
                             Text { text: "INCOMING LETTER REFERENCE"; font-size: 11px; font-weight: 700; color: #64748b; } 
                             LineEdit { text <=> root.letter_letter_no; height: 48px; font-size: 15px; } 
@@ -569,13 +589,13 @@ export component PenDakView inherits Rectangle {
                     HorizontalLayout {
                         spacing: 16px;
                         VerticalLayout {
-                            spacing: 6px; 
+                            spacing: 6px;
                             width: 260px; 
                             Text { text: "HANDLING SECTION"; font-size: 11px; font-weight: 700; color: #64748b; } 
                             LineEdit { text <=> root.letter_section; height: 48px; font-size: 15px; } 
                         }
                         VerticalLayout {
-                            spacing: 6px; 
+                            spacing: 6px;
                             horizontal-stretch: 1; 
                             Text { text: "SUBJECT REMARKS"; font-size: 11px; font-weight: 700; color: #64748b; } 
                             LineEdit { text <=> root.letter_subject; height: 48px; font-size: 15px; } 

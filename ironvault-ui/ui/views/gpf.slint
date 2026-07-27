@@ -100,9 +100,11 @@ export component GpfFinalPaymentView inherits Rectangle {
                                 }
                                 
                                 VerticalLayout { 
-                                    alignment: end; 
+                                    alignment: end;
                                     FluidButton { 
-                                        text: "Scan Secure Ring"; height: 32px; 
+                                        text: "Scan Secure Ring";
+                                        width: 160px;
+                                        height: 32px; 
                                         clicked => { root.request_find_gpf_case(root.op_regd_no); } 
                                     } 
                                 }

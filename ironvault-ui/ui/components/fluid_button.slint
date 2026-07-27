@@ -10,6 +10,8 @@ export component FluidButton inherits Rectangle {
     callback clicked;
 
     height: 36px;
+    // Set preferred width automatically based on inner layout content
+    width: content-layout.preferred-width;
     border-radius: 8px;
     
     background: is_destructive ? root.danger_color : root.primary_color;
@@ -28,6 +30,7 @@ export component FluidButton inherits Rectangle {
         y: touch.has-hover ? -2px : 0px;
         animate y { duration: 150ms; easing: ease-out; }
 
+        content-layout :=
         HorizontalLayout {
             alignment: center;
             padding-left: 16px; padding-right: 16px;

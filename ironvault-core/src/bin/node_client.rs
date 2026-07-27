@@ -1,38 +1,48 @@
 //! Edge Node Simulation Client
-//! Fires an encrypted payload to the IronVault Central Command server
+//! Connects to the IronVault Command Center over mutual TLS and sends a
+//! test command.
 
-use ironvault_core::crypto::{derive_key, Decryptor, Encryptor};
-use ironvault_core::network::{receive_secure_payload, send_secure_payload, NodeCommand, NodeResponse};
+use ironvault_core::network::{
+    build_node_connector, receive_secure_payload, send_secure_payload, NodeCommand, NodeResponse,
+};
 use tokio::net::TcpStream;
+use tokio_rustls::rustls::pki_types::ServerName;
 
 #[tokio::main]
 async fn main() -> Result<(), String> {
     println!("[NODE BOOT] Initializing Edge Node uplink sequence...");
 
-    // 1. Derive the exact same 32-byte AES key used by the Command Center
-    let network_secret = derive_key("IronVault_Master_Node_Key_2026", "Salt_Secure_Comm");
-    let encryptor = Encryptor::new(&network_secret);
-    let decryptor = Decryptor::new(&network_secret);
+    // Paths would normally come from this node's own .env/config, not be
+    // hardcoded — left explicit here since this is a demo/test client.
+    let connector = build_node_connector(
+        "certs/generated/node-01.crt",
+        "certs/generated/node-01.key",
+        "certs/generated/ca.crt",
+    )?;
 
-    // 2. Connect to the UI Server (ensure this matches the port you just updated)
-    println!("[NODE] Attempting TCP Handshake with Command Center on 127.0.0.1:9443...");
-    let mut stream = TcpStream::connect("127.0.0.1:9443")
+    println!("[NODE] Attempting TCP + TLS Handshake with Command Center on 127.0.0.1:9443...");
+    let tcp_stream = TcpStream::connect("127.0.0.1:9443")
         .await
         .map_err(|e| format!("Failed to connect to Command Center: {}", e))?;
-        
-    println!("[NODE] Handshake successful. Socket open.");
 
-    // 3. Construct the secure command
+    let server_name = ServerName::try_from("ironvault-command-center")
+        .map_err(|e| format!("Invalid server name: {:?}", e))?;
+
+    let mut tls_stream = connector
+        .connect(server_name, tcp_stream)
+        .await
+        .map_err(|e| format!("TLS handshake failed: {}", e))?;
+
+    println!("[NODE] mTLS handshake successful. Both sides authenticated.");
+
     let command = NodeCommand::TriggerLockdown("CRITICAL_THREAT_DETECTED".to_string());
-    println!("[NODE] Sealing envelope: {:?}", command);
+    println!("[NODE] Sending command: {:?}", command);
 
-    // 4. Encrypt and transmit with a strict 60-second TTL
-    send_secure_payload(&mut stream, &encryptor, &command).await?;
-    println!("[NODE] Encrypted payload transmitted over TCP.");
+    send_secure_payload(&mut tls_stream, &command).await?;
+    println!("[NODE] Encrypted, authenticated payload transmitted.");
 
-    // 5. Await the Command Center's encrypted response
-    println!("[NODE] Awaiting secure verification response...");
-    match receive_secure_payload::<NodeResponse>(&mut stream, &decryptor).await {
+    println!("[NODE] Awaiting response...");
+    match receive_secure_payload::<NodeResponse, _>(&mut tls_stream).await {
         Ok(response) => {
             println!("\n========================================");
             println!("[SUCCESS] Validated Response from Command Center:");
@@ -40,7 +50,10 @@ async fn main() -> Result<(), String> {
             println!("========================================\n");
         }
         Err(e) => {
-            println!("[SECURITY FAULT] Failed to verify Command Center response: {}", e);
+            println!(
+                "[SECURITY FAULT] Failed to verify Command Center response: {}",
+                e
+            );
         }
     }
 

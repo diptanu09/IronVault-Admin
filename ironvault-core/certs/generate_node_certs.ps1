@@ -1,60 +1,205 @@
-# IronVault Node/Command-Center mTLS Certificate Setup
+# IronVault mTLS Certificate Generator
 #
 # Generates:
-#   - A local Certificate Authority (ca.crt / ca.key)
-#   - A server certificate for the Command Center, signed by the CA
-#   - A client certificate for each Edge Node, signed by the CA
+#   certs/generated/
+#       ca.crt
+#       ca.key
+#       command_center.crt
+#       command_center.key
+#       node-01.crt
+#       node-01.key
 #
-# Both sides verify the peer's certificate against ca.crt — this is what
-# gives each side genuine peer identity, unlike the old shared-AES-key
-# scheme where "having the key" was the only proof of identity.
+# Requires:
+#   OpenSSL installed and available on PATH
 #
-# Run as Administrator. Requires openssl on PATH.
+# Run:
+#   powershell -ExecutionPolicy Bypass -File generate-certs.ps1
 
 param(
     [string]$OutDir = ".\certs\generated",
+
+    # Hostname of your Command Center
     [string]$CommandCenterCn = "ironvault-command-center",
+
+    # Command Center IP
+    [string]$CommandCenterIP = "10.47.240.169",
+
+    # Edge Nodes
     [string[]]$NodeNames = @("node-01"),
-    [int]$ValidityDays = 180
+
+    [int]$ValidityDays = 365
 )
 
 $ErrorActionPreference = "Stop"
-New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
+
+New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 Set-Location $OutDir
 
-Write-Host "=== Generating IronVault mTLS Certificate Authority ===" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "======================================" -ForegroundColor Cyan
+Write-Host " IronVault Certificate Generator"
+Write-Host "======================================" -ForegroundColor Cyan
+Write-Host ""
 
-# --- CA ---
-if (-not (Test-Path "ca.key")) {
+##########################################################
+# Generate CA
+##########################################################
+
+if (!(Test-Path "ca.key")) {
+    Write-Host "Generating Certificate Authority..."
+
     openssl genrsa -out ca.key 4096
-    openssl req -new -x509 -days ($ValidityDays * 4) -key ca.key -out ca.crt `
-        -subj "/CN=IronVault-Internal-CA"
-    Write-Host "Generated new CA (ca.crt / ca.key)"
+
+    openssl req `
+        -new `
+        -x509 `
+        -days ($ValidityDays * 5) `
+        -key ca.key `
+        -out ca.crt `
+        -subj "/CN=IronVault Internal CA"
+
+    Write-Host "CA generated."
 }
 else {
-    Write-Host "Existing CA found, reusing it. Delete ca.key/ca.crt to force regeneration." -ForegroundColor Yellow
+    Write-Host "Existing CA found."
 }
 
-# --- Command Center server cert ---
-Write-Host "Generating Command Center server certificate..."
-openssl genrsa -out command_center.key 2048
-openssl req -new -key command_center.key -out command_center.csr -subj "/CN=$CommandCenterCn"
-openssl x509 -req -in command_center.csr -CA ca.crt -CAkey ca.key -CAcreateserial `
-    -out command_center.crt -days $ValidityDays
+##########################################################
+# Server Certificate Extension
+##########################################################
+
+@"
+authorityKeyIdentifier=keyid,issuer
+
+basicConstraints=CA:FALSE
+
+keyUsage=digitalSignature,keyEncipherment
+
+extendedKeyUsage=serverAuth
+
+subjectAltName=@alt_names
+
+[alt_names]
+DNS.1=$CommandCenterCn
+DNS.2=localhost
+IP.1=127.0.0.1
+IP.2=$CommandCenterIP
+"@ | Set-Content server.ext
+
+##########################################################
+# Generate Command Center Certificate
+##########################################################
+
+Write-Host ""
+Write-Host "Generating Command Center Certificate..."
+
+openssl genrsa `
+    -out command_center.key `
+    2048
+
+openssl req `
+    -new `
+    -key command_center.key `
+    -out command_center.csr `
+    -subj "/CN=$CommandCenterCn"
+
+openssl x509 `
+    -req `
+    -in command_center.csr `
+    -CA ca.crt `
+    -CAkey ca.key `
+    -CAcreateserial `
+    -out command_center.crt `
+    -days $ValidityDays `
+    -sha256 `
+    -extfile server.ext
+
 Remove-Item command_center.csr
 
-# --- One client cert per node ---
+##########################################################
+# Client Certificate Extension
+##########################################################
+
+@"
+authorityKeyIdentifier=keyid,issuer
+
+basicConstraints=CA:FALSE
+
+keyUsage=digitalSignature,keyEncipherment
+
+extendedKeyUsage=clientAuth
+"@ | Set-Content client.ext
+
+##########################################################
+# Generate Node Certificates
+##########################################################
+
 foreach ($node in $NodeNames) {
-    Write-Host "Generating client certificate for node: $node"
-    openssl genrsa -out "$node.key" 2048
-    openssl req -new -key "$node.key" -out "$node.csr" -subj "/CN=$node"
-    openssl x509 -req -in "$node.csr" -CA ca.crt -CAkey ca.key -CAcreateserial `
-        -out "$node.crt" -days $ValidityDays
+    Write-Host ""
+    Write-Host "Generating certificate for $node"
+
+    openssl genrsa `
+        -out "$node.key" `
+        2048
+
+    openssl req `
+        -new `
+        -key "$node.key" `
+        -out "$node.csr" `
+        -subj "/CN=$node"
+
+    openssl x509 `
+        -req `
+        -in "$node.csr" `
+        -CA ca.crt `
+        -CAkey ca.key `
+        -CAcreateserial `
+        -out "$node.crt" `
+        -days $ValidityDays `
+        -sha256 `
+        -extfile client.ext
+
     Remove-Item "$node.csr"
 }
 
+##########################################################
+# Cleanup
+##########################################################
+
+Remove-Item server.ext
+Remove-Item client.ext
+
 Write-Host ""
-Write-Host "=== Done ===" -ForegroundColor Green
-Write-Host "Command Center needs: ca.crt, command_center.crt, command_center.key"
-Write-Host "Each Node needs: ca.crt, <node_name>.crt, <node_name>.key"
-Write-Host "Distribute each node's key ONLY to that node never share one node cert/key across machines."
+Write-Host "======================================" -ForegroundColor Green
+Write-Host "Certificates Generated Successfully"
+Write-Host "======================================" -ForegroundColor Green
+Write-Host ""
+
+Write-Host "Server:"
+Write-Host "  command_center.crt"
+Write-Host "  command_center.key"
+
+Write-Host ""
+
+Write-Host "Certificate Authority:"
+Write-Host "  ca.crt"
+Write-Host "  ca.key"
+
+Write-Host ""
+
+Write-Host "Nodes:"
+foreach ($node in $NodeNames) {
+    Write-Host "  $node.crt"
+    Write-Host "  $node.key"
+}
+
+Write-Host ""
+
+Write-Host "Server SAN entries:"
+Write-Host "  DNS : $CommandCenterCn"
+Write-Host "  DNS : localhost"
+Write-Host "  IP  : 127.0.0.1"
+Write-Host "  IP  : $CommandCenterIP"
+
+Write-Host ""
+Write-Host "Done."

@@ -1,4 +1,4 @@
-import { Button, LineEdit, ScrollView } from "std-widgets.slint";
+import { Button, LineEdit, ScrollView, ComboBox } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 
 export struct DakRecipientDetail {
@@ -9,19 +9,20 @@ export struct DakRecipientDetail {
 }
 
 export component PenDakView inherits Rectangle {
-    in-out property <string> active_schema_action;
+    in-out property <string> active_schema_action: "pendak_entry";
     in-out property <string> op_status_msg;
     in-out property <bool> op_is_error;
     
     in-out property <string> entry_app_num;
-    in-out property <string> entry_letter_no;
     in-out property <string> entry_section;
     in-out property <string> entry_subject;
-    in-out property <string> entry_no_of_copies;
+    in-out property <string> entry_no_of_copies: "1";
+    
     in-out property <string> find_app_num;
     in-out property <string> edit_app_num;
     in-out property <string> edit_section;
     in-out property <string> edit_subject;
+    
     in-out property <string> letter_app_num;
     in-out property <string> letter_letter_no;
     in-out property <string> letter_section;
@@ -32,15 +33,24 @@ export component PenDakView inherits Rectangle {
     in-out property <string> dak_fppo;
     in-out property <string> dak_gpo;
     in-out property <string> dak_cpo;
+    
+    // Recipient 1
     in-out property <string> dak_adr_1;
     in-out property <string> dak_bar_1;
     in-out property <string> dak_sent_1;
+    in-out property <string> dak_sb_1: "No";
+    
+    // Recipient 2
     in-out property <string> dak_adr_2;
     in-out property <string> dak_bar_2;
     in-out property <string> dak_sent_2;
+    in-out property <string> dak_sb_2: "No";
+    
+    // Recipient 3
     in-out property <string> dak_adr_3;
     in-out property <string> dak_bar_3;
     in-out property <string> dak_sent_3;
+    in-out property <string> dak_sb_3: "No";
     
     in-out property <bool> dak_case_found;
     in-out property <string> view_dak_letter;
@@ -60,13 +70,13 @@ export component PenDakView inherits Rectangle {
         spacing: 24px;
         padding: 24px;
         
-        // Modern Ribbon Navigation
+        // Ribbon Navigation
         HorizontalLayout {
             spacing: 12px;
             alignment: start;
 
             Button {
-                text: "📥 Entry Outward Case";
+                text: "📝 Entry Outward Case";
                 height: 42px;
                 checked: root.active_schema_action == "pendak_entry";
                 clicked => { root.active_schema_action = "pendak_entry"; }
@@ -78,7 +88,7 @@ export component PenDakView inherits Rectangle {
                 clicked => { root.active_schema_action = "pendak_find"; }
             }
             Button {
-                text: "📝 Edit/Update Outward";
+                text: "✏️ Edit/Update Outward";
                 height: 42px;
                 checked: root.active_schema_action == "pendak_edit";
                 clicked => { root.active_schema_action = "pendak_edit"; }
@@ -116,44 +126,29 @@ export component PenDakView inherits Rectangle {
                             color: #a5b4fc;
                         }
 
+                        // Application No (Mandatory)
                         HorizontalLayout {
                             spacing: 16px;
                             VerticalLayout {
-                                spacing: 6px; 
-                                width: 280px; 
+                                spacing: 6px;
+                                width: 320px; 
                                 Text { 
-                                    text: "APPLICATION NO"; 
+                                    text: "APPLICATION NO *";
                                     font-size: 11px; 
                                     font-weight: 700; 
-                                    color: #64748b; 
+                                    color: #a5b4fc; 
                                 } 
                                 LineEdit { 
-                                    text <=> root.entry_app_num; 
-                                    placeholder_text: "e.g. 104250"; 
-                                    height: 48px; 
+                                    text <=> root.entry_app_num;
+                                    placeholder_text: "e.g. 104250 (Required)"; 
+                                    height: 44px; 
                                     font-size: 15px;
                                     edited => { root.request_find_pension_dak_meta(root.entry_app_num); } 
                                 } 
                             }
-                            VerticalLayout {
-                                spacing: 6px; 
-                                width: 280px; 
-                                Text { 
-                                    text: "OUTWARD LETTER NO"; 
-                                    font-size: 11px; 
-                                    font-weight: 700; 
-                                    color: #64748b; 
-                                } 
-                                LineEdit { 
-                                    text <=> root.entry_letter_no; 
-                                    placeholder_text: "e.g. DAK-2026-X"; 
-                                    height: 48px; 
-                                    font-size: 15px;
-                                } 
-                            }
                         }
 
-                        // Auto-fetched authorities panel
+                        // Auto-fetched authorities panel (PPO/FPPO, GPO, CPO)
                         Rectangle {
                             background: #11182788;
                             border-radius: 12px;
@@ -165,204 +160,267 @@ export component PenDakView inherits Rectangle {
                                 padding: 16px;
                                 spacing: 24px;
                                 VerticalLayout { 
-                                    spacing: 2px; 
-                                    Text { text: "PPO NUMBER"; font-size: 10px; color: #64748b; } 
+                                    spacing: 2px;
+                                    Text { text: "AUTO-FETCHED PPO"; font-size: 10px; color: #64748b; } 
                                     Text { 
                                         text: root.dak_ppo == "" ? "Awaiting Input..." : root.dak_ppo; 
                                         font-size: 14px; 
                                         font-weight: 700; 
-                                        color: #67e8f9; 
+                                        color: #67e8f9;
                                     } 
                                 }
                                 VerticalLayout { 
                                     spacing: 2px; 
-                                    Text { text: "FPPO NUMBER"; font-size: 10px; color: #64748b; } 
+                                    Text { text: "AUTO-FETCHED FPPO"; font-size: 10px; color: #64748b; } 
                                     Text { 
                                         text: root.dak_fppo == "" ? "Awaiting Input..." : root.dak_fppo; 
                                         font-size: 14px; 
                                         font-weight: 700; 
+                                        color: #67e8f9;
                                     } 
                                 }
                                 VerticalLayout { 
                                     spacing: 2px; 
-                                    Text { text: "GPO AUTHORITY"; font-size: 10px; color: #64748b; } 
+                                    Text { text: "AUTO-FETCHED GPO"; font-size: 10px; color: #64748b; } 
                                     Text { 
                                         text: root.dak_gpo == "" ? "N/A" : root.dak_gpo; 
                                         font-size: 14px; 
+                                        color: #67e8f9;
                                     } 
                                 }
                                 VerticalLayout { 
                                     spacing: 2px; 
-                                    Text { text: "CPO AUTHORITY"; font-size: 10px; color: #64748b; } 
+                                    Text { text: "AUTO-FETCHED CPO"; font-size: 10px; color: #64748b; } 
                                     Text { 
                                         text: root.dak_cpo == "" ? "N/A" : root.dak_cpo; 
                                         font-size: 14px; 
+                                        color: #67e8f9;
                                     } 
                                 }
                             }
                         }
 
+                        // Section (Required) & Subject (Required)
                         HorizontalLayout {
                             spacing: 16px;
                             VerticalLayout {
-                                spacing: 6px; 
+                                spacing: 6px;
                                 width: 280px; 
                                 Text { 
-                                    text: "ROUTING SECTION MATRIX"; 
+                                    text: "ROUTING SECTION MATRIX *";
                                     font-size: 11px; 
                                     font-weight: 700; 
-                                    color: #64748b; 
+                                    color: #a5b4fc; 
                                 } 
                                 LineEdit { 
-                                    text <=> root.entry_section; 
-                                    placeholder_text: "e.g. Pension-3"; 
-                                    height: 48px; 
+                                    text <=> root.entry_section;
+                                    placeholder_text: "e.g. Pension-3 (Required)"; 
+                                    height: 44px; 
                                     font-size: 15px;
                                 } 
                             }
                             VerticalLayout {
-                                spacing: 6px; 
+                                spacing: 6px;
                                 horizontal-stretch: 1; 
                                 Text { 
-                                    text: "COMMUNICATION SUBJECT OVERVIEW"; 
+                                    text: "COMMUNICATION SUBJECT OVERVIEW *";
                                     font-size: 11px; 
                                     font-weight: 700; 
-                                    color: #64748b; 
+                                    color: #a5b4fc; 
                                 } 
                                 LineEdit { 
-                                    text <=> root.entry_subject; 
-                                    placeholder_text: "Summary of files forwarded..."; 
-                                    height: 48px; 
+                                    text <=> root.entry_subject;
+                                    placeholder_text: "Summary of files forwarded... (Required)"; 
+                                    height: 44px; 
                                     font-size: 15px;
                                 } 
                             }
                         }
 
+                        // No of copies
                         HorizontalLayout {
                             spacing: 16px;
                             VerticalLayout {
-                                spacing: 6px; 
+                                spacing: 6px;
                                 width: 140px; 
                                 Text { 
-                                    text: "NO OF COPIES"; 
+                                    text: "NO OF COPIES";
                                     font-size: 11px; 
                                     font-weight: 700; 
                                     color: #64748b; 
                                 } 
                                 LineEdit { 
-                                    text <=> root.entry_no_of_copies; 
-                                    height: 48px; 
+                                    text <=> root.entry_no_of_copies;
+                                    height: 44px; 
                                     font-size: 15px;
                                 } 
                             }
                         }
 
-                        // Recipients Section
+                        // Recipients Forensics Section Header
                         Text { 
-                            text: "RECIPIENT FORENSICS DISPATCH PROFILES"; 
+                            text: "RECIPIENT FORENSICS DISPATCH PROFILES";
                             font-size: 13px; 
                             font-weight: 800; 
                             color: #fbbf24; 
                         }
 
+                        // Aligned Recipient Layout Cards
                         VerticalLayout {
-                            spacing: 12px;
+                            spacing: 14px;
 
-                            // Recipient 1
+                            // Recipient 1 Row
                             Rectangle {
-                                background: #1e293744;
+                                background: #1e293766;
                                 border-radius: 12px;
                                 border-width: 1px;
                                 border-color: #334155;
-                                height: 58px;
+                                height: 72px;
+
                                 HorizontalLayout {
-                                    padding-left: 16px; 
+                                    padding-left: 16px;
                                     padding-right: 16px; 
-                                    spacing: 12px;
+                                    padding-top: 10px;
+                                    padding-bottom: 10px;
+                                    spacing: 16px;
                                     alignment: center;
-                                    Text { text: "1"; font-weight: 900; color: #6366f1; vertical-alignment: center; }
-                                    LineEdit { 
-                                        text <=> root.dak_adr_1; 
-                                        placeholder_text: "Recipient Addressee 1"; 
-                                        horizontal-stretch: 1; 
-                                        height: 40px; 
+
+                                    Text { text: "#1"; font-weight: 900; color: #6366f1; vertical-alignment: center; }
+
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        spacing: 4px;
+                                        Text { text: "Addressee Name"; font-size: 10px; color: #94a3b8; }
+                                        LineEdit { text <=> root.dak_adr_1; placeholder_text: "Recipient Addressee"; height: 36px; }
                                     }
-                                    LineEdit { 
-                                        text <=> root.dak_bar_1; 
-                                        placeholder_text: "Speed Post Barcode"; 
-                                        width: 240px; 
-                                        height: 40px; 
+
+                                    VerticalLayout {
+                                        width: 220px;
+                                        spacing: 4px;
+                                        Text { text: "Speed Post Barcode"; font-size: 10px; color: #94a3b8; }
+                                        LineEdit { text <=> root.dak_bar_1; placeholder_text: "Barcode Ref"; height: 36px; }
                                     }
-                                    LineEdit { 
-                                        text <=> root.dak_sent_1; 
-                                        width: 140px; 
-                                        height: 40px; 
+
+                                    VerticalLayout {
+                                        width: 140px;
+                                        spacing: 4px;
+                                        Text { text: "Sent By"; font-size: 10px; color: #94a3b8; }
+                                        LineEdit { text <=> root.dak_sent_1; placeholder_text: "Sender ID"; height: 36px; }
+                                    }
+
+                                    VerticalLayout {
+                                        width: 120px;
+                                        spacing: 4px;
+                                        Text { text: "Service Book *"; font-size: 10px; color: #a5b4fc; font-weight: 700; }
+                                        ComboBox {
+                                            model: ["No", "Yes"];
+                                            current-value <=> root.dak_sb_1;
+                                            height: 36px;
+                                        }
                                     }
                                 }
                             }
 
-                            // Recipient 2 (conditional)
+                            // Recipient 2 Row (Conditional)
                             if (root.entry_no_of_copies == "2" || root.entry_no_of_copies == "3") : Rectangle {
-                                background: #1e293744;
+                                background: #1e293766;
                                 border-radius: 12px;
                                 border-width: 1px;
                                 border-color: #334155;
-                                height: 58px;
+                                height: 72px;
+
                                 HorizontalLayout {
-                                    padding-left: 16px; 
+                                    padding-left: 16px;
                                     padding-right: 16px; 
-                                    spacing: 12px;
+                                    padding-top: 10px;
+                                    padding-bottom: 10px;
+                                    spacing: 16px;
                                     alignment: center;
-                                    Text { text: "2"; font-weight: 900; color: #6366f1; vertical-alignment: center; }
-                                    LineEdit { 
-                                        text <=> root.dak_adr_2; 
-                                        placeholder_text: "Recipient Addressee 2"; 
-                                        horizontal-stretch: 1; 
-                                        height: 40px; 
+
+                                    Text { text: "#2"; font-weight: 900; color: #6366f1; vertical-alignment: center; }
+
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        spacing: 4px;
+                                        Text { text: "Addressee Name"; font-size: 10px; color: #94a3b8; }
+                                        LineEdit { text <=> root.dak_adr_2; placeholder_text: "Recipient Addressee"; height: 36px; }
                                     }
-                                    LineEdit { 
-                                        text <=> root.dak_bar_2; 
-                                        placeholder_text: "Speed Post Barcode"; 
-                                        width: 240px; 
-                                        height: 40px; 
+
+                                    VerticalLayout {
+                                        width: 220px;
+                                        spacing: 4px;
+                                        Text { text: "Speed Post Barcode"; font-size: 10px; color: #94a3b8; }
+                                        LineEdit { text <=> root.dak_bar_2; placeholder_text: "Barcode Ref"; height: 36px; }
                                     }
-                                    LineEdit { 
-                                        text <=> root.dak_sent_2; 
-                                        width: 140px; 
-                                        height: 40px; 
+
+                                    VerticalLayout {
+                                        width: 140px;
+                                        spacing: 4px;
+                                        Text { text: "Sent By"; font-size: 10px; color: #94a3b8; }
+                                        LineEdit { text <=> root.dak_sent_2; placeholder_text: "Sender ID"; height: 36px; }
+                                    }
+
+                                    VerticalLayout {
+                                        width: 120px;
+                                        spacing: 4px;
+                                        Text { text: "Service Book *"; font-size: 10px; color: #a5b4fc; font-weight: 700; }
+                                        ComboBox {
+                                            model: ["No", "Yes"];
+                                            current-value <=> root.dak_sb_2;
+                                            height: 36px;
+                                        }
                                     }
                                 }
                             }
 
-                            // Recipient 3 (conditional)
+                            // Recipient 3 Row (Conditional)
                             if (root.entry_no_of_copies == "3") : Rectangle {
-                                background: #1e293744;
+                                background: #1e293766;
                                 border-radius: 12px;
                                 border-width: 1px;
                                 border-color: #334155;
-                                height: 58px;
+                                height: 72px;
+
                                 HorizontalLayout {
-                                    padding-left: 16px; 
+                                    padding-left: 16px;
                                     padding-right: 16px; 
-                                    spacing: 12px;
+                                    padding-top: 10px;
+                                    padding-bottom: 10px;
+                                    spacing: 16px;
                                     alignment: center;
-                                    Text { text: "3"; font-weight: 900; color: #6366f1; vertical-alignment: center; }
-                                    LineEdit { 
-                                        text <=> root.dak_adr_3; 
-                                        placeholder_text: "Recipient Addressee 3"; 
-                                        horizontal-stretch: 1; 
-                                        height: 40px; 
+
+                                    Text { text: "#3"; font-weight: 900; color: #6366f1; vertical-alignment: center; }
+
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        spacing: 4px;
+                                        Text { text: "Addressee Name"; font-size: 10px; color: #94a3b8; }
+                                        LineEdit { text <=> root.dak_adr_3; placeholder_text: "Recipient Addressee"; height: 36px; }
                                     }
-                                    LineEdit { 
-                                        text <=> root.dak_bar_3; 
-                                        placeholder_text: "Speed Post Barcode"; 
-                                        width: 240px; 
-                                        height: 40px; 
+
+                                    VerticalLayout {
+                                        width: 220px;
+                                        spacing: 4px;
+                                        Text { text: "Speed Post Barcode"; font-size: 10px; color: #94a3b8; }
+                                        LineEdit { text <=> root.dak_bar_3; placeholder_text: "Barcode Ref"; height: 36px; }
                                     }
-                                    LineEdit { 
-                                        text <=> root.dak_sent_3; 
-                                        width: 140px; 
-                                        height: 40px; 
+
+                                    VerticalLayout {
+                                        width: 140px;
+                                        spacing: 4px;
+                                        Text { text: "Sent By"; font-size: 10px; color: #94a3b8; }
+                                        LineEdit { text <=> root.dak_sent_3; placeholder_text: "Sender ID"; height: 36px; }
+                                    }
+
+                                    VerticalLayout {
+                                        width: 120px;
+                                        spacing: 4px;
+                                        Text { text: "Service Book *"; font-size: 10px; color: #a5b4fc; font-weight: 700; }
+                                        ComboBox {
+                                            model: ["No", "Yes"];
+                                            current-value <=> root.dak_sb_3;
+                                            height: 36px;
+                                        }
                                     }
                                 }
                             }
@@ -375,7 +433,7 @@ export component PenDakView inherits Rectangle {
                         }
                     }
                 }
-
+                
                 // ==================== FIND MODE ====================
                 if (root.active_schema_action == "pendak_find") : VerticalLayout {
                     spacing: 20px;

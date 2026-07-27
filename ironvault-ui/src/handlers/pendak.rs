@@ -102,7 +102,6 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
             let ctx = ctx.clone();
 
             let app_num = ui.get_entry_app_num().to_string().trim().to_string();
-            let letter_no = ui.get_entry_letter_no().to_string().trim().to_string();
             let ppo = ui.get_dak_ppo().to_string();
             let fppo = ui.get_dak_fppo().to_string();
             let gpo = ui.get_dak_gpo().to_string().trim().to_string();
@@ -112,17 +111,22 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
             let copies_str = ui.get_entry_no_of_copies().to_string();
             let copies_count: i32 = copies_str.parse().unwrap_or(1);
 
-            if app_num.is_empty()
-                || letter_no.is_empty()
-                || section.is_empty()
-                || subject.is_empty()
-            {
+            // Application No, Section, and Subject are strictly required
+            if app_num.is_empty() || section.is_empty() || subject.is_empty() {
                 ui.set_op_is_error(true);
                 ui.set_op_status_msg(
-                    "Validation Fault: All fields marked with * are strictly mandatory.".into(),
+                    "Validation Fault: Application No, Section, and Subject fields are strictly mandatory.".into(),
                 );
                 return;
             }
+
+            let sb_to_code = |val: slint::SharedString| -> String {
+                if val.to_lowercase().contains("yes") || val.to_lowercase() == "y" {
+                    "Y".to_string()
+                } else {
+                    "N".to_string()
+                }
+            };
 
             let mut recipients = Vec::new();
             if copies_count >= 1 {
@@ -130,7 +134,7 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
                     addressee: ui.get_dak_adr_1().to_string(),
                     barcode: ui.get_dak_bar_1().to_string(),
                     sent_by: ui.get_dak_sent_1().to_string(),
-                    service_book: "N".to_string(),
+                    service_book: sb_to_code(ui.get_dak_sb_1()),
                 });
             }
             if copies_count >= 2 && (copies_str == "2" || copies_str == "3") {
@@ -138,7 +142,7 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
                     addressee: ui.get_dak_adr_2().to_string(),
                     barcode: ui.get_dak_bar_2().to_string(),
                     sent_by: ui.get_dak_sent_2().to_string(),
-                    service_book: "N".to_string(),
+                    service_book: sb_to_code(ui.get_dak_sb_2()),
                 });
             }
             if copies_count == 3 && copies_str == "3" {
@@ -146,7 +150,7 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
                     addressee: ui.get_dak_adr_3().to_string(),
                     barcode: ui.get_dak_bar_3().to_string(),
                     sent_by: ui.get_dak_sent_3().to_string(),
-                    service_book: "N".to_string(),
+                    service_book: sb_to_code(ui.get_dak_sb_3()),
                 });
             }
 
@@ -155,7 +159,7 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
 
             let transaction_payload = ironvault_db::oracle::PensionDakEntry {
                 app_num: app_num.clone(),
-                letter_no,
+                letter_no: format!("DAK-{}", app_num), // Auto-generated internal letter ref
                 ppo_fppo: ppo_combined,
                 gpo,
                 cpo,
@@ -183,7 +187,6 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
                                     .into(),
                                 );
                                 ui_handle.set_entry_app_num("".into());
-                                ui_handle.set_entry_letter_no("".into());
                                 ui_handle.set_dak_ppo("".into());
                                 ui_handle.set_dak_fppo("".into());
                                 ui_handle.set_dak_gpo("".into());
@@ -193,10 +196,16 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
                                 ui_handle.set_entry_no_of_copies("1".into());
                                 ui_handle.set_dak_adr_1("".into());
                                 ui_handle.set_dak_bar_1("".into());
+                                ui_handle.set_dak_sent_1("".into());
+                                ui_handle.set_dak_sb_1("No".into());
                                 ui_handle.set_dak_adr_2("".into());
                                 ui_handle.set_dak_bar_2("".into());
+                                ui_handle.set_dak_sent_2("".into());
+                                ui_handle.set_dak_sb_2("No".into());
                                 ui_handle.set_dak_adr_3("".into());
                                 ui_handle.set_dak_bar_3("".into());
+                                ui_handle.set_dak_sent_3("".into());
+                                ui_handle.set_dak_sb_3("No".into());
                             }
                         })
                         .unwrap();

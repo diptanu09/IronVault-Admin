@@ -47,6 +47,8 @@ fn find_and_load_dotenv() -> bool {
 
 #[tokio::main]
 async fn main() -> Result<(), slint::PlatformError> {
+    // 1. Initialize Logger so log::info / log::error print to terminal
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     println!("[BOOT] Engaging IronVault Core Security...");
 
     let env_loaded = find_and_load_dotenv();

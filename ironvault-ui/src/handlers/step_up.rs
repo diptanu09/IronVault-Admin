@@ -113,6 +113,11 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
                     let minutes: i32 = extra.parse().unwrap_or(10);
                     ctx.db.set_idle_timeout_minutes(minutes, &acting_user).await
                         .map(|_| format!("UPDATED_IDLE_TIMEOUT minutes={}", minutes))
+                        .map_err(|e| {
+                            // Log full DB error details to terminal
+                            eprintln!("[DATABASE ERROR] Failed to set idle timeout: {}", e);
+                            e
+                        })
                 }
 
                 "approve" => ctx.db.approve_user(&acting_user, &target, &extra).await

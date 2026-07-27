@@ -41,17 +41,6 @@ impl DbClient {
         &self.pool
     }
 
-    /// Establishes the primary Postgres connection pool with TLS enforced.
-    ///
-    /// `ssl_mode` and `ssl_root_cert` are read from `.env` by the caller
-    /// (main.rs) rather than hardcoded here, so the deployment can be
-    /// reconfigured (e.g. relaxed for local dev, or the cert path changed
-    /// after rotation) without a rebuild.
-    ///
-    /// The CA certificate is intentionally NOT embedded in the binary.
-    /// Keeping it as an external file means rotating the certificate is a
-    /// file replacement, not a full application rebuild + redeploy — see
-    /// `scripts/rotate_pg_cert.ps1` for the rotation procedure.
     pub async fn connect_with_credentials(
         host: &str,
         port: u16,
@@ -92,12 +81,43 @@ impl DbClient {
             .map_err(|e| {
                 format!(
                     "Database cluster handshake failed: {}. If the CA certificate recently \
-                 rotated, confirm IRONVAULT_DB_SSL_ROOT_CERT points at the current root.crt.",
+                     rotated, confirm IRONVAULT_DB_SSL_ROOT_CERT points at the current root.crt.",
                     e
                 )
             })?;
 
         Ok(Self { pool })
+    }
+
+    /// Re-verifies that the given username currently holds the SuperAdmin
+    /// role, directly against the database, independent of whatever the
+    /// calling UI layer believes. Every sensitive write function calls
+    /// this first — this is defense in depth: even if a UI gate is ever
+    /// bypassed or a future change forgets to check role client-side, the
+    /// data layer itself refuses the write.
+    async fn require_superadmin(&self, acting_username: &str) -> Result<(), String> {
+        let row = sqlx::query(
+            "SELECT role FROM ironvault.users WHERE username = $1 AND status = 'ACTIVE'",
+        )
+        .bind(acting_username)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+        match row {
+            Some(r) => {
+                let role: String = r.get("role");
+                if role == "SuperAdmin" {
+                    Ok(())
+                } else {
+                    Err(format!("Authorization Denied: @{} does not hold SuperAdmin privileges (current role: {}).", acting_username, role))
+                }
+            }
+            None => Err(format!(
+                "Authorization Denied: @{} is not a recognized active account.",
+                acting_username
+            )),
+        }
     }
 
     pub async fn authenticate_user(
@@ -243,15 +263,12 @@ impl DbClient {
                 val.parse::<i32>()
                     .map_err(|e| format!("Corrupt idle_timeout_minutes setting: {}", e))
             }
-            None => Ok(10), // safe default if the migration hasn't run somehow
+            None => Ok(10), // safe default if the migration hasn't run
         }
     }
 
-    /// SuperAdmin-only in practice (enforced by the UI gate and the caller
-    /// passing the acting admin's username for the audit trail) — this
-    /// function itself does not re-check role, matching the existing pattern
-    /// used by approve_user/ban_user in this codebase.
     pub async fn set_idle_timeout_minutes(&self, minutes: i32, admin: &str) -> Result<(), String> {
+        self.require_superadmin(admin).await?;
         if !(1..=240).contains(&minutes) {
             return Err("Idle timeout must be between 1 and 240 minutes.".to_string());
         }
@@ -329,6 +346,7 @@ impl DbClient {
         target_user: &str,
         assigned_role: &str,
     ) -> Result<(), String> {
+        self.require_superadmin(admin).await?;
         sqlx::query(
             "UPDATE ironvault.users SET status = 'ACTIVE', role = $1, expires_at = NOW() + '30 days'::INTERVAL, \
              approved_by = $3 \
@@ -344,6 +362,7 @@ impl DbClient {
     }
 
     pub async fn deny_user(&self, admin: &str, target_user: &str) -> Result<(), String> {
+        self.require_superadmin(admin).await?;
         log::info!(
             "[AUDIT] Operator @{} denied pending registration for @{}",
             admin,
@@ -358,6 +377,7 @@ impl DbClient {
     }
 
     pub async fn ban_user(&self, admin: &str, target_user: &str) -> Result<(), String> {
+        self.require_superadmin(admin).await?;
         log::info!(
             "[AUDIT] Operator @{} banned/purged account @{}",
             admin,
@@ -400,11 +420,13 @@ impl DbClient {
 
     pub async fn update_user_full_access(
         &self,
+        admin: &str,
         target_user: &str,
         new_role: &str,
         days_valid: i32,
         schemas: &str,
     ) -> Result<(), String> {
+        self.require_superadmin(admin).await?;
         sqlx::query(
             "UPDATE ironvault.users \
              SET role = $1, \
@@ -421,5 +443,33 @@ impl DbClient {
         .await
         .map_err(|e| format!("Failed to update access matrix: {}", e))?;
         Ok(())
+    }
+
+    /// Used by step-up re-authentication flows — checks a password against
+    /// the currently logged-in user's stored hash without modifying HWID or
+    /// rate-limit state.
+    pub async fn reverify_current_password(
+        &self,
+        username: &str,
+        password_plain: &str,
+    ) -> Result<bool, String> {
+        let row = sqlx::query(
+            "SELECT password FROM ironvault.users WHERE username = $1 AND status = 'ACTIVE'",
+        )
+        .bind(username)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+        match row {
+            Some(r) => {
+                let stored_hash: String = r.get("password");
+                Ok(ironvault_core::crypto::verify_password(
+                    password_plain,
+                    &stored_hash,
+                ))
+            }
+            None => Ok(false),
+        }
     }
 }

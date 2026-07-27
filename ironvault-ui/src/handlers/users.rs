@@ -315,7 +315,7 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
             let acting_role: ironvault_core::auth::Role = acting_role_str.into();
 
             tokio::spawn(async move {
-                match ctx.db.update_user_full_access(&user_str, &role_str, days_valid, &schema_str).await {
+                match ctx.db.update_user_full_access(&acting_user, &user_str, &role_str, days_valid, &schema_str).await {
                     Ok(_) => {
                         record_audit(&ctx, &acting_user, acting_role, &format!("UPDATED_ACCESS target=@{} role={} lease_days={} schemas=[{}]", user_str, role_str, days_valid, schema_str), "CRITICAL").await;
                         slint::invoke_from_event_loop(move || {

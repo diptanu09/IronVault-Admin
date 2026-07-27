@@ -7,6 +7,7 @@ pub mod auth;
 pub mod gpffp;
 pub mod pendak;
 pub mod pension;
+pub mod step_up;
 pub mod users;
 
 use crate::context::SharedContext;
@@ -20,5 +21,6 @@ pub fn register_all(app: &AppWindow, ctx: SharedContext) {
     audit_log::register(app, ctx.clone());
     gpffp::register(app, ctx.clone());
     pendak::register(app, ctx.clone());
-    pension::register(app, ctx);
+    pension::register(app, ctx.clone());
+    step_up::register(app, ctx);
 }

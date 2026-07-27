@@ -23,28 +23,43 @@ use std::arch::x86::__cpuid;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::__cpuid;
 
+/// Synchronous, best-effort security-fault logger for use in contexts about
+/// to hard-exit (where spawning an async DB write isn't reliable). Appends
+/// directly to the same file AuditLogger uses, bypassing its async API.
+fn log_security_fault_sync(event: &str) {
+    use std::io::Write;
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("ironvault.audit.log")
+    {
+        let line = format!(
+            "{{\"timestamp\":\"{}\",\"event\":\"{}\",\"source\":\"security.rs\"}}\n",
+            chrono::Utc::now().to_rfc3339(),
+            event
+        );
+        let _ = file.write_all(line.as_bytes());
+    }
+}
+
 /// Executes critical system checks wrapped in native VMProtect virtualization markers.
 /// Spawns a background worker loop thread to continuously check system integrity states.
 pub fn enforce_core_security_checks(current_hwid: &str) {
     sdk_vmp::vmp_begin_ultra("CoreEnforceChecks");
-
     std::hint::black_box(current_hwid);
 
-    // Run initial baseline checking pass
     SecurityValidator::enforce_anti_debug();
     SecurityValidator::enforce_vm_detection();
 
-    // HARDENED: Spawn an asynchronous background task to continuously poll anti-debugging
-    // and environmental tampering vectors throughout the active lifecycle of the application context.
     tokio::spawn(async {
         loop {
             tokio::time::sleep(Duration::from_secs(4)).await;
             SecurityValidator::enforce_anti_debug();
+            SecurityValidator::enforce_vm_detection(); // now also periodic, not just at boot
         }
     });
 
     println!("[SECURITY Engine] All runtime environment integrity tokens verified and active monitor engaged.");
-
     sdk_vmp::vmp_end();
 }
 
@@ -65,6 +80,7 @@ impl SecurityValidator {
             eprintln!(
                 "[SECURITY_FAULT] Hardware debugger intercepted via ring-0 virtualization hook."
             );
+            log_security_fault_sync("DEBUGGER_DETECTED_VMP");
             std::process::exit(1);
         }
 
@@ -75,6 +91,7 @@ impl SecurityValidator {
                 eprintln!(
                     "[SECURITY_FAULT] Unauthorized debug attachment detected. Self-terminating."
                 );
+                log_security_fault_sync("DEBUGGER_DETECTED_PEB");
                 std::process::exit(1);
             }
 
@@ -87,6 +104,7 @@ impl SecurityValidator {
                 eprintln!(
                     "[SECURITY_FAULT] Remote socket debugging engine intercepted. Access revoked."
                 );
+                log_security_fault_sync("DEBUGGER_DETECTED_REMOTE");
                 std::process::exit(1);
             }
         }
@@ -100,6 +118,7 @@ impl SecurityValidator {
 
         if sdk_vmp::vmp_check_vm() {
             eprintln!("[SECURITY_FAULT] Dynamic virtualization runtime container identified.");
+            log_security_fault_sync("VM_DETECTED_VMP");
             std::process::exit(1);
         }
 
@@ -122,6 +141,7 @@ impl SecurityValidator {
                     "[SECURITY_FAULT] Virtualized sandbox environment intercepted (Type: {}). Execution blocked.",
                     vm_signature
                 );
+                log_security_fault_sync(&format!("VM_DETECTED_CPUID_{}", vm_signature));
                 std::process::exit(1);
             }
         }

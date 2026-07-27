@@ -30,7 +30,8 @@ if (-not (Test-Path "ca.key")) {
     openssl req -new -x509 -days ($ValidityDays * 4) -key ca.key -out ca.crt `
         -subj "/CN=IronVault-Internal-CA"
     Write-Host "Generated new CA (ca.crt / ca.key)"
-} else {
+}
+else {
     Write-Host "Existing CA found, reusing it. Delete ca.key/ca.crt to force regeneration." -ForegroundColor Yellow
 }
 
@@ -56,4 +57,4 @@ Write-Host ""
 Write-Host "=== Done ===" -ForegroundColor Green
 Write-Host "Command Center needs: ca.crt, command_center.crt, command_center.key"
 Write-Host "Each Node needs: ca.crt, <node_name>.crt, <node_name>.key"
-Write-Host "Distribute each node's key ONLY to that node — never share one node cert/key across machines."
+Write-Host "Distribute each node's key ONLY to that node never share one node cert/key across machines."

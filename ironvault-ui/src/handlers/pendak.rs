@@ -6,7 +6,7 @@ use crate::AppWindow;
 use slint::ComponentHandle;
 
 pub fn register(app: &AppWindow, ctx: SharedContext) {
-    // --- AUTO-FETCH PPO/FPPO/GPO/CPO & ADDRESSEE FOR AN APPLICATION NO ---
+    // --- AUTO-FETCH PPO/FPPO/GPO/CPO & ADDRESSEES FOR AN APPLICATION NO ---
     {
         let app_weak = app.as_weak();
         let ctx = ctx.clone();
@@ -63,17 +63,28 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
                                     .into(),
                                 );
 
-                                // Auto-fill Addressee Name across ALL recipient fields (#1, #2, #3)
-                                if !details.addressee_name.is_empty() {
-                                    let name: slint::SharedString = details.addressee_name.into();
-                                    ui_handle.set_dak_adr_1(name.clone());
-                                    ui_handle.set_dak_adr_2(name.clone());
-                                    ui_handle.set_dak_adr_3(name);
+                                // #1 Recipient Addressee: Treasury Name
+                                if !details.treasury_name.is_empty() {
+                                    ui_handle.set_dak_adr_1(details.treasury_name.into());
+                                } else {
+                                    ui_handle.set_dak_adr_1("Treasury Officer".into());
+                                }
+
+                                // #2 Recipient Addressee: Comprehensive Pensioner Address (or Pensioner Name fallback)
+                                if !details.pensioner_address.is_empty() {
+                                    ui_handle.set_dak_adr_2(details.pensioner_address.into());
+                                } else if !details.pensioner_name.is_empty() {
+                                    ui_handle.set_dak_adr_2(details.pensioner_name.into());
+                                }
+
+                                // #3 Recipient Addressee: Department Name
+                                if !details.department_name.is_empty() {
+                                    ui_handle.set_dak_adr_3(details.department_name.into());
                                 }
 
                                 ui_handle.set_op_is_error(false);
                                 ui_handle.set_op_status_msg(
-                                    "SUCCESS: Associated pension authorities and addressee auto-fetched."
+                                    "SUCCESS: Pension authorities & recipient profiles (#1 Treasury, #2 Pensioner Address, #3 Department) auto-fetched."
                                         .into(),
                                 );
                             }
@@ -134,7 +145,7 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
             }
 
             let sb_to_code = |val: slint::SharedString| -> String {
-                if val.to_lowercase().contains("yes") || val.to_lowercase() == "y" {
+                if val.to_lowercase().contains("no") || val.to_lowercase() == "y" {
                     "Y".to_string()
                 } else {
                     "N".to_string()

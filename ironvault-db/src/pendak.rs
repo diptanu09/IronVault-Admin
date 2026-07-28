@@ -29,7 +29,10 @@ pub struct PensionAuthDetails {
     pub fppo_no: String,
     pub gpo_no: String,
     pub cpo_no: String,
-    pub addressee_name: String,
+    pub pensioner_name: String,
+    pub treasury_name: String,
+    pub pensioner_address: String,
+    pub department_name: String,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -49,7 +52,7 @@ pub struct FullPensionDakRecord {
 }
 
 impl OracleConnection {
-    /// Fetch associated pension authorities (PPO, FPPO, GPO, CPO) and pensioner addressee name for a given application number
+    /// Fetch associated pension authorities, Treasury Name (#1), Pensioner Address (#2), and Department Name (#3)
     pub async fn pendak_fetch_auth_details(
         &self,
         appln_no: &str,
@@ -61,15 +64,140 @@ impl OracleConnection {
         let conn = self.get_connection(OracleTarget::Penindex)?;
 
         tokio::task::spawn_blocking(move || {
-            let query = "
+            let query = r#"
                 SELECT 
                     a.APA_AUTH_TYPE, 
                     a.APA_AUTH_NO,
-                    INITCAP(REGEXP_REPLACE(TRIM(REGEXP_REPLACE(b.APPLN_PNSR_SALUTE || ' ' || b.APPLN_PNSNR_NAME, '[.]', '')), '\\s+', ' ')) AS PNSNR_NAME
+                    
+                    -- Pensioner Name Formatting
+                    INITCAP(
+                        REGEXP_REPLACE(
+                            TRIM(
+                                REGEXP_REPLACE(
+                                    b.APPLN_PNSR_SALUTE || ' ' || b.APPLN_PNSNR_NAME,
+                                    '[.]',
+                                    ''
+                                )
+                            ),
+                            '\s+',
+                            ' '
+                        )
+                    ) AS PNSNR_NAME,
+                    
+                    -- Treasury Name from Address Book (Proper Case with Common Abbreviations Preserved)
+                    REPLACE(
+                    REPLACE(
+                    REPLACE(
+                    REPLACE(
+                        NVL(
+                            INITCAP(
+                                REGEXP_REPLACE(
+                                    TRIM(ab.ADBK_NAME),
+                                    '\s+',
+                                    ' '
+                                )
+                            ),
+                            'Treasury Officer'
+                        ),
+                        'Tsr', 'TSR'
+                    ),
+                        'Ag', 'AG'
+                    ),
+                        'Ae', 'A&E'
+                    ),
+                        'Ddo', 'DDO'
+                    ) AS TREASURY_NAME,
+                    
+                    -- Comprehensive Pensioner Address String
+                    c.APEN_SPOUSE_NAME
+                    || ' '
+                    || ml.LOV_NAME
+                    || ' of '
+                    || INITCAP(
+                           REGEXP_REPLACE(
+                               TRIM(
+                                   REGEXP_REPLACE(
+                                       b.APPLN_PNSR_SALUTE || ' ' || b.APPLN_PNSNR_NAME,
+                                       '[.]',
+                                       ''
+                                   )
+                               ),
+                               '\s+',
+                               ' '
+                           )
+                       )
+                    || ', '
+                    || REGEXP_REPLACE(
+                           REGEXP_REPLACE(
+                               REGEXP_REPLACE(
+                                   REGEXP_REPLACE(
+                                       REGEXP_REPLACE(
+                                           REGEXP_REPLACE(
+                                               REGEXP_REPLACE(
+                                                   INITCAP(
+                                                       LOWER(
+                                                           NVL(c.APEN_AR_ADDR1,'')
+                                                           || CASE 
+                                                                 WHEN c.APEN_AR_ADDR2 IS NOT NULL 
+                                                                 THEN ', ' || c.APEN_AR_ADDR2 
+                                                                 ELSE '' 
+                                                              END
+                                                       )
+                                                   ),
+                                                   '(^|[ ,])Po([ ,:/-])','\1PO\2'),
+                                               '(^|[ ,])Ps([ ,:/-])','\1PS\2'),
+                                           '(^|[ ,])Dist([ ,:/-])','\1DIST\2'),
+                                       '(^|[ ,])Vill([ ,:/-])','\1VILL\2'),
+                                   '(^|[ ,])Pin([ ,:/-])','\1PIN\2'),
+                               '(^|[ ,])Co([ ,:/-])','\1C/O\2'),
+                           '(^|[ ,])(So|Wo|Do)([ ,:/-])',
+                           '\1\U\2\E\3'
+                       )
+                    || CASE
+                           WHEN c.APEN_BR_PIN IS NOT NULL
+                           THEN ', PIN - ' || REPLACE(c.APEN_BR_PIN,'PIN-','')
+                           ELSE ''
+                       END
+                    || CASE
+                           WHEN c.APEN_AR_MOBILE IS NOT NULL
+                           THEN ', Mobile: ' || c.APEN_AR_MOBILE
+                           ELSE ''
+                       END AS PENSIONER_ADDRESS,
+                       
+                    -- Department Name Formatting
+                    REPLACE(
+                        NVL(
+                            INITCAP(
+                                REGEXP_REPLACE(
+                                    TRIM(b.APPLN_FWD_OFF_NAME),
+                                    '\s+',
+                                    ' '
+                                )
+                            ),
+                            'Department'
+                        ),
+                        'Tsr',
+                        'TSR'
+                    ) AS DEPARTMENT_NAME
+
                 FROM SAI_AGARTALA.T_APPLICATION_HDR b
-                LEFT JOIN SAI_AGARTALA.T_APPLN_AUTHORITY a ON a.APA_APPLN_PK = b.APPLN_PK AND a.APA_AUTH_TYPE IN ('760', '761', '762', '763')
+
+                LEFT JOIN SAI_AGARTALA.T_APPLN_AUTHORITY a 
+                       ON a.APA_APPLN_PK = b.APPLN_PK 
+                      AND a.APA_AUTH_TYPE IN ('760', '761', '762', '763')
+
+                LEFT JOIN SAI_AGARTALA.T_APPLN_PENSIONER c 
+                       ON c.APEN_APPLN_PK = b.APPLN_PK
+
+                LEFT JOIN SAI_AGARTALA.M_ADDR_BOOK ab 
+                       ON ab.ADBK_PK = c.APEN_PENSION_TRO
+
+                LEFT JOIN SAI_AGARTALA.M_LOV ml 
+                       ON ml.LOV_PK = c.APEN_RELATION
+
                 WHERE b.APPLN_NO = :app_no
-            ";
+            "#;
+
             let mut stmt = conn.statement(query).build().map_err(|e| e.to_string())?;
             let rows = stmt
                 .query_named(&[("app_no", &app_no.as_str())])
@@ -81,12 +209,25 @@ impl OracleConnection {
                 let row = row_result.map_err(|e| e.to_string())?;
                 let auth_type: Option<String> = row.get(0).unwrap_or(None);
                 let auth_no: Option<String> = row.get(1).unwrap_or(None);
-                let name: String = row.get(2).unwrap_or_default();
+                let pnsnr_name: String = row.get(2).unwrap_or_default();
+                let trea_name: String = row.get(3).unwrap_or_default();
+                let pnsnr_addr: String = row.get(4).unwrap_or_default();
+                let dept_name: String = row.get(5).unwrap_or_default();
 
                 found_any = true;
-                if !name.is_empty() {
-                    details.addressee_name = name;
+                if !pnsnr_name.is_empty() {
+                    details.pensioner_name = pnsnr_name;
                 }
+                if !trea_name.is_empty() {
+                    details.treasury_name = trea_name;
+                }
+                if !pnsnr_addr.is_empty() {
+                    details.pensioner_address = pnsnr_addr;
+                }
+                if !dept_name.is_empty() {
+                    details.department_name = dept_name;
+                }
+
                 if let (Some(at), Some(an)) = (auth_type, auth_no) {
                     match at.trim() {
                         "760" => details.ppo_no = an,

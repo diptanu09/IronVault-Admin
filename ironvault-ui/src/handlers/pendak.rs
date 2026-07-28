@@ -145,7 +145,7 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
             }
 
             let sb_to_code = |val: slint::SharedString| -> String {
-                if val.to_lowercase().contains("no") || val.to_lowercase() == "y" {
+                if val.to_lowercase().contains("yes") || val.to_lowercase() == "y" {
                     "Y".to_string()
                 } else {
                     "N".to_string()
@@ -199,14 +199,14 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
                     .pendak_insert_outward_case(transaction_payload)
                     .await
                 {
-                    Ok(_) => {
+                    Ok(generated_outward_no) => {
                         slint::invoke_from_event_loop(move || {
                             if let Some(ui_handle) = ui_weak.upgrade() {
                                 ui_handle.set_op_is_error(false);
                                 ui_handle.set_op_status_msg(
                                     format!(
-                                        "SUCCESS: Outward case record for Application {} logged.",
-                                        app_num
+                                        "SUCCESS: Outward case record logged for App #{}. OUTWARD_NO: {}",
+                                        app_num, generated_outward_no
                                     )
                                     .into(),
                                 );
@@ -269,7 +269,7 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
                                 ui.set_dak_case_found(true);
                                 ui.set_op_is_error(false);
                                 ui.set_op_status_msg(
-                                    "SUCCESS: Outward Case matched inside storage vault.".into(),
+                                    format!("SUCCESS: Outward Case #{} matched in storage vault.", record.outward_no).into(),
                                 );
                                 ui.set_view_dak_letter(record.letter_no.into());
                                 ui.set_view_dak_section(record.section.into());
@@ -412,19 +412,15 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
             };
 
             tokio::spawn(async move {
-                match ctx
-                    .oracle
-                    .pendak_insert_outward_case(letter_payload)
-                    .await
-                {
-                    Ok(_) => {
+                match ctx.oracle.pendak_insert_outward_case(letter_payload).await {
+                    Ok(outward_no) => {
                         slint::invoke_from_event_loop(move || {
                             if let Some(ui_handle) = ui_weak.upgrade() {
                                 ui_handle.set_op_is_error(false);
                                 ui_handle.set_op_status_msg(
                                     format!(
-                                        "SUCCESS: Letter component {} successfully linked into diary registry.",
-                                        letter_no
+                                        "SUCCESS: Letter component {} linked. OUTWARD_NO: {}",
+                                        letter_no, outward_no
                                     )
                                     .into(),
                                 );

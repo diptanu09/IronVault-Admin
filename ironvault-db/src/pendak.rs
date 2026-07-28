@@ -37,6 +37,7 @@ pub struct PensionAuthDetails {
 
 #[derive(Debug, Clone, Default)]
 pub struct FullPensionDakRecord {
+    pub outward_no: i64,
     pub app_num: String,
     pub letter_no: String,
     pub ppo_no: String,
@@ -248,16 +249,33 @@ impl OracleConnection {
         .unwrap()
     }
 
-    /// Insert an outward DAK case entry into PEN_DAK_OUTWARD_DIARY
-    pub async fn pendak_insert_outward_case(&self, entry: PensionDakEntry) -> Result<(), String> {
+    /// Insert an outward DAK case entry into PEN_DAK_OUTWARD_DIARY with sequential OUTWARD_NO generation
+    pub async fn pendak_insert_outward_case(&self, entry: PensionDakEntry) -> Result<i64, String> {
         let conn = self.get_connection(OracleTarget::Pendak)?;
         tokio::task::spawn_blocking(move || {
-            let query = "
+            // 1. Fetch next sequential OUTWARD_NO from PEN_DAK_OUTWARD_DIARY
+            let seq_query = "SELECT NVL(MAX(OUTWARD_NO), 0) + 1 FROM PEN_DAK_OUTWARD_DIARY";
+            let mut stmt = conn
+                .statement(seq_query)
+                .build()
+                .map_err(|e| e.to_string())?;
+            let rows = stmt.query(&[]).map_err(|e| e.to_string())?;
+
+            let mut next_outward_no: i64 = 1;
+            for row_res in rows {
+                let row = row_res.map_err(|e| e.to_string())?;
+                next_outward_no = row.get(0).unwrap_or(1);
+                break;
+            }
+
+            // 2. Insert records with generated OUTWARD_NO
+            let insert_query = "
                 INSERT INTO PEN_DAK_OUTWARD_DIARY (
-                    APPLN_NO, LETTER_NO, PPO_FPPO, GPO, CPO, SECTION, SUBJECT, 
+                    OUTWARD_NO, APPLN_NO, LETTER_NO, PPO_FPPO, GPO, CPO, SECTION, SUBJECT, 
                     ADDRESSEE, BAR_CODE, SENT_BY, SERVICE_BOOK, OUTWARD_DATE, CREATE_DATE
-                ) VALUES (:1, :2, :3, :4, :5, :6, :7, :8, :9, :10, :11, SYSDATE, SYSDATE)
+                ) VALUES (:1, :2, :3, :4, :5, :6, :7, :8, :9, :10, :11, :12, SYSDATE, SYSDATE)
             ";
+
             let app_numeric: i64 = entry.app_num.parse().unwrap_or(0);
             let ppo_numeric: i64 = entry.ppo_fppo.parse().unwrap_or(0);
             let gpo_numeric: i64 = entry.gpo.parse().unwrap_or(0);
@@ -266,8 +284,9 @@ impl OracleConnection {
 
             for recipient in entry.recipients.iter() {
                 conn.execute(
-                    query,
+                    insert_query,
                     &[
+                        &next_outward_no,
                         &app_numeric,
                         &entry.letter_no,
                         &ppo_numeric,
@@ -283,9 +302,11 @@ impl OracleConnection {
                 )
                 .map_err(|e| format!("Insertion failed: {}", e))?;
             }
+
             conn.commit()
                 .map_err(|e| format!("Commit failure: {}", e))?;
-            Ok(())
+
+            Ok(next_outward_no)
         })
         .await
         .unwrap()
@@ -304,7 +325,7 @@ impl OracleConnection {
 
         tokio::task::spawn_blocking(move || {
             let query = "
-                SELECT APPLN_NO, LETTER_NO, PPO_FPPO, GPO, CPO, SECTION, SUBJECT, 
+                SELECT OUTWARD_NO, APPLN_NO, LETTER_NO, PPO_FPPO, GPO, CPO, SECTION, SUBJECT, 
                        ADDRESSEE, BAR_CODE, SENT_BY, TO_CHAR(OUTWARD_DATE, 'YYYY-MM-DD') 
                 FROM PEN_DAK_OUTWARD_DIARY WHERE APPLN_NO = :1 AND ROWNUM <= 1
             ";
@@ -314,19 +335,21 @@ impl OracleConnection {
             for row_res in rows {
                 let row = row_res.map_err(|e| e.to_string())?;
 
-                let app_num_val: i64 = row.get(0).unwrap_or(0);
-                let letter_no_val: String = row.get(1).unwrap_or_default();
-                let ppo_val: i64 = row.get(2).unwrap_or(0);
-                let gpo_val: i64 = row.get(3).unwrap_or(0);
-                let cpo_val: i64 = row.get(4).unwrap_or(0);
-                let section_val: i32 = row.get(5).unwrap_or(0);
-                let subject_val: String = row.get(6).unwrap_or_default();
-                let addressee_val: String = row.get(7).unwrap_or_default();
-                let barcode_val: String = row.get(8).unwrap_or_default();
-                let sent_by_val: String = row.get(9).unwrap_or_default();
-                let created_val: String = row.get(10).unwrap_or_default();
+                let outward_no_val: i64 = row.get(0).unwrap_or(0);
+                let app_num_val: i64 = row.get(1).unwrap_or(0);
+                let letter_no_val: String = row.get(2).unwrap_or_default();
+                let ppo_val: i64 = row.get(3).unwrap_or(0);
+                let gpo_val: i64 = row.get(4).unwrap_or(0);
+                let cpo_val: i64 = row.get(5).unwrap_or(0);
+                let section_val: i32 = row.get(6).unwrap_or(0);
+                let subject_val: String = row.get(7).unwrap_or_default();
+                let addressee_val: String = row.get(8).unwrap_or_default();
+                let barcode_val: String = row.get(9).unwrap_or_default();
+                let sent_by_val: String = row.get(10).unwrap_or_default();
+                let created_val: String = row.get(11).unwrap_or_default();
 
                 return Ok(Some(FullPensionDakRecord {
+                    outward_no: outward_no_val,
                     app_num: app_num_val.to_string(),
                     letter_no: letter_no_val,
                     ppo_no: ppo_val.to_string(),

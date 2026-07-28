@@ -157,3 +157,10 @@ pub fn enforce_anti_debug() {
 pub fn enforce_vm_detection() {
     SecurityValidator::enforce_vm_detection();
 }
+// TEMPORARY test-only function to verify log_security_fault_sync actually
+// writes to disk, without needing to trigger a real debugger/VM detection
+// event. Remove this function once verified.
+// pub fn test_log_security_fault() {
+//     log_security_fault_sync("TEST_MANUAL_TRIGGER");
+//     println!("[TEST] Attempted to write TEST_MANUAL_TRIGGER to ironvault.audit.log");
+// }

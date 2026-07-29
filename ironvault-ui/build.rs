@@ -8,8 +8,31 @@ fn main() {
     // 1. Tell Cargo when to rerun this script (improves incremental build speeds)
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=ui/main.slint");
-    println!("cargo:rerun-if-changed=ironvault.rc");
+    // println!("cargo:rerun-if-changed=ironvault.rc");
+    println!("cargo:rerun-if-changed=../ironvault.rc");
     println!("cargo:rerun-if-changed=ui/assets/ironvault.ico");
+
+    // FIXED: the .rc/.ico files were being watched for changes but never
+    // actually compiled into the binary — version info and the custom icon
+    // were never actually embedded despite this plumbing looking complete.
+    // #[cfg(target_os = "windows")]
+    // {
+    //     embed_resource::compile("ironvault.rc", embed_resource::NONE)
+    //         .manifest_required()
+    //         .expect("Failed to compile ironvault.rc — confirm ui/assets/ironvault.ico exists");
+    // }
+
+    #[cfg(target_os = "windows")]
+    {
+        let manifest_dir = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+        // Workspace root
+        let workspace_root = manifest_dir.parent().unwrap();
+        let rc_file = workspace_root.join("ironvault.rc");
+        println!("cargo:warning=Using RC file: {}", rc_file.display());
+        embed_resource::compile(&rc_file, embed_resource::NONE)
+            .manifest_required()
+            .expect("Failed to compile ironvault.rc");
+    }
 
     // Get the absolute base path of the current workspace directory context
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
@@ -27,7 +50,10 @@ fn main() {
         "cargo:rustc-link-search=native={}",
         absolute_lib_dir.display()
     );
-    println!("cargo:rustc-link-search=native={}", absolute_lib_dir.display());
+    println!(
+        "cargo:rustc-link-search=native={}",
+        absolute_lib_dir.display()
+    );
     println!("cargo:rustc-link-lib=static=VMProtectSDK64");
     println!("cargo:rustc-link-lib=static=SecureEngineSDK64");
 

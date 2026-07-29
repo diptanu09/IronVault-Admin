@@ -228,7 +228,7 @@ export component AppWindow inherits Window {
     min-width: 1200px;
     min-height: 800px;
     background: Theme.bg-main;
-    icon: @image-url("assets/app_icon.png");
+    icon: @image-url("assets/ironvault.ico");
 
     in-out property <bool> sidebar_collapsed: false;
     in-out property <string> hwid_string: "HWID: UNKNOWN";
@@ -337,8 +337,8 @@ export component AppWindow inherits Window {
     in-out property <string> update_latest_version: "";
     in-out property <string> update_changelog: "";
     in-out property <string> update_download_url: "";
-    callback request_open_download_url();
 
+    callback request_open_download_url();
     callback request_step_up(string, string, string);
     callback submit_step_up_reauth(string);
     callback user_activity_detected();

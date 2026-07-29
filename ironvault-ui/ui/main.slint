@@ -378,72 +378,6 @@ export component AppWindow inherits Window {
     callback request_checkbox_states_fetch(string);
     callback trigger_log_stream_reload();
 
-    if (root.update_available): Rectangle {
-            background: #000000D9;
-            // Only block interaction entirely if this update is mandatory —
-            // optional updates let the operator dismiss and keep working.
-            if (root.update_mandatory): TouchArea { }
-
-            Rectangle {
-                width: 460px;
-                height: 340px;
-                x: (parent.width - self.width) / 2;
-                y: (parent.height - self.height) / 2;
-                background: Theme.bg-card;
-                border-radius: 16px;
-                border-width: 2px;
-                border-color: root.update_mandatory ? Theme.brand-danger : Theme.brand-primary;
-                VerticalLayout {
-                    padding: 28px;
-                    spacing: 14px;
-
-                    Text {
-                        text: root.update_mandatory ? "⚠ REQUIRED UPDATE AVAILABLE" : "UPDATE AVAILABLE";
-                        font-size: 13px;
-                        font-weight: 900;
-                        color: root.update_mandatory ? Theme.brand-danger : Theme.brand-primary;
-                        horizontal-alignment: center;
-                        letter-spacing: 0.5px;
-                    }
-
-                    Text {
-                        text: "Version " + root.update_latest_version + " is now available.";
-                        font-size: 14px;
-                        font-weight: 700;
-                        color: Theme.text-primary;
-                        horizontal-alignment: center;
-                    }
-
-                    Rectangle { height: 1px; background: Theme.border-color; }
-
-                    ScrollView {
-                        vertical-stretch: 1;
-                        Text {
-                            text: root.update_changelog;
-                            font-size: 12px;
-                            color: Theme.text-secondary;
-                            wrap: word-wrap;
-                        }
-                    }
-
-                    HorizontalLayout {
-                        spacing: 12px;
-                        if (!root.update_mandatory): Button {
-                            text: "Remind Me Later";
-                            height: 38px;
-                            horizontal-stretch: 1;
-                            clicked => { root.update_available = false; }
-                        }
-                        Button {
-                            text: "Download Update";
-                            height: 38px;
-                            horizontal-stretch: 1;
-                            clicked => { root.request_open_download_url(); }
-                        }
-                    }
-                }
-            }
-        }
 
     // Idle-timeout tracking: ticks every second while logged in; any
         // user_activity_detected() call (wired to clicks/keys below) resets
@@ -1936,6 +1870,72 @@ export component AppWindow inherits Window {
                         text: "Enter Command Console Node";
                         height: 40px;
                         clicked => { root.show_welcome_popup = false; }
+                    }
+                }
+            }
+        }
+        if (root.update_available): Rectangle {
+            background: #000000D9;
+            // Only block interaction entirely if this update is mandatory —
+            // optional updates let the operator dismiss and keep working.
+            if (root.update_mandatory): TouchArea { }
+
+            Rectangle {
+                width: 460px;
+                height: 340px;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                background: Theme.bg-card;
+                border-radius: 16px;
+                border-width: 2px;
+                border-color: root.update_mandatory ? Theme.brand-danger : Theme.brand-primary;
+                VerticalLayout {
+                    padding: 28px;
+                    spacing: 14px;
+
+                    Text {
+                        text: root.update_mandatory ? "⚠ REQUIRED UPDATE AVAILABLE" : "UPDATE AVAILABLE";
+                        font-size: 13px;
+                        font-weight: 900;
+                        color: root.update_mandatory ? Theme.brand-danger : Theme.brand-primary;
+                        horizontal-alignment: center;
+                        letter-spacing: 0.5px;
+                    }
+
+                    Text {
+                        text: "Version " + root.update_latest_version + " is now available.";
+                        font-size: 14px;
+                        font-weight: 700;
+                        color: Theme.text-primary;
+                        horizontal-alignment: center;
+                    }
+
+                    Rectangle { height: 1px; background: Theme.border-color; }
+
+                    ScrollView {
+                        vertical-stretch: 1;
+                        Text {
+                            text: root.update_changelog;
+                            font-size: 12px;
+                            color: Theme.text-secondary;
+                            wrap: word-wrap;
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: 12px;
+                        if (!root.update_mandatory): Button {
+                            text: "Remind Me Later";
+                            height: 38px;
+                            horizontal-stretch: 1;
+                            clicked => { root.update_available = false; }
+                        }
+                        Button {
+                            text: "Download Update";
+                            height: 38px;
+                            horizontal-stretch: 1;
+                            clicked => { root.request_open_download_url(); }
+                        }
                     }
                 }
             }

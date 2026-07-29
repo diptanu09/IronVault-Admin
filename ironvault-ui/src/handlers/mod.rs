@@ -8,8 +8,8 @@ pub mod gpffp;
 pub mod pendak;
 pub mod pension;
 pub mod step_up;
+pub mod update;
 pub mod users;
-
 use crate::context::SharedContext;
 use crate::AppWindow;
 
@@ -22,5 +22,6 @@ pub fn register_all(app: &AppWindow, ctx: SharedContext) {
     gpffp::register(app, ctx.clone());
     pendak::register(app, ctx.clone());
     pension::register(app, ctx.clone());
-    step_up::register(app, ctx);
+    step_up::register(app, ctx.clone());
+    update::register(app, ctx.clone());
 }

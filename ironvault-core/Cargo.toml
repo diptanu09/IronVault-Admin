@@ -14,24 +14,22 @@ keyring = "4.1.5" # Use 2.x or 3.x for standard Rust keyring usage
 tokio-rustls = "0.26"
 rustls-pemfile = "2.1"
 rustls = "0.23"
-
 # Data Serialization & Logging
 serde = { version = "1.0", features = ["derive"] }
+semver = "1.0"
 serde_json = "1.0"
 uuid = { version = "1.8", features = ["v4"] }
 chrono = "0.4"
 log = "0.4"
-
 # Networking & Async
 tokio = { version = "1.35", features = ["full"] }
-
 # Windows-Specific Dependencies
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { version = "0.61.2", features = [
     "Win32_System_Diagnostics_Debug", 
     "Win32_Foundation"] }
-
 windows = { version = "0.58", features = [
     "Win32_Security_Credentials",
     "Win32_Foundation",
 ] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }

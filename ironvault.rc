@@ -1,8 +1,8 @@
 #include <windows.h>
 
 1 VERSIONINFO
-FILEVERSION     1,1,0,0
-PRODUCTVERSION  1,1,0,0
+FILEVERSION     1,0,0,0
+PRODUCTVERSION  1,0,0,0
 FILEFLAGSMASK   0x3fL
 FILEFLAGS       0x0L
 FILEOS          0x40004L
@@ -15,12 +15,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName",      "O/o the Accountant General (A&E), Tripura"
             VALUE "FileDescription",  "IronVault Secure Administration Console"
-            VALUE "FileVersion",      "1.1.0.0"
+            VALUE "FileVersion",      "1.0.0.0"
             VALUE "InternalName",     "ironvault-ui"
             VALUE "LegalCopyright",   "Copyright (C) 2026 Accountant General (A&E), Tripura"
             VALUE "OriginalFilename", "ironvault-ui.exe"
             VALUE "ProductName",      "IronVault Admin"
-            VALUE "ProductVersion",   "1.1.0.0"
+            VALUE "ProductVersion",   "1.0.0.0"
         END
     END
     BLOCK "VarFileInfo"

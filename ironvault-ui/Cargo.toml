@@ -24,7 +24,7 @@ dotenvy = "0.15"          # <-- ADDED: loads .env into process environment at st
 chrono-tz = "0.10"
 rpassword = "7.3"
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
-semver = "1.0"
+semver = "1.0.28"
 
 [dev-dependencies]
 tokio-test = "0.4"

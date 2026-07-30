@@ -338,6 +338,7 @@ export component AppWindow inherits Window {
     in-out property <string> update_changelog: "";
     in-out property <string> update_download_url: "";
 
+    callback request_dismiss_update_notice(string);
     callback request_open_download_url();
     callback request_step_up(string, string, string);
     callback submit_step_up_reauth(string);
@@ -1935,6 +1936,15 @@ export component AppWindow inherits Window {
                             height: 38px;
                             horizontal-stretch: 1;
                             clicked => { root.request_open_download_url(); }
+                        }
+                        Button {
+                            text: "Remind Me Later";
+                            height: 38px;
+                            horizontal-stretch: 1;
+                            clicked => {
+                                root.update_available = false;
+                                root.request_dismiss_update_notice(root.update_latest_version);
+                            }
                         }
                     }
                 }

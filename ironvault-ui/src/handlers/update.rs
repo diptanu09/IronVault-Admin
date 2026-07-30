@@ -4,7 +4,7 @@ use slint::ComponentHandle;
 
 // Point this at wherever you host version.json.
 const UPDATE_MANIFEST_URL: &str =
-    "https://raw.githubusercontent.com/agaeagartala/ironvault-admin/main/version.json";
+    "https://raw.githubusercontent.com/diptanu09/ironvault-admin/main/version.json";
 
 pub fn register(app: &AppWindow, _ctx: SharedContext) {
     let app_weak = app.as_weak();

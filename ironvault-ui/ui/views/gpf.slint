@@ -16,7 +16,7 @@ export component GpfFinalPaymentView inherits Rectangle {
     in-out property <string> active_schema_action;
     in-out property <string> op_status_msg;
     in-out property <bool> op_is_error;
-    
+
     in-out property <string> op_regd_no;
     in-out property <string> op_series_id;
     in-out property <string> op_account_no;
@@ -33,87 +33,80 @@ export component GpfFinalPaymentView inherits Rectangle {
 
     background: transparent;
 
-    // Use a Z-Stack (overlapping rectangles) to allow items to fade over one another
     VerticalLayout {
-        spacing: 12px; 
+        spacing: 12px;
         padding: 0px;
 
-        // Sub-Navigation Chips Menu
         HorizontalLayout {
             spacing: 8px;
             alignment: start;
-            
-            Button { 
-                text: "🔍 Profile Acquisition Core"; 
+
+            Button {
+                text: "🔍 Profile Acquisition Core";
                 height: 32px;
                 checked: root.active_schema_action == "gpffp_find";
-                clicked => { root.active_schema_action = "gpffp_find"; } 
+                clicked => { root.active_schema_action = "gpffp_find"; }
             }
-            Button { 
-                text: "🚨 Destructive Override Safehouse"; 
+            Button {
+                text: "🚨 Destructive Override Safehouse";
                 height: 32px;
                 checked: root.active_schema_action == "gpffp_clear";
-                clicked => { root.active_schema_action = "gpffp_clear"; } 
+                clicked => { root.active_schema_action = "gpffp_clear"; }
             }
         }
 
-        // Master View Container Frame
         Rectangle {
             vertical-stretch: 1;
 
-            // =========================================================================
-            // 🔍 VIEW 1: PROFILE ACQUISITION CORE (CROSS-FADING)
-            // =========================================================================
             Rectangle {
-                // Kinetic Fade Properties
                 opacity: root.active_schema_action == "gpffp_find" ? 1.0 : 0.0;
-                visible: self.opacity > 0.05; // Hide from hit-tests entirely when collapsed
-                
+                visible: self.opacity > 0.05;
                 animate opacity { duration: 250ms; easing: ease-in-out; }
 
                 VerticalLayout {
                     spacing: 12px;
-                    
+
                     Rectangle {
-                        background: Theme.bg-card; 
-                        border-radius: 12px; 
-                        border-width: 1px; 
+                        background: Theme.bg-card;
+                        border-radius: 12px;
+                        border-width: 1px;
                         border-color: Theme.border-color;
-                        height: 100px; 
-                        
+                        height: 100px;
+
                         VerticalLayout {
                             padding-left: 16px; padding-right: 16px; padding-top: 12px; padding-bottom: 12px;
                             spacing: 8px;
-                            
-                            Text { 
-                                text: "GPF RELATIONAL ENCLAVE INQUIRY"; 
-                                font-size: 12px; font-weight: 900; color: Theme.brand-primary; letter-spacing: 0.5px; 
+
+                            Text {
+                                text: "GPF RELATIONAL ENCLAVE INQUIRY";
+                                font-size: 12px; font-weight: 900; color: Theme.brand-primary; letter-spacing: 0.5px;
                             }
-                            
+
                             HorizontalLayout {
                                 spacing: 12px; alignment: start;
-                                
-                                VerticalLayout { 
-                                    spacing: 4px; width: 280px; 
-                                    Text { text: "REGISTRATION INDEX KEY *"; font-size: 10px; font-weight: 800; color: Theme.text-muted; } 
-                                    LineEdit { text <=> root.op_regd_no; placeholder_text: "Ex: 45102/FP"; height: 32px; } 
+
+                                VerticalLayout {
+                                    spacing: 4px; width: 280px;
+                                    Text { text: "REGISTRATION INDEX KEY *"; font-size: 10px; font-weight: 800; color: Theme.text-muted; }
+                                    LineEdit { text <=> root.op_regd_no; placeholder_text: "Ex: 45102/FP"; height: 32px; }
                                 }
-                                
-                                VerticalLayout { 
+
+                                VerticalLayout {
                                     alignment: end;
-                                    FluidButton { 
+                                    FluidButton {
                                         text: "Scan Secure Ring";
                                         width: 160px;
-                                        height: 32px; 
-                                        clicked => { root.request_find_gpf_case(root.op_regd_no); } 
-                                    } 
+                                        height: 32px;
+                                        clicked => { root.request_find_gpf_case(root.op_regd_no); }
+                                    }
                                 }
                             }
                         }
                     }
 
                     if (root.gpf_case_found) : Rectangle {
-                        background: #10b98106; border-radius: 12px; border-width: 1px; border-color: #10b98133;
+                        background: Theme.is-light-mode ? #10b98114 : #10b98106;
+                        border-radius: 12px; border-width: 1px; border-color: #10b98133;
                         VerticalLayout {
                             padding: 14px; spacing: 10px;
                             HorizontalLayout {
@@ -125,9 +118,9 @@ export component GpfFinalPaymentView inherits Rectangle {
                                 }
                                 Rectangle { width: 8px; height: 8px; border-radius: 4px; background: Theme.brand-success; y: 4px; }
                             }
-                            Rectangle { height: 1px; background: Theme.border-color; opacity: 0.15; }
+                            Rectangle { height: 1px; background: Theme.border-color; opacity: 0.5; }
                             HorizontalLayout {
-                                spacing: 28px; alignment: start; 
+                                spacing: 28px; alignment: start;
                                 VerticalLayout { spacing: 4px; width: 200px; Text { text: "ACCOUNT HOLDER NAME"; font-size: 9px; color: Theme.text-muted; } Text { text: root.active_gpf_case.holder_name; font-size: 13px; font-weight: 700; color: Theme.text-primary; } }
                                 VerticalLayout { spacing: 4px; width: 90px; Text { text: "SERIES PREFIX"; font-size: 9px; color: Theme.text-muted; } Text { text: root.active_gpf_case.series_id; font-size: 13px; font-family: "Consolas"; font-weight: 700; color: Theme.brand-warning; } }
                                 VerticalLayout { spacing: 4px; width: 120px; Text { text: "LEDGER ACCOUNT NO"; font-size: 9px; color: Theme.text-muted; } Text { text: root.active_gpf_case.account_no; font-size: 13px; font-family: "Consolas"; color: Theme.text-primary; } }
@@ -138,18 +131,14 @@ export component GpfFinalPaymentView inherits Rectangle {
                 }
             }
 
-            // =========================================================================
-            // 🚨 VIEW 2: DESTRUCTIVE OVERRIDE SAFEHOUSE (CROSS-FADING)
-            // =========================================================================
             Rectangle {
-                // Kinetic Fade Properties
                 opacity: root.active_schema_action == "gpffp_clear" ? 1.0 : 0.0;
                 visible: self.opacity > 0.05;
-                
                 animate opacity { duration: 250ms; easing: ease-in-out; }
 
                 Rectangle {
-                    background: #ef444403; border-radius: 12px; border-width: 1px; border-color: #ef444426;
+                    background: Theme.is-light-mode ? #ef444408 : #ef444403;
+                    border-radius: 12px; border-width: 1px; border-color: #ef444426;
                     VerticalLayout {
                         padding: 16px; spacing: 12px;
                         VerticalLayout {
@@ -157,16 +146,15 @@ export component GpfFinalPaymentView inherits Rectangle {
                             Text { text: "CRITICAL REGULATORY ADMINISTRATIVE INTERFACE"; font-size: 12px; font-weight: 900; color: Theme.brand-danger; letter-spacing: 0.5px; }
                             Text { text: "Cascading deletions directly modify layout sectors. Provide explicit targets before execution."; font-size: 11px; color: Theme.text-secondary; }
                         }
-                        Rectangle { height: 1px; background: Theme.border-color; opacity: 0.1; }
+                        Rectangle { height: 1px; background: Theme.border-color; opacity: 0.3; }
                         HorizontalLayout {
                             spacing: 12px; alignment: start;
                             VerticalLayout { spacing: 4px; width: 180px; Text { text: "APPLICATION / REGD NO"; font-size: 10px; color: Theme.text-muted; } LineEdit { text <=> root.op_regd_no; placeholder_text: "Ex: 45102/FP"; height: 30px; } }
                             VerticalLayout { spacing: 4px; width: 140px; Text { text: "SERIES PREFIX CODE"; font-size: 10px; color: Theme.text-muted; } LineEdit { text <=> root.op_series_id; placeholder_text: "Ex: EDN"; height: 30px; } }
                             VerticalLayout { spacing: 4px; width: 180px; Text { text: "ACCOUNT NO REFERENCE"; font-size: 10px; color: Theme.text-muted; } LineEdit { text <=> root.op_account_no; placeholder_text: "Ex: 12435"; height: 30px; } }
                         }
-                        Rectangle { height: 1px; background: Theme.border-color; opacity: 0.1; }
-                        
-                        // Integrated our new premium FluidButtons for tactile interactions!
+                        Rectangle { height: 1px; background: Theme.border-color; opacity: 0.3; }
+
                         GridLayout {
                             spacing: 10px;
                             Row {

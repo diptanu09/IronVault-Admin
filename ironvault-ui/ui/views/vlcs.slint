@@ -5,7 +5,7 @@ export component VlcsComputerizedView inherits Rectangle {
     in-out property <string> active_schema_action;
     in-out property <string> op_status_msg;
     in-out property <bool> op_is_error;
-    
+
     in-out property <string> vlcs_ddo_code;
     in-out property <string> vlcs_emp_code;
     in-out property <string> vlcs_emp_mobile;
@@ -21,7 +21,6 @@ export component VlcsComputerizedView inherits Rectangle {
         spacing: 24px;
         padding: 24px;
 
-        // Modern Navigation
         HorizontalLayout {
             spacing: 12px;
             alignment: start;
@@ -39,18 +38,16 @@ export component VlcsComputerizedView inherits Rectangle {
             }
         }
 
-        // Main Content Card
         Rectangle {
-            background: @linear-gradient(145deg, #1e2937, #0f172a);
+            background: Theme.bg-card;
             border-radius: 20px;
             border-width: 1px;
-            border-color: #6366f155;
+            border-color: Theme.border-color;
 
             VerticalLayout {
                 padding: 28px;
                 spacing: 24px;
 
-                // DDO Section
                 if (root.active_schema_action == "vlcs_ddo") : VerticalLayout {
                     spacing: 20px;
 
@@ -59,7 +56,7 @@ export component VlcsComputerizedView inherits Rectangle {
                         font-size: 15px;
                         font-weight: 800;
                         letter-spacing: 1.2px;
-                        color: #a5b4fc;
+                        color: Theme.brand-primary;
                     }
 
                     HorizontalLayout {
@@ -73,7 +70,7 @@ export component VlcsComputerizedView inherits Rectangle {
                                 text: "DDO ALLOCATION CODE";
                                 font-size: 11px;
                                 font-weight: 700;
-                                color: #64748b;
+                                color: Theme.text-muted;
                                 letter-spacing: 0.8px;
                             }
                             LineEdit {
@@ -100,7 +97,6 @@ export component VlcsComputerizedView inherits Rectangle {
                     }
                 }
 
-                // Employee Section
                 if (root.active_schema_action == "vlcs_emp") : VerticalLayout {
                     spacing: 20px;
 
@@ -109,7 +105,7 @@ export component VlcsComputerizedView inherits Rectangle {
                         font-size: 15px;
                         font-weight: 800;
                         letter-spacing: 1.2px;
-                        color: #a5b4fc;
+                        color: Theme.brand-primary;
                     }
 
                     HorizontalLayout {
@@ -123,7 +119,7 @@ export component VlcsComputerizedView inherits Rectangle {
                                 text: "HRMS EMPLOYEE CODE";
                                 font-size: 11px;
                                 font-weight: 700;
-                                color: #64748b;
+                                color: Theme.text-muted;
                                 letter-spacing: 0.8px;
                             }
                             LineEdit {
@@ -141,7 +137,7 @@ export component VlcsComputerizedView inherits Rectangle {
                                 text: "TARGET TELEPHONE FIELD";
                                 font-size: 11px;
                                 font-weight: 700;
-                                color: #64748b;
+                                color: Theme.text-muted;
                                 letter-spacing: 0.8px;
                             }
                             LineEdit {

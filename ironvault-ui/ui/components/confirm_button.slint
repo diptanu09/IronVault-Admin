@@ -4,6 +4,7 @@ export component ConfirmButton inherits Rectangle {
     in property <string> text;
     in property <string> confirm_text: "Confirm?";
     in property <string> icon_text: "";
+    in property <image> icon;
     in property <length> button_height: 38px;
     in property <int> arm_timeout_ms: 3000;
     callback confirmed();
@@ -11,30 +12,63 @@ export component ConfirmButton inherits Rectangle {
     property <bool> armed: false;
 
     height: root.button_height;
+    width: content_layout.preferred-width;
     border-radius: 8px;
-    background: root.armed
-        ? (ta.pressed ? #B91C1C : (ta.has-hover ? #DC2626 : #EF4444))
-        : (ta.pressed ? Theme.bg-card-hover : (ta.has-hover ? Theme.bg-card : Theme.bg-card));
+
+    background: root.armed ? #EF4444 : Theme.bg-card;
     border-width: 1px;
     border-color: root.armed ? Theme.brand-danger : Theme.border-color;
+    opacity: ta.has-hover ? 0.9 : 1.0;
+
+    drop-shadow-blur: ta.has-hover ? 12px : 0px;
+    drop-shadow-color: root.armed ? Theme.brand-danger : Theme.border-color;
+    drop-shadow-offset-y: ta.has-hover ? 6px : 0px;
 
     animate background { duration: 150ms; }
     animate border-color { duration: 150ms; }
+    animate drop-shadow-blur { duration: 150ms; }
+    animate opacity { duration: 100ms; }
 
-    HorizontalLayout {
-        alignment: center;
-        spacing: 8px;
-        if (root.icon_text != ""): Text {
-            text: root.armed ? "⚠️" : root.icon_text;
-            font-size: 14px;
-            vertical-alignment: center;
-        }
-        Text {
-            text: root.armed ? root.confirm_text : root.text;
-            color: root.armed ? white : Theme.text-primary;
-            font-weight: 800;
-            font-size: 12px;
-            vertical-alignment: center;
+    Rectangle {
+        y: ta.has-hover ? -2px : 0px;
+        animate y { duration: 150ms; easing: ease-out; }
+
+        content_layout := HorizontalLayout {
+            alignment: center;
+            padding-left: 16px;
+            padding-right: 16px;
+            spacing: 8px;
+
+            // Image icon takes priority over emoji icon_text when both/neither
+            // are set, since it's the more consistent visual language with
+            // the rest of the app's Lucide-based iconography.
+            if (root.icon.width > 0 && root.icon.height > 0 && !root.armed): Image {
+                source: root.icon;
+                width: 28px;
+                height: 28px;
+                vertical-alignment: center;
+                colorize: Theme.text-primary;
+            }
+
+            if ((root.icon.width == 0 || root.icon.height == 0) && root.icon_text != "" && !root.armed): Text {
+                text: root.icon_text;
+                font-size: 14px;
+                vertical-alignment: center;
+            }
+
+            if (root.armed): Text {
+                text: "⚠️";
+                font-size: 14px;
+                vertical-alignment: center;
+            }
+
+            Text {
+                text: root.armed ? root.confirm_text : root.text;
+                color: root.armed ? white : Theme.text-primary;
+                font-weight: 800;
+                font-size: 12px;
+                vertical-alignment: center;
+            }
         }
     }
 
@@ -50,8 +84,6 @@ export component ConfirmButton inherits Rectangle {
         }
     }
 
-    // Auto-disarm if the second click never comes, so the button doesn't
-    // stay stuck in a "loaded" state indefinitely.
     disarm_timer := Timer {
         interval: root.arm_timeout_ms * 1ms;
         running: false;

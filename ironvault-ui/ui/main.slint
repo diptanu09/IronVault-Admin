@@ -70,6 +70,7 @@ component Avatar inherits Rectangle {
 
 component PremiumSchemaCard inherits Rectangle {
     in property <image> lucide_icon;
+    in property <string> icon;
     in property <string> title;
     in property <string> subtitle;
     in property <string> node_ip;
@@ -80,9 +81,17 @@ component PremiumSchemaCard inherits Rectangle {
     height: 120px;
     horizontal-stretch: 1;
     border-radius: 16px;
-    background: !root.has_access ? #1E293B4D : (root.active ? #00E5FF1F : (ta.has-hover ? #1E293BCC : #111827CC));
+    background: !root.has_access
+        ? Theme.bg-card-hover
+        : (root.active
+            ? (Theme.is-light-mode ? #00E5FF26 : #00E5FF1F)
+            : (ta.has-hover ? Theme.bg-card-hover : Theme.bg-card));
     border-width: 1.5px;
-    border-color: !root.has_access ? #334155 : (root.active ? Theme.brand-primary : (ta.has-hover ? #00E5FF66 : #1F2937));
+    border-color: !root.has_access
+        ? Theme.border-color
+        : (root.active
+            ? Theme.brand-primary
+            : (ta.has-hover ? #00E5FF66 : Theme.border-color));
     opacity: root.has_access ? 1.0 : 0.5;
     drop-shadow-blur: ta.has-hover ? 20px : 0px;
     drop-shadow-color: #00E5FF14;
@@ -99,13 +108,15 @@ component PremiumSchemaCard inherits Rectangle {
                 width: 56px;
                 height: 56px;
                 border-radius: 12px;
-                background: !root.has_access ? #334155 : (root.active ? Theme.brand-primary : #00E5FF1A);
+                background: !root.has_access
+                    ? Theme.bg-card-hover
+                    : (root.active ? Theme.brand-primary : (Theme.is-light-mode ? #00E5FF26 : #00E5FF1A));
                 Image {
                     source: root.lucide_icon;
                     width: 26px;
                     height: 26px;
                     image-fit: contain;
-                    colorize: root.has_access && !root.active ? Theme.brand-primary : (root.active ? #111827 : #64748B);
+                    colorize: root.has_access && !root.active ? Theme.brand-primary : (root.active ? Theme.bg-main : Theme.text-muted);
                 }
             }
         }
@@ -143,7 +154,7 @@ component PremiumSchemaCard inherits Rectangle {
                     text: "NODE CLUSTER: " + root.node_ip;
                     font-size: 11px;
                     font-family: "monospace";
-                    color: #64748B;
+                    color: Theme.text-muted;
                 }
 
                 Text {
@@ -232,7 +243,7 @@ export component AppWindow inherits Window {
 
     in-out property <bool> sidebar_collapsed: false;
     in-out property <string> hwid_string: "HWID: UNKNOWN";
-    in property <string> app_version_meta: "v1.2.4";
+    in property <string> app_version_meta: "v1.0.0";
     in-out property <bool> is_logged_in: false;
     in-out property <string> current_user_name: "GUEST";
     in-out property <string> current_user_role: "UNAUTHORIZED";
@@ -1145,15 +1156,21 @@ export component AppWindow inherits Window {
                                                     HorizontalLayout {
                                                         spacing: 12px;
                                                         alignment: LayoutAlignment.center;
-                                                        Button {
-                                                            icon: @image-url("assets/check-badge.svg");
+                                                        // Button {
+                                                        //     icon: @image-url("assets/check-badge.svg");
+                                                        //     clicked => { root.request_step_up("approve", p_user.username, "Operator"); }
+                                                        // }
+                                                        FluidButton {
+                                                            text: "Approve";
+                                                            icon: "✅";
                                                             clicked => { root.request_step_up("approve", p_user.username, "Operator"); }
                                                         }
 
                                                         ConfirmButton {
-                                                            text: "Deny";
+                                                            text: "";
+                                                            icon: @image-url("assets/allowances-no-talking.svg");
                                                             confirm_text: "Sure?";
-                                                            button_height: 32px;
+                                                            button_height: 38px;
                                                             confirmed => { root.request_step_up("deny", p_user.username, ""); }
                                                         }
                                                     }
@@ -1601,10 +1618,9 @@ export component AppWindow inherits Window {
                                                             alignment: LayoutAlignment.end;
                                                             spacing: 12px;
                                                             padding-top: 4px;
-                                                            Button {
-                                                                icon: @image-url("assets/shield-check-1.svg");
+                                                            FluidButton {
                                                                 text: "Save Modification Pass";
-                                                                height: 36px;
+                                                                icon_image: @image-url("assets/shield-check-1.svg");
                                                                 clicked => {
                                                                     root.request_step_up(
                                                                         "commit_settings",

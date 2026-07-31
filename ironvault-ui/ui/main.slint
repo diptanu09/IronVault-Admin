@@ -348,6 +348,7 @@ export component AppWindow inherits Window {
     in-out property <string> update_latest_version: "";
     in-out property <string> update_changelog: "";
     in-out property <string> update_download_url: "";
+    in-out property <bool> gpf_find_busy: false;
 
     callback request_dismiss_update_notice(string);
     callback request_open_download_url();
@@ -1022,6 +1023,7 @@ export component AppWindow inherits Window {
                                         op_gpf_new_status <=> root.op_gpf_new_status;
                                         gpf_case_found <=> root.gpf_case_found;
                                         active_gpf_case <=> root.active_gpf_case;
+                                        gpf_find_busy <=> root.gpf_find_busy;
                                         request_find_gpf_case(s) => { root.request_find_gpf_case(s); }
                                         request_delete_full_case(r, s, a) => { root.request_delete_full_case(r, s, a); }
                                         request_delete_application(r) => { root.request_delete_application(r); }

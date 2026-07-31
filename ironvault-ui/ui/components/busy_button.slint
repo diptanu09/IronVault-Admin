@@ -1,0 +1,94 @@
+import { Theme } from "../theme.slint";
+
+component Spinner inherits Rectangle {
+    in property <color> spinner_color: white;
+    width: 14px;
+    height: 14px;
+
+    property <angle> spin: 0deg;
+    animate spin {
+        duration: 800ms;
+        iteration-count: -1;
+        easing: linear;
+    }
+    init => { root.spin = 360deg; }
+
+    dot := Rectangle {
+        width: 4px;
+        height: 4px;
+        border-radius: 2px;
+        background: root.spinner_color;
+        x: (parent.width - self.width) / 2;
+        y: 0px;
+        transform-rotation: root.spin;
+    }
+}
+
+export component BusyButton inherits Rectangle {
+    in property <string> text;
+    in property <string> busy_text: "Working...";
+    in property <string> icon;
+    in property <image> icon_image;
+    in property <bool> busy: false;
+    in property <bool> is_destructive: false;
+    in property <color> primary_color: #3b82f6;
+    in property <color> danger_color: #ef4444;
+
+    callback clicked;
+
+    height: 36px;
+    width: content_layout.preferred-width;
+    border-radius: 8px;
+
+    background: root.is_destructive ? root.danger_color : root.primary_color;
+    opacity: root.busy ? 0.7 : (touch.has-hover ? 0.85 : 1.0);
+
+    drop-shadow-blur: (!root.busy && touch.has-hover) ? 12px : 0px;
+    drop-shadow-color: root.is_destructive ? root.danger_color : root.primary_color;
+    drop-shadow-offset-y: (!root.busy && touch.has-hover) ? 6px : 0px;
+
+    animate drop-shadow-blur { duration: 150ms; }
+    animate opacity { duration: 150ms; }
+
+    Rectangle {
+        y: (!root.busy && touch.has-hover) ? -2px : 0px;
+        animate y { duration: 150ms; easing: ease-out; }
+
+        content_layout := HorizontalLayout {
+            alignment: center;
+            padding-left: 16px;
+            padding-right: 16px;
+            spacing: 8px;
+
+            if (root.busy): Spinner {
+                spinner_color: white;
+            }
+
+            if (!root.busy && root.icon_image.width > 0 && root.icon_image.height > 0): Image {
+                source: root.icon_image;
+                width: 14px;
+                height: 14px;
+                colorize: white;
+            }
+
+            if (!root.busy && (root.icon_image.width == 0 || root.icon_image.height == 0) && root.icon != ""): Text {
+                text: root.icon;
+                font-size: 14px;
+                vertical-alignment: center;
+            }
+
+            Text {
+                text: root.busy ? root.busy_text : root.text;
+                color: white;
+                font-weight: 800;
+                font-size: 12px;
+                letter-spacing: 0.5px;
+                vertical-alignment: center;
+            }
+        }
+    }
+
+    touch := TouchArea {
+        clicked => { if (!root.busy) { root.clicked(); } }
+    }
+}

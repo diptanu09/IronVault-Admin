@@ -2,6 +2,8 @@ import { Button, LineEdit, ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { FluidButton } from "../components/fluid_button.slint";
 import { ConfirmButton } from "../components/confirm_button.slint";
+import { BusyButton } from "../components/busy_button.slint";
+
 
 export struct GpfCaseDetails {
     regd_no: string,
@@ -16,7 +18,7 @@ export component GpfFinalPaymentView inherits Rectangle {
     in-out property <string> active_schema_action;
     in-out property <string> op_status_msg;
     in-out property <bool> op_is_error;
-
+    in-out property <bool> gpf_find_busy: false;
     in-out property <string> op_regd_no;
     in-out property <string> op_series_id;
     in-out property <string> op_account_no;
@@ -93,8 +95,10 @@ export component GpfFinalPaymentView inherits Rectangle {
 
                                 VerticalLayout {
                                     alignment: end;
-                                    FluidButton {
+                                    BusyButton {
                                         text: "Scan Secure Ring";
+                                        busy_text: "Scanning...";
+                                        busy: root.gpf_find_busy;
                                         width: 160px;
                                         height: 32px;
                                         clicked => { root.request_find_gpf_case(root.op_regd_no); }

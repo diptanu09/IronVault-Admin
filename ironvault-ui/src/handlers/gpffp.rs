@@ -14,8 +14,30 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
             let ui_weak = app_weak.clone();
             let ctx = ctx.clone();
             let r_no = regd_no.to_string();
+
+            // Set busy immediately, synchronously, before spawning — this is what
+            // makes the spinner appear the instant the click registers, not after
+            // some delay.
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_gpf_find_busy(true);
+            }
+
             tokio::spawn(async move {
-                match ctx.oracle.gpffp_find_case_profile(&r_no).await {
+                let result = ctx.oracle.gpffp_find_case_profile(&r_no).await;
+
+                // Clear busy first, unconditionally, regardless of success/failure —
+                // then apply the existing result-handling logic exactly as before.
+                slint::invoke_from_event_loop({
+                    let ui_weak = ui_weak.clone();
+                    move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_gpf_find_busy(false);
+                        }
+                    }
+                })
+                .ok();
+
+                match result {
                     Ok(Some(record)) => {
                         slint::invoke_from_event_loop(move || {
                             if let Some(ui) = ui_weak.upgrade() {

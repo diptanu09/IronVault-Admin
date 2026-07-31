@@ -33,12 +33,17 @@ export component FluidButton inherits Rectangle {
             padding-left: 16px; padding-right: 16px;
             spacing: 8px;
 
-            if (root.icon_image.width > 0 && root.icon_image.height > 0) : Image {
-                source: root.icon_image;
+            if (root.icon_image.width > 0 && root.icon_image.height > 0) : Rectangle {
                 width: 14px;
-                height: 14px;
-                vertical-alignment: center;
-                colorize: white;
+                height: 36px;
+                Image {
+                    source: root.icon_image;
+                    width: 14px;
+                    height: 14px;
+                    x: 0px;
+                    y: (parent.height - self.height) / 2;
+                    colorize: white;
+                }
             }
 
             if ((root.icon_image.width == 0 || root.icon_image.height == 0) && root.icon != "") : Text {

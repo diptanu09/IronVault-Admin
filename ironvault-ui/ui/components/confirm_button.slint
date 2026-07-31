@@ -39,15 +39,17 @@ export component ConfirmButton inherits Rectangle {
             padding-right: 16px;
             spacing: 8px;
 
-            // Image icon takes priority over emoji icon_text when both/neither
-            // are set, since it's the more consistent visual language with
-            // the rest of the app's Lucide-based iconography.
-            if (root.icon.width > 0 && root.icon.height > 0 && !root.armed): Image {
-                source: root.icon;
-                width: 28px;
-                height: 28px;
-                vertical-alignment: center;
-                colorize: Theme.text-primary;
+            if (root.icon.width > 0 && root.icon.height > 0 && !root.armed): Rectangle {
+                width: 14px;
+                height: root.button_height;
+                Image {
+                    source: root.icon;
+                    width: 14px;
+                    height: 14px;
+                    x: 0px;
+                    y: (parent.height - self.height) / 2;
+                    colorize: Theme.text-primary;
+                }
             }
 
             if ((root.icon.width == 0 || root.icon.height == 0) && root.icon_text != "" && !root.armed): Text {

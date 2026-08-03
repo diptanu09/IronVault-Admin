@@ -349,7 +349,16 @@ export component AppWindow inherits Window {
     in-out property <string> update_changelog: "";
     in-out property <string> update_download_url: "";
     in-out property <bool> gpf_find_busy: false;
-
+    in-out property <string> login_success: "";
+    in-out property <bool> gpf_drop_busy : false;
+    in-out property <bool> gpf_purge_busy : false;
+    in-out property <bool> gpf_flush_busy : false;
+    in-out property <bool> gpf_auth_drop_busy : false;
+    in-out property <bool> vlcs_get_ddo_busy: false;
+    in-out property <bool> vlcs_update_ddo_busy: false;
+    in-out property <bool> vlcs_get_emp_busy: false;
+    in-out property <bool> vlcs_update_emp_busy: false;
+    
     callback request_dismiss_update_notice(string);
     callback request_open_download_url();
     callback request_step_up(string, string, string);
@@ -445,6 +454,7 @@ export component AppWindow inherits Window {
                 form_user <=> root.form_user;
                 form_pass <=> root.form_pass;
                 login_error <=> root.login_error;
+                login_success <=> root.login_success;
                 registration_fields <=> root.registration_fields;
                 login_requested(u, p) => { root.request_authentication(u, p); }
                 registration_requested(u, s, f, m, l, d, sec) => { root.request_registration(u, s, f, m, l, d, sec); }
@@ -1024,6 +1034,10 @@ export component AppWindow inherits Window {
                                         gpf_case_found <=> root.gpf_case_found;
                                         active_gpf_case <=> root.active_gpf_case;
                                         gpf_find_busy <=> root.gpf_find_busy;
+                                        gpf_drop_busy <=> root.gpf_drop_busy;
+                                        gpf_purge_busy <=> root.gpf_purge_busy;
+                                        gpf_flush_busy <=> root.gpf_flush_busy;
+                                        gpf_auth_drop_busy <=> root.gpf_auth_drop_busy;
                                         request_find_gpf_case(s) => { root.request_find_gpf_case(s); }
                                         request_delete_full_case(r, s, a) => { root.request_delete_full_case(r, s, a); }
                                         request_delete_application(r) => { root.request_delete_application(r); }
@@ -1038,6 +1052,10 @@ export component AppWindow inherits Window {
                                         vlcs_ddo_code <=> root.vlcs_ddo_code;
                                         vlcs_emp_code <=> root.vlcs_emp_code;
                                         vlcs_emp_mobile <=> root.vlcs_emp_mobile;
+                                        vlcs_get_ddo_busy <=> root.vlcs_get_ddo_busy;
+                                        vlcs_update_ddo_busy <=> root.vlcs_update_ddo_busy;
+                                        vlcs_get_emp_busy <=> root.vlcs_get_emp_busy;
+                                        vlcs_update_emp_busy <=> root.vlcs_update_emp_busy;
                                         request_vlcs_get_ddo(c) => { root.request_vlcs_get_ddo(c); }
                                         request_vlcs_update_ddo(c) => { root.request_vlcs_update_ddo(c); }
                                         request_vlcs_get_emp(c) => { root.request_vlcs_get_emp(c); }

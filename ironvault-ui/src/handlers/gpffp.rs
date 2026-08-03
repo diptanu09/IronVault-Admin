@@ -97,8 +97,24 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
                 series_id.to_string(),
                 account_no.to_string(),
             );
+
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_gpf_drop_busy(true);
+            }
+
             tokio::spawn(async move {
-                match ctx.oracle.gpffp_delete_full_case(&r_no, &s_id, &a_no).await {
+                let result = ctx.oracle.gpffp_delete_full_case(&r_no, &s_id, &a_no).await;
+                slint::invoke_from_event_loop({
+                    let ui_weak = ui_weak.clone();
+                    move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_gpf_drop_busy(false);
+                        }
+                    }
+                })
+                .ok();
+
+                match result {
                     Ok(_) => slint::invoke_from_event_loop(move || {
                         if let Some(ui) = ui_weak.upgrade() {
                             ui.set_op_is_error(false);
@@ -134,8 +150,24 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
             let ui_weak = app_weak.clone();
             let ctx = ctx.clone();
             let r_no = regd_no.to_string();
+
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_gpf_purge_busy(true);
+            }
+
             tokio::spawn(async move {
-                match ctx.oracle.gpffp_delete_from_application(&r_no).await {
+                let result = ctx.oracle.gpffp_delete_from_application(&r_no).await;
+                slint::invoke_from_event_loop({
+                    let ui_weak = ui_weak.clone();
+                    move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_gpf_purge_busy(false);
+                        }
+                    }
+                })
+                .ok();
+
+                match result {
                     Ok(_) => slint::invoke_from_event_loop(move || {
                         if let Some(ui) = ui_weak.upgrade() {
                             ui.set_op_is_error(false);
@@ -169,8 +201,24 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
             let ui_weak = app_weak.clone();
             let ctx = ctx.clone();
             let r_no = regd_no.to_string();
+
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_gpf_flush_busy(true);
+            }
+
             tokio::spawn(async move {
-                match ctx.oracle.gpffp_delete_from_pre_calculation(&r_no).await {
+                let result = ctx.oracle.gpffp_delete_from_pre_calculation(&r_no).await;
+                slint::invoke_from_event_loop({
+                    let ui_weak = ui_weak.clone();
+                    move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_gpf_flush_busy(false);
+                        }
+                    }
+                })
+                .ok();
+
+                match result {
                     Ok(_) => slint::invoke_from_event_loop(move || {
                         if let Some(ui) = ui_weak.upgrade() {
                             ui.set_op_is_error(false);
@@ -204,8 +252,17 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
             let ui_weak = app_weak.clone();
             let ctx = ctx.clone();
             let r_no = regd_no.to_string();
+
+            if let Some(ui) = ui_weak.upgrade() { ui.set_gpf_auth_drop_busy(true); }
+
             tokio::spawn(async move {
-                match ctx.oracle.gpffp_delete_authority_reports(&r_no).await {
+                let result = ctx.oracle.gpffp_delete_authority_reports(&r_no).await;
+                slint::invoke_from_event_loop({
+                    let ui_weak = ui_weak.clone();
+                    move || { if let Some(ui) = ui_weak.upgrade() { ui.set_gpf_auth_drop_busy(false); } }
+                }).ok();
+
+                match result {
                     Ok(_) => slint::invoke_from_event_loop(move || {
                         if let Some(ui) = ui_weak.upgrade() {
                             ui.set_op_is_error(false);

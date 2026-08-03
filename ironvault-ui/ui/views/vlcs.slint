@@ -1,10 +1,16 @@
 import { Button, LineEdit } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
+import { BusyButton } from "../components/busy_button.slint";
 
 export component VlcsComputerizedView inherits Rectangle {
     in-out property <string> active_schema_action;
     in-out property <string> op_status_msg;
     in-out property <bool> op_is_error;
+
+    in-out property <bool> vlcs_get_ddo_busy: false;
+    in-out property <bool> vlcs_update_ddo_busy: false;
+    in-out property <bool> vlcs_get_emp_busy: false;
+    in-out property <bool> vlcs_update_emp_busy: false;
 
     in-out property <string> vlcs_ddo_code;
     in-out property <string> vlcs_emp_code;
@@ -18,9 +24,12 @@ export component VlcsComputerizedView inherits Rectangle {
     background: transparent;
 
     VerticalLayout {
-        spacing: 24px;
         padding: 24px;
+        spacing: 24px;
 
+        // ==========================
+        // Navigation
+        // ==========================
         HorizontalLayout {
             spacing: 12px;
             alignment: start;
@@ -28,13 +37,17 @@ export component VlcsComputerizedView inherits Rectangle {
             Button {
                 text: "🏢 DDO Operations Console";
                 height: 42px;
-                clicked => { root.active_schema_action = "vlcs_ddo"; }
+                clicked => {
+                    root.active_schema_action = "vlcs_ddo";
+                }
             }
 
             Button {
                 text: "👤 Employee Operations Node";
                 height: 42px;
-                clicked => { root.active_schema_action = "vlcs_emp"; }
+                clicked => {
+                    root.active_schema_action = "vlcs_emp";
+                }
             }
         }
 
@@ -48,6 +61,9 @@ export component VlcsComputerizedView inherits Rectangle {
                 padding: 28px;
                 spacing: 24px;
 
+                // ============================================================
+                // DDO OPERATIONS
+                // ============================================================
                 if (root.active_schema_action == "vlcs_ddo") : VerticalLayout {
                     spacing: 20px;
 
@@ -64,8 +80,9 @@ export component VlcsComputerizedView inherits Rectangle {
                         alignment: start;
 
                         VerticalLayout {
-                            spacing: 6px;
                             width: 320px;
+                            spacing: 6px;
+
                             Text {
                                 text: "DDO ALLOCATION CODE";
                                 font-size: 11px;
@@ -73,6 +90,7 @@ export component VlcsComputerizedView inherits Rectangle {
                                 color: Theme.text-muted;
                                 letter-spacing: 0.8px;
                             }
+
                             LineEdit {
                                 text <=> root.vlcs_ddo_code;
                                 placeholder_text: "e.g. WBGTRD001";
@@ -84,19 +102,30 @@ export component VlcsComputerizedView inherits Rectangle {
 
                     HorizontalLayout {
                         spacing: 12px;
-                        Button {
+
+                        BusyButton {
                             text: "QUERY ALLOCATION MATRIX";
-                            height: 48px;
-                            clicked => { root.request_vlcs_get_ddo(root.vlcs_ddo_code); }
+                            busy: root.vlcs_get_ddo_busy;
+
+                            clicked => {
+                                root.request_vlcs_get_ddo(root.vlcs_ddo_code);
+                            }
                         }
-                        Button {
+
+                        BusyButton {
                             text: "COMMIT RE-ALLOCATION PASS";
-                            height: 48px;
-                            clicked => { root.request_vlcs_update_ddo(root.vlcs_ddo_code); }
+                            busy: root.vlcs_update_ddo_busy;
+
+                            clicked => {
+                                root.request_vlcs_update_ddo(root.vlcs_ddo_code);
+                            }
                         }
                     }
                 }
 
+                // ============================================================
+                // EMPLOYEE OPERATIONS
+                // ============================================================
                 if (root.active_schema_action == "vlcs_emp") : VerticalLayout {
                     spacing: 20px;
 
@@ -113,8 +142,9 @@ export component VlcsComputerizedView inherits Rectangle {
                         alignment: start;
 
                         VerticalLayout {
-                            spacing: 6px;
                             width: 280px;
+                            spacing: 6px;
+
                             Text {
                                 text: "HRMS EMPLOYEE CODE";
                                 font-size: 11px;
@@ -122,6 +152,7 @@ export component VlcsComputerizedView inherits Rectangle {
                                 color: Theme.text-muted;
                                 letter-spacing: 0.8px;
                             }
+
                             LineEdit {
                                 text <=> root.vlcs_emp_code;
                                 placeholder_text: "e.g. 20241105";
@@ -131,8 +162,9 @@ export component VlcsComputerizedView inherits Rectangle {
                         }
 
                         VerticalLayout {
-                            spacing: 6px;
                             width: 280px;
+                            spacing: 6px;
+
                             Text {
                                 text: "TARGET TELEPHONE FIELD";
                                 font-size: 11px;
@@ -140,6 +172,7 @@ export component VlcsComputerizedView inherits Rectangle {
                                 color: Theme.text-muted;
                                 letter-spacing: 0.8px;
                             }
+
                             LineEdit {
                                 text <=> root.vlcs_emp_mobile;
                                 placeholder_text: "e.g. +91XXXXXXXXXX";
@@ -151,15 +184,26 @@ export component VlcsComputerizedView inherits Rectangle {
 
                     HorizontalLayout {
                         spacing: 12px;
-                        Button {
+
+                        BusyButton {
                             text: "QUERY CORE FIELDS";
-                            height: 48px;
-                            clicked => { root.request_vlcs_get_emp(root.vlcs_emp_code); }
+                            busy: root.vlcs_get_emp_busy;
+
+                            clicked => {
+                                root.request_vlcs_get_emp(root.vlcs_emp_code);
+                            }
                         }
-                        Button {
+
+                        BusyButton {
                             text: "UPDATE FIELD METRICS";
-                            height: 48px;
-                            clicked => { root.request_vlcs_update_emp(root.vlcs_emp_code, root.vlcs_emp_mobile); }
+                            busy: root.vlcs_update_emp_busy;
+
+                            clicked => {
+                                root.request_vlcs_update_emp(
+                                    root.vlcs_emp_code,
+                                    root.vlcs_emp_mobile
+                                );
+                            }
                         }
                     }
                 }

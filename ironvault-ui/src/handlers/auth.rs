@@ -227,8 +227,7 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
                         let ui = ui_weak.unwrap();
                         ui.set_login_error("".into());
                         ui.set_auth_screen_state("login".into());
-                        ui.set_op_is_error(false);
-                        ui.set_op_status_msg("Enrollment request transmitted successfully. Awaiting SuperAdmin verification token sign.".into());
+                        ui.set_login_success("Enrollment request transmitted successfully. Awaiting SuperAdmin verification token sign.".into());
                     }).unwrap(),
                     Err(e) => slint::invoke_from_event_loop(move || {
                         let ui = ui_weak.unwrap();

@@ -25,6 +25,10 @@ export component GpfFinalPaymentView inherits Rectangle {
     in-out property <string> op_gpf_new_status;
     in-out property <bool> gpf_case_found;
     in-out property <GpfCaseDetails> active_gpf_case;
+    in-out property <bool> gpf_drop_busy: false;
+    in-out property <bool> gpf_purge_busy: false;
+    in-out property <bool> gpf_flush_busy: false;
+    in-out property <bool> gpf_auth_drop_busy: false;
 
     callback request_find_gpf_case(string);
     callback request_delete_full_case(string, string, string);
@@ -165,11 +169,13 @@ export component GpfFinalPaymentView inherits Rectangle {
                                 ConfirmButton {
                                     text: "💥 Drop Full Settlement Profile";
                                     confirm_text: "⚠️ Confirm Full Drop?";
+                                    busy: root.gpf_drop_busy;
                                     confirmed => { root.request_delete_full_case(root.op_regd_no, root.op_series_id, root.op_account_no); }
                                 }
                                 ConfirmButton {
                                     text: "🗑️ Purge Application Row Element";
                                     confirm_text: "⚠️ Confirm Purge?";
+                                    busy: root.gpf_purge_busy;
                                     confirmed => { root.request_delete_application(root.op_regd_no); }
                                 }
                             }
@@ -177,11 +183,13 @@ export component GpfFinalPaymentView inherits Rectangle {
                                 ConfirmButton {
                                     text: "📊 Flush Pre-Calculations Cluster";
                                     confirm_text: "Confirm Flush?";
+                                    busy: root.gpf_flush_busy;
                                     confirmed => { root.request_delete_precalc(root.op_regd_no); }
                                 }
                                 ConfirmButton {
                                     text: "📜 Drop Signed Authority Certificates";
                                     confirm_text: "Confirm Drop?";
+                                    busy: root.gpf_auth_drop_busy;
                                     confirmed => { root.request_delete_auth_reports(root.op_regd_no); }
                                 }
                             }

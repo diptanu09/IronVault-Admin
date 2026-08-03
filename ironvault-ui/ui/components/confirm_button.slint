@@ -1,12 +1,29 @@
 import { Theme } from "../theme.slint";
 
+component MiniSpinner inherits Rectangle {
+    in property <color> spinner_color: white;
+    width: 12px;
+    height: 12px;
+    property <angle> spin: 0deg;
+    animate spin { duration: 800ms; iteration-count: -1; easing: linear; }
+    init => { root.spin = 360deg; }
+    Rectangle {
+        width: 4px; height: 4px; border-radius: 2px;
+        background: root.spinner_color;
+        x: (parent.width - self.width) / 2; y: 0px;
+        transform-rotation: root.spin;
+    }
+}
+
 export component ConfirmButton inherits Rectangle {
     in property <string> text;
     in property <string> confirm_text: "Confirm?";
+    in property <string> busy_text: "Processing...";
     in property <string> icon_text: "";
     in property <image> icon;
     in property <length> button_height: 38px;
     in property <int> arm_timeout_ms: 3000;
+    in property <bool> busy: false;
     callback confirmed();
 
     property <bool> armed: false;
@@ -15,14 +32,14 @@ export component ConfirmButton inherits Rectangle {
     width: content_layout.preferred-width;
     border-radius: 8px;
 
-    background: root.armed ? #EF4444 : Theme.bg-card;
+    background: root.busy ? Theme.bg-card-hover : (root.armed ? #EF4444 : Theme.bg-card);
     border-width: 1px;
     border-color: root.armed ? Theme.brand-danger : Theme.border-color;
-    opacity: ta.has-hover ? 0.9 : 1.0;
+    opacity: root.busy ? 0.75 : (ta.has-hover ? 0.9 : 1.0);
 
-    drop-shadow-blur: ta.has-hover ? 12px : 0px;
+    drop-shadow-blur: (!root.busy && ta.has-hover) ? 12px : 0px;
     drop-shadow-color: root.armed ? Theme.brand-danger : Theme.border-color;
-    drop-shadow-offset-y: ta.has-hover ? 6px : 0px;
+    drop-shadow-offset-y: (!root.busy && ta.has-hover) ? 6px : 0px;
 
     animate background { duration: 150ms; }
     animate border-color { duration: 150ms; }
@@ -30,7 +47,7 @@ export component ConfirmButton inherits Rectangle {
     animate opacity { duration: 100ms; }
 
     Rectangle {
-        y: ta.has-hover ? -2px : 0px;
+        y: (!root.busy && ta.has-hover) ? -2px : 0px;
         animate y { duration: 150ms; easing: ease-out; }
 
         content_layout := HorizontalLayout {
@@ -39,34 +56,23 @@ export component ConfirmButton inherits Rectangle {
             padding-right: 16px;
             spacing: 8px;
 
-            if (root.icon.width > 0 && root.icon.height > 0 && !root.armed): Rectangle {
-                width: 14px;
-                height: root.button_height;
-                Image {
-                    source: root.icon;
-                    width: 14px;
-                    height: 14px;
-                    x: 0px;
-                    y: (parent.height - self.height) / 2;
-                    colorize: Theme.text-primary;
-                }
+            if (root.busy): MiniSpinner { spinner_color: Theme.text-primary; }
+
+            if (!root.busy && root.icon.width > 0 && root.icon.height > 0 && !root.armed): Image {
+                source: root.icon; width: 14px; height: 14px; colorize: Theme.text-primary;
             }
 
-            if ((root.icon.width == 0 || root.icon.height == 0) && root.icon_text != "" && !root.armed): Text {
-                text: root.icon_text;
-                font-size: 14px;
-                vertical-alignment: center;
+            if (!root.busy && (root.icon.width == 0 || root.icon.height == 0) && root.icon_text != "" && !root.armed): Text {
+                text: root.icon_text; font-size: 14px; vertical-alignment: center;
             }
 
-            if (root.armed): Text {
-                text: "⚠️";
-                font-size: 14px;
-                vertical-alignment: center;
+            if (!root.busy && root.armed): Text {
+                text: "⚠️"; font-size: 14px; vertical-alignment: center;
             }
 
             Text {
-                text: root.armed ? root.confirm_text : root.text;
-                color: root.armed ? white : Theme.text-primary;
+                text: root.busy ? root.busy_text : (root.armed ? root.confirm_text : root.text);
+                color: root.armed && !root.busy ? white : Theme.text-primary;
                 font-weight: 800;
                 font-size: 12px;
                 vertical-alignment: center;
@@ -76,6 +82,7 @@ export component ConfirmButton inherits Rectangle {
 
     ta := TouchArea {
         clicked => {
+            if (root.busy) { return; }
             if (root.armed) {
                 root.armed = false;
                 root.confirmed();

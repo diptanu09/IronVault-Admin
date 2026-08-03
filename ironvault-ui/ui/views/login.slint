@@ -8,6 +8,7 @@ export component LoginView inherits Rectangle {
     in-out property <string> form_user: "";
     in-out property <string> form_pass: "";
     in-out property <string> login_error: "";
+    in-out property <string> login_success: "";
     in-out property <RegisterFormFields> registration_fields;
     property <string> screen_state: "landing";
 
@@ -38,18 +39,43 @@ export component LoginView inherits Rectangle {
                     Text { text: "IRONVAULT"; font-size: 32px; font-weight: 900; color: Theme.brand-primary; horizontal-alignment: center; }
                     Rectangle { height: 1px; background: Theme.border-color; }
 
+                    // Success banner — shown regardless of which sub-screen
+                    // (landing/login/register) is currently active, so a
+                    // just-completed registration is visible right where the
+                    // operator lands afterward, instead of silently vanishing.
+                    if (root.login_success != ""): Rectangle {
+                        background: #10B98133;
+                        border-radius: 6px;
+                        border-width: 1px;
+                        border-color: Theme.brand-success;
+                        HorizontalLayout {
+                            padding: 10px;
+                            spacing: 8px;
+                            Text { text: "✅"; font-size: 13px; vertical-alignment: center; }
+                            Text {
+                                text: root.login_success;
+                                color: Theme.brand-success;
+                                font-size: 12px;
+                                font-weight: 700;
+                                wrap: word-wrap;
+                                horizontal-stretch: 1;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
                     if (root.screen_state == "landing"): VerticalLayout {
                         spacing: 16px;
                         padding-top: 10px;
                         Button { text: "🔑  Access Terminal Login"; height: 45px; clicked => { root.screen_state = "login"; root.login_error = ""; } }
-                        Button { text: "📝  Enroll New Node Profile"; height: 45px; clicked => { root.screen_state = "register"; root.login_error = ""; } }
+                        Button { text: "📝  Enroll New Node Profile"; height: 45px; clicked => { root.screen_state = "register"; root.login_error = ""; root.login_success = ""; } }
                     }
 
                     if (root.screen_state == "login"): VerticalLayout {
                         spacing: 14px;
                         LineEdit { text <=> root.form_user; placeholder_text: "Operator ID"; height: 34px; }
                         LineEdit { text <=> root.form_pass; placeholder_text: "Secret Token"; input-type: password; height: 34px; }
-                        Button { text: "Authenticate Access"; height: Theme.button-height; horizontal-stretch: 1; clicked => { root.login_requested(root.form_user, root.form_pass); } }
+                        Button { text: "Authenticate Access"; height: Theme.button-height; horizontal-stretch: 1; clicked => { root.login_success = ""; root.login_requested(root.form_user, root.form_pass); } }
                         if (root.login_error != ""): Rectangle {
                             background: #FF336633; border-radius: 6px; border-width: 1px; border-color: Theme.brand-danger;
                             HorizontalLayout { padding: 8px; Text { text: root.login_error; color: #FFA0B4; font-size: 12px; font-weight: 600; horizontal-alignment: center; } }

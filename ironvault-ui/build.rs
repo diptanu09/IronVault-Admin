@@ -1,7 +1,8 @@
 // Build script for Slint UI compilation
 
-use std::fs::{create_dir_all, File};
-use std::io::Write;
+use std::fs::create_dir_all;
+// use std::fs::{ File};
+// use std::io::Write;
 use std::path::Path;
 
 fn main() {
@@ -87,63 +88,81 @@ fn main() {
     }
 
     // Set up a reusable HTTP client with a custom User-Agent to avoid GitHub API blocks
-    let client = reqwest::blocking::Client::builder()
-        .user_agent("ironvault-admin-builder/0.1.0")
-        .build()
-        .expect("Failed to initialize HTTP client");
+    // let client = reqwest::blocking::Client::builder()
+    //     .user_agent("ironvault-admin-builder/0.1.0")
+    //     .build()
+    //     .expect("Failed to initialize HTTP client");
 
     // Verify presence or handle background download execution loop
-    for (icon_name, filename) in required_icons {
+    // for (icon_name, filename) in required_icons {
+    //     let dest_path = assets_dir.join(filename);
+
+    //     if !dest_path.exists() {
+    //         println!(
+    //             "cargo:warning=[LUCIDE PIPELINE] Downloading missing vector asset: {}",
+    //             filename
+    //         );
+
+    //         let target_url = format!(
+    //             "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/{}.svg",
+    //             icon_name
+    //         );
+
+    //         // Fetch with proper error handling for offline/network issues
+    //         match client.get(&target_url).send() {
+    //             Ok(response) => {
+    //                 if response.status().is_success() {
+    //                     let svg_content = response.text().unwrap_or_else(|e| {
+    //                         panic!(
+    //                             "[FATAL] Failed to read response body for {}: {}",
+    //                             filename, e
+    //                         )
+    //                     });
+
+    //                     let mut file = File::create(&dest_path).unwrap_or_else(|e| {
+    //                         panic!("[FATAL] Failed to create local file {:?}: {}", dest_path, e)
+    //                     });
+
+    //                     file.write_all(svg_content.as_bytes()).unwrap_or_else(|e| {
+    //                         panic!(
+    //                             "[FATAL] Failed to write SVG content to {:?}: {}",
+    //                             dest_path, e
+    //                         )
+    //                     });
+    //                 } else {
+    //                     panic!(
+    //                         "[FATAL SYNC REJECTION] Icon download failure from GitHub (Status {}): {}\nURL tried: {}",
+    //                         response.status(),
+    //                         icon_name,
+    //                         target_url
+    //                     );
+    //                 }
+    //             }
+    //             Err(err) => {
+    //                 panic!(
+    //                     "[FATAL NETWORK ERROR] Could not connect to GitHub to download {}.\nAre you offline? Error details: {}",
+    //                     filename, err
+    //                 );
+    //             }
+    //         }
+    //     }
+    // }
+    // FIXED (item #7): icons are now vendored into the repo instead of
+    // fetched from GitHub at build time. This removes a network dependency
+    // from the build entirely — no more hard failures on offline builds or
+    // GitHub rate-limiting. If an icon is genuinely missing, fail with a
+    // clear message pointing at exactly which file to add, rather than
+    // silently downloading something unverified from the internet during
+    // every clean build.
+    for (_icon_name, filename) in &required_icons {
         let dest_path = assets_dir.join(filename);
-
         if !dest_path.exists() {
-            println!(
-                "cargo:warning=[LUCIDE PIPELINE] Downloading missing vector asset: {}",
-                filename
+            panic!(
+                "[FATAL] Missing vendored icon asset: {:?}\n\
+                 Icons are no longer auto-downloaded at build time. \
+                 Add this file to ui/assets/ manually (e.g. from lucide.dev) and commit it.",
+                dest_path
             );
-
-            let target_url = format!(
-                "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/{}.svg",
-                icon_name
-            );
-
-            // Fetch with proper error handling for offline/network issues
-            match client.get(&target_url).send() {
-                Ok(response) => {
-                    if response.status().is_success() {
-                        let svg_content = response.text().unwrap_or_else(|e| {
-                            panic!(
-                                "[FATAL] Failed to read response body for {}: {}",
-                                filename, e
-                            )
-                        });
-
-                        let mut file = File::create(&dest_path).unwrap_or_else(|e| {
-                            panic!("[FATAL] Failed to create local file {:?}: {}", dest_path, e)
-                        });
-
-                        file.write_all(svg_content.as_bytes()).unwrap_or_else(|e| {
-                            panic!(
-                                "[FATAL] Failed to write SVG content to {:?}: {}",
-                                dest_path, e
-                            )
-                        });
-                    } else {
-                        panic!(
-                            "[FATAL SYNC REJECTION] Icon download failure from GitHub (Status {}): {}\nURL tried: {}",
-                            response.status(),
-                            icon_name,
-                            target_url
-                        );
-                    }
-                }
-                Err(err) => {
-                    panic!(
-                        "[FATAL NETWORK ERROR] Could not connect to GitHub to download {}.\nAre you offline? Error details: {}",
-                        filename, err
-                    );
-                }
-            }
         }
     }
 

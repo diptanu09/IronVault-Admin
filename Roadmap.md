@@ -163,3 +163,72 @@ Your modern Slint-based front-end interface should be enhanced to display the fo
 Interactive Logs Table: Build a dynamic scrolling data grid displaying the contents of ironvault_audit.log inside your UI.
 
 Schema Table Explorer: Build a table grid where users can select schemas from a dropdown menu and double-click individual cells to edit, delete, or insert rows dynamically.
+
+ironvault-ui/ui/views/vlcs.slint
+"QUERY ALLOCATION MATRIX"        → "Query Allocation Matrix"
+"COMMIT RE-ALLOCATION PASS"      → "Commit Re-Allocation Pass"
+"QUERY CORE FIELDS"              → "Query Core Fields"
+"UPDATE FIELD METRICS"           → "Update Field Metrics"
+"DDO ALLOCATION CODE"            → "DDO Allocation Code"          (label, keep as-is — technical field label, fine)
+"HRMS EMPLOYEE CODE"             → "HRMS Employee Code"
+"TARGET TELEPHONE FIELD"         → "Target Telephone Field"
+"DRAWING AND DISBURSING OFFICER REGISTRY CONFIGURATION" → "Drawing and Disbursing Officer Registry Configuration"
+"EMPLOYEE TELEMETRY AND FIELD RECORD METRICS" → "Employee Telemetry and Field Record Metrics"
+
+ironvault-ui/ui/views/pendak.slint
+"LOG NEW OUTWARD DAK DIARY ENVELOPE RECORD" → "Log New Outward DAK Diary Envelope Record"
+"APPLICATION NO *"                → "Application No *"
+"AUTO-FETCHED PPO/FPPO/GPO/CPO"   → "Auto-Fetched PPO" / "Auto-Fetched FPPO" / etc.
+"ROUTING SECTION MATRIX *"        → "Routing Section Matrix *"
+"COMMUNICATION SUBJECT OVERVIEW *" → "Communication Subject Overview *"
+"NO OF COPIES"                    → "No of Copies"
+"RECIPIENT FORENSICS DISPATCH PROFILES" → "Recipient Dispatch Profiles"
+"COMMIT IMMUTABLY TO DIARY RING"  → "Commit to Diary Ring"
+"QUERY METADATA CORRESPONDENCE TRACKER ARCHIVE" → "Query Correspondence Tracker Archive"
+"LOCATE TRANSACTION"              → "Locate Transaction"
+"MATCHED ENCLAVE CASE ENTRY RECORDS" → "Matched Case Entry Records"
+"AMEND EXISTENT OUTWARD DATA COEFFICIENTS" → "Amend Outward Data"
+"TARGET APP NO"                   → "Target App No"
+"RE-ROUTE NEW SECTION"            → "Re-Route New Section"
+"REVISED SUBJECT MATTER"          → "Revised Subject Matter"
+"APPLY AMENDS PASS OVER TARGET RECORD" → "Apply Amendment"
+"LINK INTER-DEPARTMENTAL REPLIES & CORRESPONDENCE" → "Link Inter-Departmental Correspondence"
+"PARENT APP NO"                   → "Parent App No"
+"INCOMING LETTER REFERENCE"       → "Incoming Letter Reference"
+"HANDLING SECTION"                → "Handling Section"
+"SUBJECT REMARKS"                 → "Subject Remarks"
+"LINK CORRESPONDENCE DOCUMENT COMPONENT" → "Link Correspondence"
+
+ironvault-ui/ui/views/pension.slint
+"SEARCH BIOGRAPHICAL CRITERIA TARGET" → "Search Biographical Criteria"
+"QUERY P-SAI CLUSTER"             → "Query P-SAI Cluster"
+"LIVE LIFECYCLE SETTLEMENT TRACKER FORENSICS" → "Lifecycle Settlement Tracker"
+"ALLOCATED PPO/GPO/CPO"           → "Allocated PPO" / "Allocated GPO" / "Allocated CPO"
+"TREASURY GATEWAY"                → "Treasury Gateway"
+"OUTWARD DATE"                    → "Outward Date"
+"SPEED POST BARCODE REFERENCE"    → "Speed Post Barcode"
+
+ironvault-ui/ui/views/gpf.slint
+"GPF RELATIONAL ENCLAVE INQUIRY"  → "GPF Case Lookup"
+"REGISTRATION INDEX KEY *"        → "Registration No *"
+"ACCOUNT HOLDER NAME"             → "Account Holder Name"
+"SERIES PREFIX"                   → "Series Prefix"
+"LEDGER ACCOUNT NO"               → "Account No"
+"CLOSING VALUATION"               → "Closing Balance"
+"CRITICAL REGULATORY ADMINISTRATIVE INTERFACE" → "Destructive Actions"
+"APPLICATION / REGD NO"           → "Application / Regd No"
+"SERIES PREFIX CODE"              → "Series Prefix Code"
+"ACCOUNT NO REFERENCE"            → "Account No"
+
+ironvault-ui/ui/main.slint — dashboard/panel headers
+"SYSTEM CONFIGURATION"            → "System Configuration"     (already fine as a top-level page title actually — Title Case at large size reads well; but shorten cognitive load elsewhere)
+"SESSION IDLE TIMEOUT"            → "Session Idle Timeout"
+"CLUSTER NODE GROUP ALPHA: CORE ACCOUNTING FINANCE SYSTEMS" → "Core Accounting & Finance Systems"
+"CLUSTER NODE GROUP BETA: BENEFICIARY DISBURSEMENT PENSION SYSTEMS" → "Beneficiary Disbursement & Pension Systems"
+"AUTHORIZED SCHEMAS" / "AUTHORITY CLASS" / "LEASE EXPIRATION" → "Authorized Schemas" / "Authority Class" / "Lease Expiration"
+"SECURE OPERATOR SUITE LEDGER"    → "Operator Ledger"
+"ENCLAVE SECURITY ACCESS CONTROL OVERRIDES" → "Access Control"
+"CRITICAL SECURITY OVERRIDES"     → "Critical Security Actions"
+"PROFILE METADATA IDENTITY"       → "Profile Details"
+"WORKSPACE ACCESS PARAMETERS"     → "Access Parameters"
+"ASSIGN GRANULAR SCHEMA MATRIX PRIVILEGES" → "Schema Access"

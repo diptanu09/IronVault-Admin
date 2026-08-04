@@ -14,8 +14,24 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
             let ui_weak = app_weak.clone();
             let ctx = ctx.clone();
             let term = query_term.to_string();
+
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_sai_query_busy(true);
+            }
+
             tokio::spawn(async move {
-                match ctx.oracle.pnsr_get_details(&term).await {
+                let result = ctx.oracle.pnsr_get_details(&term).await;
+                slint::invoke_from_event_loop({
+                    let ui_weak = ui_weak.clone();
+                    move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_sai_query_busy(false);
+                        }
+                    }
+                })
+                .ok();
+
+                match result {
                     Ok(records) => {
                         let slint_records: Vec<PensionDetailsSlint> = records
                             .into_iter()
@@ -61,8 +77,24 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
             let ui_weak = app_weak.clone();
             let ctx = ctx.clone();
             let query_app = app_no.to_string();
+
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_sai_query_busy(true);
+            }
+
             tokio::spawn(async move {
-                match ctx.oracle.pnsr_get_status_tracking(&query_app).await {
+                let result = ctx.oracle.pnsr_get_status_tracking(&query_app).await;
+                slint::invoke_from_event_loop({
+                    let ui_weak = ui_weak.clone();
+                    move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_sai_query_busy(false);
+                        }
+                    }
+                })
+                .ok();
+
+                match result {
                     Ok(Some(record)) => {
                         let slint_record = PensionStatusSlint {
                             application_no: record.application_no.into(),

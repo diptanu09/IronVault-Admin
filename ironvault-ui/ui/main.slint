@@ -358,7 +358,12 @@ export component AppWindow inherits Window {
     in-out property <bool> vlcs_update_ddo_busy: false;
     in-out property <bool> vlcs_get_emp_busy: false;
     in-out property <bool> vlcs_update_emp_busy: false;
-    
+    in-out property <bool> dak_submit_busy: false;
+    in-out property <bool> dak_find_busy: false;
+    in-out property <bool> dak_update_busy: false;
+    in-out property <bool> dak_letter_busy: false;
+    in-out property <bool> sai_query_busy: false;
+
     callback request_dismiss_update_notice(string);
     callback request_open_download_url();
     callback request_step_up(string, string, string);
@@ -1100,6 +1105,10 @@ export component AppWindow inherits Window {
                                         view_dak_subject <=> root.view_dak_subject;
                                         view_dak_section <=> root.view_dak_section;
                                         dak_corr_date <=> root.dak_corr_date;
+                                        dak_submit_busy <=> root.dak_submit_busy;
+                                        dak_find_busy <=> root.dak_find_busy;
+                                        dak_update_busy <=> root.dak_update_busy;
+                                        dak_letter_busy <=> root.dak_letter_busy;
                                         request_find_pension_dak_meta(s) => { root.request_find_pension_dak_meta(s); }
                                         request_submit_outward_dak() => { root.request_submit_outward_dak(); }
                                         request_find_outward_dak(s) => { root.request_find_outward_dak(s); }
@@ -1114,6 +1123,7 @@ export component AppWindow inherits Window {
                                         data_found <=> root.sai_data_found;
                                         biographical_list <=> root.sai_biographical_list;
                                         status_record <=> root.sai_status_record;
+                                        sai_query_busy <=> root.sai_query_busy;
                                         request_pension_details(s) => { root.request_pension_details(s); }
                                         request_pension_status(s) => { root.request_pension_status(s); }
                                     }

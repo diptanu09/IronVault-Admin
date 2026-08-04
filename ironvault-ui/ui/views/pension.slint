@@ -1,5 +1,6 @@
 import { Button, LineEdit, ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
+import { BusyButton } from "../components/busy_button.slint";
 
 export struct PensionDetailsSlint {
     application_no: string,
@@ -34,6 +35,8 @@ export component PensionView inherits Rectangle {
     in-out property <bool> data_found;
     in-out property <[PensionDetailsSlint]> biographical_list;
     in-out property <PensionStatusSlint> status_record;
+
+    in-out property <bool> sai_query_busy: false;
 
     callback request_pension_details(string);
     callback request_pension_status(string);
@@ -97,8 +100,10 @@ export component PensionView inherits Rectangle {
 
                     VerticalLayout {
                         alignment: end;
-                        Button {
+                        BusyButton {
                             text: "QUERY P-SAI CLUSTER";
+                            busy_text: "Querying...";
+                            busy: root.sai_query_busy;
                             height: 48px;
                             clicked => {
                                 if (root.active_schema_action == "sai_biographical") {

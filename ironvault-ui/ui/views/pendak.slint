@@ -1,5 +1,6 @@
 import { Button, LineEdit, ScrollView, ComboBox } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
+import { BusyButton } from "../components/busy_button.slint";
 
 export struct DakRecipientDetail {
     addressee: string,
@@ -54,6 +55,11 @@ export component PenDakView inherits Rectangle {
     in-out property <string> view_dak_subject;
     in-out property <string> view_dak_section;
     in-out property <string> dak_corr_date;
+
+    in-out property <bool> dak_submit_busy: false;
+    in-out property <bool> dak_find_busy: false;
+    in-out property <bool> dak_update_busy: false;
+    in-out property <bool> dak_letter_busy: false;
 
     callback request_find_pension_dak_meta(string);
     callback request_submit_outward_dak();
@@ -431,8 +437,10 @@ export component PenDakView inherits Rectangle {
                             }
                         }
 
-                        Button {
+                        BusyButton {
                             text: "COMMIT IMMUTABLY TO DIARY RING";
+                            busy_text: "Committing...";
+                            busy: root.dak_submit_busy;
                             height: 52px;
                             clicked => { root.request_submit_outward_dak(); }
                         }
@@ -465,8 +473,10 @@ export component PenDakView inherits Rectangle {
                         }
                         VerticalLayout {
                             alignment: end;
-                            Button {
+                            BusyButton {
                                 text: "LOCATE TRANSACTION";
+                                busy_text: "Searching...";
+                                busy: root.dak_find_busy;
                                 height: 48px;
                                 clicked => { root.request_find_outward_dak(root.find_app_num); }
                             }
@@ -534,8 +544,10 @@ export component PenDakView inherits Rectangle {
                         }
                     }
 
-                    Button {
+                    BusyButton {
                         text: "APPLY AMENDS PASS OVER TARGET RECORD";
+                        busy_text: "Applying...";
+                        busy: root.dak_update_busy;
                         height: 52px;
                         clicked => { root.request_update_outward_dak(); }
                     }
@@ -584,8 +596,10 @@ export component PenDakView inherits Rectangle {
                         }
                     }
 
-                    Button {
+                    BusyButton {
                         text: "LINK CORRESPONDENCE DOCUMENT COMPONENT";
+                        busy_text: "Linking...";
+                        busy: root.dak_letter_busy;
                         height: 52px;
                         clicked => { root.request_submit_correspondence(); }
                     }

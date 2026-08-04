@@ -126,6 +126,7 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
             let ctx = ctx.clone();
 
             let app_num = ui.get_entry_app_num().to_string().trim().to_string();
+            let letter_no = ui.get_entry_letter_no().to_string().trim().to_string();
             let ppo = ui.get_dak_ppo().to_string();
             let fppo = ui.get_dak_fppo().to_string();
             let gpo = ui.get_dak_gpo().to_string().trim().to_string();
@@ -135,22 +136,17 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
             let copies_str = ui.get_entry_no_of_copies().to_string();
             let copies_count: i32 = copies_str.parse().unwrap_or(1);
 
-            // Mandatory Validation: Application No, Section, and Subject are required
-            if app_num.is_empty() || section.is_empty() || subject.is_empty() {
+            if app_num.is_empty()
+                || letter_no.is_empty()
+                || section.is_empty()
+                || subject.is_empty()
+            {
                 ui.set_op_is_error(true);
                 ui.set_op_status_msg(
-                    "Validation Fault: Application No, Section, and Subject fields are strictly mandatory.".into(),
+                    "Validation Fault: All fields marked with * are strictly mandatory.".into(),
                 );
                 return;
             }
-
-            let sb_to_code = |val: slint::SharedString| -> String {
-                if val.to_lowercase().contains("yes") || val.to_lowercase() == "y" {
-                    "Y".to_string()
-                } else {
-                    "N".to_string()
-                }
-            };
 
             let mut recipients = Vec::new();
             if copies_count >= 1 {
@@ -158,7 +154,7 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
                     addressee: ui.get_dak_adr_1().to_string(),
                     barcode: ui.get_dak_bar_1().to_string(),
                     sent_by: ui.get_dak_sent_1().to_string(),
-                    service_book: sb_to_code(ui.get_dak_sb_1()),
+                    service_book: "N".to_string(),
                 });
             }
             if copies_count >= 2 && (copies_str == "2" || copies_str == "3") {
@@ -166,7 +162,7 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
                     addressee: ui.get_dak_adr_2().to_string(),
                     barcode: ui.get_dak_bar_2().to_string(),
                     sent_by: ui.get_dak_sent_2().to_string(),
-                    service_book: sb_to_code(ui.get_dak_sb_2()),
+                    service_book: "N".to_string(),
                 });
             }
             if copies_count == 3 && copies_str == "3" {
@@ -174,7 +170,7 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
                     addressee: ui.get_dak_adr_3().to_string(),
                     barcode: ui.get_dak_bar_3().to_string(),
                     sent_by: ui.get_dak_sent_3().to_string(),
-                    service_book: sb_to_code(ui.get_dak_sb_3()),
+                    service_book: "N".to_string(),
                 });
             }
 
@@ -183,7 +179,7 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
 
             let transaction_payload = ironvault_db::oracle::PensionDakEntry {
                 app_num: app_num.clone(),
-                letter_no: format!("DAK-{}", app_num),
+                letter_no,
                 ppo_fppo: ppo_combined,
                 gpo,
                 cpo,
@@ -193,24 +189,38 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
                 recipients,
             };
 
+            ui.set_dak_submit_busy(true);
+
             tokio::spawn(async move {
-                match ctx
+                let result = ctx
                     .oracle
                     .pendak_insert_outward_case(transaction_payload)
-                    .await
-                {
-                    Ok(generated_outward_no) => {
+                    .await;
+
+                slint::invoke_from_event_loop({
+                    let ui_weak = ui_weak.clone();
+                    move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_dak_submit_busy(false);
+                        }
+                    }
+                })
+                .ok();
+
+                match result {
+                    Ok(_) => {
                         slint::invoke_from_event_loop(move || {
                             if let Some(ui_handle) = ui_weak.upgrade() {
                                 ui_handle.set_op_is_error(false);
                                 ui_handle.set_op_status_msg(
                                     format!(
-                                        "SUCCESS: Outward case record logged for App #{}. OUTWARD_NO: {}",
-                                        app_num, generated_outward_no
+                                        "SUCCESS: Outward case record for Application {} logged.",
+                                        app_num
                                     )
                                     .into(),
                                 );
                                 ui_handle.set_entry_app_num("".into());
+                                ui_handle.set_entry_letter_no("".into());
                                 ui_handle.set_dak_ppo("".into());
                                 ui_handle.set_dak_fppo("".into());
                                 ui_handle.set_dak_gpo("".into());
@@ -220,16 +230,10 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
                                 ui_handle.set_entry_no_of_copies("1".into());
                                 ui_handle.set_dak_adr_1("".into());
                                 ui_handle.set_dak_bar_1("".into());
-                                ui_handle.set_dak_sent_1("Speed Post".into());
-                                ui_handle.set_dak_sb_1("No".into());
                                 ui_handle.set_dak_adr_2("".into());
                                 ui_handle.set_dak_bar_2("".into());
-                                ui_handle.set_dak_sent_2("Speed Post".into());
-                                ui_handle.set_dak_sb_2("No".into());
                                 ui_handle.set_dak_adr_3("".into());
                                 ui_handle.set_dak_bar_3("".into());
-                                ui_handle.set_dak_sent_3("Speed Post".into());
-                                ui_handle.set_dak_sb_3("No".into());
                             }
                         })
                         .unwrap();
@@ -255,64 +259,62 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
         let app_weak = app.as_weak();
         let ctx = ctx.clone();
         app.on_request_find_outward_dak(move |search_key| {
-            let ui_weak = app_weak.clone();
-            let ctx = ctx.clone();
-            let target = search_key.to_string().trim().to_string();
-            if target.is_empty() {
-                return;
-            }
-            tokio::spawn(async move {
-                match ctx.oracle.pendak_select_outward_case_full(&target).await {
-                    Ok(Some(record)) => {
-                        slint::invoke_from_event_loop(move || {
-                            if let Some(ui) = ui_weak.upgrade() {
-                                ui.set_dak_case_found(true);
-                                ui.set_op_is_error(false);
-                                ui.set_op_status_msg(
-                                    format!("SUCCESS: Outward Case #{} matched in storage vault.", record.outward_no).into(),
-                                );
-                                ui.set_view_dak_letter(record.letter_no.into());
-                                ui.set_view_dak_section(record.section.into());
-                                ui.set_view_dak_subject(record.subject.into());
-                                ui.set_dak_corr_date(record.created_at.into());
-                                ui.set_dak_ppo(record.ppo_no.into());
-                                ui.set_dak_fppo(record.fppo_no.into());
-                                ui.set_dak_gpo(record.gpo_no.into());
-                                ui.set_dak_cpo(record.cpo_no.into());
-                                ui.set_dak_adr_1(record.addressee.into());
-                                ui.set_dak_bar_1(record.barcode.into());
-                                ui.set_dak_sent_1(record.sent_by.into());
-                            }
-                        })
-                        .unwrap();
-                    }
-                    Ok(None) => {
-                        slint::invoke_from_event_loop(move || {
-                            if let Some(ui) = ui_weak.upgrade() {
-                                ui.set_dak_case_found(false);
-                                ui.set_op_is_error(true);
-                                ui.set_op_status_msg(
-                                    "Discovery Fault: Given index key doesn't exist inside archive registry.".into(),
-                                );
-                            }
-                        })
-                        .unwrap();
-                    }
-                    Err(e) => {
-                        slint::invoke_from_event_loop(move || {
-                            if let Some(ui) = ui_weak.upgrade() {
-                                ui.set_dak_case_found(false);
-                                ui.set_op_is_error(true);
-                                ui.set_op_status_msg(
-                                    format!("ORACLE LOOKUP REJECTION: {}", e).into(),
-                                );
-                            }
-                        })
-                        .unwrap();
-                    }
+        let ui_weak = app_weak.clone();
+        let ctx = ctx.clone();
+        let target = search_key.to_string().trim().to_string();
+        if target.is_empty() { return; }
+
+        if let Some(ui) = ui_weak.upgrade() { ui.set_dak_find_busy(true); }
+
+        tokio::spawn(async move {
+            let result = ctx.oracle.pendak_select_outward_case_full(&target).await;
+            slint::invoke_from_event_loop({
+                let ui_weak = ui_weak.clone();
+                move || { if let Some(ui) = ui_weak.upgrade() { ui.set_dak_find_busy(false); } }
+            }).ok();
+
+            match result {
+                Ok(Some(record)) => {
+                    slint::invoke_from_event_loop(move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_dak_case_found(true);
+                            ui.set_op_is_error(false);
+                            ui.set_op_status_msg("SUCCESS: Outward Case matched inside storage vault.".into());
+                            ui.set_view_dak_letter(record.letter_no.into());
+                            ui.set_view_dak_section(record.section.into());
+                            ui.set_view_dak_subject(record.subject.into());
+                            ui.set_dak_corr_date(record.created_at.into());
+                            ui.set_dak_ppo(record.ppo_no.into());
+                            ui.set_dak_fppo(record.fppo_no.into());
+                            ui.set_dak_gpo(record.gpo_no.into());
+                            ui.set_dak_cpo(record.cpo_no.into());
+                            ui.set_dak_adr_1(record.addressee.into());
+                            ui.set_dak_bar_1(record.barcode.into());
+                            ui.set_dak_sent_1(record.sent_by.into());
+                        }
+                    }).unwrap();
                 }
-            });
+                Ok(None) => {
+                    slint::invoke_from_event_loop(move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_dak_case_found(false);
+                            ui.set_op_is_error(true);
+                            ui.set_op_status_msg("Discovery Fault: Given index key doesn't exist inside archive registry.".into());
+                        }
+                    }).unwrap();
+                }
+                Err(e) => {
+                    slint::invoke_from_event_loop(move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_dak_case_found(false);
+                            ui.set_op_is_error(true);
+                            ui.set_op_status_msg(format!("ORACLE LOOKUP REJECTION: {}", e).into());
+                        }
+                    }).unwrap();
+                }
+            }
         });
+    });
     }
 
     // --- UPDATE OUTWARD DAK CASE ---
@@ -320,59 +322,52 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
         let app_weak = app.as_weak();
         let ctx = ctx.clone();
         app.on_request_update_outward_dak(move || {
-            let ui_weak = app_weak.clone();
-            let ctx = ctx.clone();
-            let ui = app_weak.unwrap();
+        let ui_weak = app_weak.clone();
+        let ctx = ctx.clone();
+        let ui = app_weak.unwrap();
 
-            let app_num = ui.get_edit_app_num().to_string().trim().to_string();
-            let section = ui.get_edit_section().to_string().trim().to_string();
-            let subject = ui.get_edit_subject().to_string().trim().to_string();
+        let app_num = ui.get_edit_app_num().to_string().trim().to_string();
+        let section = ui.get_edit_section().to_string().trim().to_string();
+        let subject = ui.get_edit_subject().to_string().trim().to_string();
 
-            if app_num.is_empty() || section.is_empty() || subject.is_empty() {
-                ui.set_op_is_error(true);
-                ui.set_op_status_msg(
-                    "Fault: Fields required to execute modifications are empty.".into(),
-                );
-                return;
-            }
-            tokio::spawn(async move {
-                match ctx
-                    .oracle
-                    .pendak_update_outward_case(&app_num, &section, &subject)
-                    .await
-                {
-                    Ok(_) => {
-                        slint::invoke_from_event_loop(move || {
-                            if let Some(ui_handle) = ui_weak.upgrade() {
-                                ui_handle.set_op_is_error(false);
-                                ui_handle.set_op_status_msg(
-                                    format!(
-                                        "SUCCESS: Modification matrix applied cleanly to profile record {}",
-                                        app_num
-                                    )
-                                    .into(),
-                                );
-                                ui_handle.set_edit_app_num("".into());
-                                ui_handle.set_edit_section("".into());
-                                ui_handle.set_edit_subject("".into());
-                            }
-                        })
-                        .unwrap();
-                    }
-                    Err(e) => {
-                        slint::invoke_from_event_loop(move || {
-                            if let Some(ui_handle) = ui_weak.upgrade() {
-                                ui_handle.set_op_is_error(true);
-                                ui_handle.set_op_status_msg(
-                                    format!("ORACLE UPDATE FAULT: {}", e).into(),
-                                );
-                            }
-                        })
-                        .unwrap();
-                    }
+        if app_num.is_empty() || section.is_empty() || subject.is_empty() {
+            ui.set_op_is_error(true);
+            ui.set_op_status_msg("Fault: Fields required to execute modifications are empty.".into());
+            return;
+        }
+
+        ui.set_dak_update_busy(true);
+
+        tokio::spawn(async move {
+            let result = ctx.oracle.pendak_update_outward_case(&app_num, &section, &subject).await;
+            slint::invoke_from_event_loop({
+                let ui_weak = ui_weak.clone();
+                move || { if let Some(ui) = ui_weak.upgrade() { ui.set_dak_update_busy(false); } }
+            }).ok();
+
+            match result {
+                Ok(_) => {
+                    slint::invoke_from_event_loop(move || {
+                        if let Some(ui_handle) = ui_weak.upgrade() {
+                            ui_handle.set_op_is_error(false);
+                            ui_handle.set_op_status_msg(format!("SUCCESS: Modification matrix applied cleanly to profile record {}", app_num).into());
+                            ui_handle.set_edit_app_num("".into());
+                            ui_handle.set_edit_section("".into());
+                            ui_handle.set_edit_subject("".into());
+                        }
+                    }).unwrap();
                 }
-            });
+                Err(e) => {
+                    slint::invoke_from_event_loop(move || {
+                        if let Some(ui_handle) = ui_weak.upgrade() {
+                            ui_handle.set_op_is_error(true);
+                            ui_handle.set_op_status_msg(format!("ORACLE UPDATE FAULT: {}", e).into());
+                        }
+                    }).unwrap();
+                }
+            }
         });
+    });
     }
 
     // --- LINK CORRESPONDENCE (LETTER) ---
@@ -380,74 +375,61 @@ pub fn register(app: &AppWindow, ctx: SharedContext) {
         let app_weak = app.as_weak();
         let ctx = ctx.clone();
         app.on_request_submit_correspondence(move || {
-            let ui_weak = app_weak.clone();
-            let ctx = ctx.clone();
-            let ui = app_weak.unwrap();
+        let ui_weak = app_weak.clone();
+        let ctx = ctx.clone();
+        let ui = app_weak.unwrap();
 
-            let app_num = ui.get_letter_app_num().to_string().trim().to_string();
-            let letter_no = ui.get_letter_letter_no().to_string().trim().to_string();
-            let section = ui.get_letter_section().to_string().trim().to_string();
-            let subject = ui.get_letter_subject().to_string().trim().to_string();
-            let copies_count: i32 = ui
-                .get_letter_no_of_copies()
-                .to_string()
-                .parse()
-                .unwrap_or(1);
+        let app_num = ui.get_letter_app_num().to_string().trim().to_string();
+        let letter_no = ui.get_letter_letter_no().to_string().trim().to_string();
+        let section = ui.get_letter_section().to_string().trim().to_string();
+        let subject = ui.get_letter_subject().to_string().trim().to_string();
+        let copies_count: i32 = ui.get_letter_no_of_copies().to_string().parse().unwrap_or(1);
 
-            let letter_payload = ironvault_db::oracle::PensionDakEntry {
-                app_num: app_num.clone(),
-                letter_no: letter_no.clone(),
-                ppo_fppo: ui.get_dak_ppo().to_string(),
-                gpo: ui.get_dak_gpo().to_string(),
-                cpo: ui.get_dak_cpo().to_string(),
-                section: section.clone(),
-                subject: subject.clone(),
-                copies_count,
-                recipients: vec![ironvault_db::oracle::DakRecipientDetail {
-                    addressee: ui.get_dak_adr_1().to_string(),
-                    barcode: ui.get_dak_bar_1().to_string(),
-                    sent_by: ui.get_dak_sent_1().to_string(),
-                    service_book: "N".to_string(),
-                }],
-            };
+        let letter_payload = ironvault_db::oracle::PensionDakEntry {
+            app_num: app_num.clone(), letter_no: letter_no.clone(),
+            ppo_fppo: ui.get_dak_ppo().to_string(), gpo: ui.get_dak_gpo().to_string(), cpo: ui.get_dak_cpo().to_string(),
+            section: section.clone(), subject: subject.clone(), copies_count,
+            recipients: vec![ironvault_db::oracle::DakRecipientDetail {
+                addressee: ui.get_dak_adr_1().to_string(), barcode: ui.get_dak_bar_1().to_string(),
+                sent_by: ui.get_dak_sent_1().to_string(), service_book: "N".to_string(),
+            }],
+        };
 
-            tokio::spawn(async move {
-                match ctx.oracle.pendak_insert_outward_case(letter_payload).await {
-                    Ok(outward_no) => {
-                        slint::invoke_from_event_loop(move || {
-                            if let Some(ui_handle) = ui_weak.upgrade() {
-                                ui_handle.set_op_is_error(false);
-                                ui_handle.set_op_status_msg(
-                                    format!(
-                                        "SUCCESS: Letter component {} linked. OUTWARD_NO: {}",
-                                        letter_no, outward_no
-                                    )
-                                    .into(),
-                                );
-                                ui_handle.set_letter_app_num("".into());
-                                ui_handle.set_letter_letter_no("".into());
-                                ui_handle.set_letter_section("".into());
-                                ui_handle.set_letter_subject("".into());
-                                ui_handle.set_dak_adr_1("".into());
-                                ui_handle.set_dak_bar_1("".into());
-                                ui_handle.set_dak_sent_1("Speed Post".into());
-                            }
-                        })
-                        .unwrap();
-                    }
-                    Err(e) => {
-                        slint::invoke_from_event_loop(move || {
-                            if let Some(ui_handle) = ui_weak.upgrade() {
-                                ui_handle.set_op_is_error(true);
-                                ui_handle.set_op_status_msg(
-                                    format!("ORACLE LETTER FAULT: {}", e).into(),
-                                );
-                            }
-                        })
-                        .unwrap();
-                    }
+        ui.set_dak_letter_busy(true);
+
+        tokio::spawn(async move {
+            let result = ctx.oracle.pendak_insert_outward_case(letter_payload).await;
+            slint::invoke_from_event_loop({
+                let ui_weak = ui_weak.clone();
+                move || { if let Some(ui) = ui_weak.upgrade() { ui.set_dak_letter_busy(false); } }
+            }).ok();
+
+            match result {
+                Ok(_) => {
+                    slint::invoke_from_event_loop(move || {
+                        if let Some(ui_handle) = ui_weak.upgrade() {
+                            ui_handle.set_op_is_error(false);
+                            ui_handle.set_op_status_msg(format!("SUCCESS: Letter component {} successfully linked into dairy registry.", letter_no).into());
+                            ui_handle.set_letter_app_num("".into());
+                            ui_handle.set_letter_letter_no("".into());
+                            ui_handle.set_letter_section("".into());
+                            ui_handle.set_letter_subject("".into());
+                            ui_handle.set_dak_adr_1("".into());
+                            ui_handle.set_dak_bar_1("".into());
+                            ui_handle.set_dak_sent_1("".into());
+                        }
+                    }).unwrap();
                 }
-            });
+                Err(e) => {
+                    slint::invoke_from_event_loop(move || {
+                        if let Some(ui_handle) = ui_weak.upgrade() {
+                            ui_handle.set_op_is_error(true);
+                            ui_handle.set_op_status_msg(format!("ORACLE LETTER FAULT: {}", e).into());
+                        }
+                    }).unwrap();
+                }
+            }
         });
+    });
     }
 }

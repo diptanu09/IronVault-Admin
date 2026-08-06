@@ -1,11 +1,11 @@
 {
-    "latest_version": "1.0.0",
-    "release_date": "2026-07-30",
+    "latest_version": "1.2.3",
+    "release_date": "2026-08-06",
     "changelog": [
         "Fixed session timeout not applying to SuperAdmin accounts",
         "Added step-up re-authentication for destructive actions",
         "Improved TLS certificate handling for database connections"
     ],
-    "download_url": "https://yourdomain.com/downloads/ironvault-setup-1.1.0.exe",
-    "minimum_supported_version": "1.0.0"
+    "download_url": "https://yourdomain.com/downloads/ironvault-setup-1.2.3.exe",
+    "minimum_supported_version": "1.2.0"
 }

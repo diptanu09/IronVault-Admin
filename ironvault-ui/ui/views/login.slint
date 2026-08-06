@@ -39,31 +39,6 @@ export component LoginView inherits Rectangle {
                     Text { text: "IRONVAULT"; font-size: 32px; font-weight: 900; color: Theme.brand-primary; horizontal-alignment: center; }
                     Rectangle { height: 1px; background: Theme.border-color; }
 
-                    // Success banner — shown regardless of which sub-screen
-                    // (landing/login/register) is currently active, so a
-                    // just-completed registration is visible right where the
-                    // operator lands afterward, instead of silently vanishing.
-                    if (root.login_success != ""): Rectangle {
-                        background: #10B98133;
-                        border-radius: 6px;
-                        border-width: 1px;
-                        border-color: Theme.brand-success;
-                        HorizontalLayout {
-                            padding: 10px;
-                            spacing: 8px;
-                            Text { text: "✅"; font-size: 13px; vertical-alignment: center; }
-                            Text {
-                                text: root.login_success;
-                                color: Theme.brand-success;
-                                font-size: 12px;
-                                font-weight: 700;
-                                wrap: word-wrap;
-                                horizontal-stretch: 1;
-                                vertical-alignment: center;
-                            }
-                        }
-                    }
-
                     if (root.screen_state == "landing"): VerticalLayout {
                         spacing: 16px;
                         padding-top: 10px;

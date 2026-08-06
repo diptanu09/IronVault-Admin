@@ -348,23 +348,7 @@ export component AppWindow inherits Window {
     in-out property <string> update_latest_version: "";
     in-out property <string> update_changelog: "";
     in-out property <string> update_download_url: "";
-    in-out property <bool> gpf_find_busy: false;
-    in-out property <string> login_success: "";
-    in-out property <bool> gpf_drop_busy : false;
-    in-out property <bool> gpf_purge_busy : false;
-    in-out property <bool> gpf_flush_busy : false;
-    in-out property <bool> gpf_auth_drop_busy : false;
-    in-out property <bool> vlcs_get_ddo_busy: false;
-    in-out property <bool> vlcs_update_ddo_busy: false;
-    in-out property <bool> vlcs_get_emp_busy: false;
-    in-out property <bool> vlcs_update_emp_busy: false;
-    in-out property <bool> dak_submit_busy: false;
-    in-out property <bool> dak_find_busy: false;
-    in-out property <bool> dak_update_busy: false;
-    in-out property <bool> dak_letter_busy: false;
-    in-out property <bool> sai_query_busy: false;
 
-    callback request_dismiss_update_notice(string);
     callback request_open_download_url();
     callback request_step_up(string, string, string);
     callback submit_step_up_reauth(string);
@@ -454,7 +438,7 @@ export component AppWindow inherits Window {
                 toggle_collapsed => { root.sidebar_collapsed = !root.sidebar_collapsed; }
             }
 
-            if (!root.is_logged_in): LoginView {
+           if (!root.is_logged_in): LoginView {
                 horizontal-stretch: 1;
                 form_user <=> root.form_user;
                 form_pass <=> root.form_pass;

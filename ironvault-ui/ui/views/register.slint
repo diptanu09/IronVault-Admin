@@ -1,5 +1,3 @@
-// Register view - New user onboarding
-
 import { Button, LineEdit, VerticalBox, HorizontalBox } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 
@@ -16,6 +14,7 @@ export struct RegisterFormFields {
 export component RegisterView inherits Rectangle {
     in property <string> operational-error;
     in-out property <RegisterFormFields> form-data;
+    property <string> local-validation-msg: "";
     callback submit-registration();
     callback cancel-registration();
 
@@ -24,59 +23,81 @@ export component RegisterView inherits Rectangle {
     VerticalBox {
         padding: 0px;
         spacing: 16px;
-        
-        // Section A: Human Profile Entry Matrix
+
         VerticalBox {
             spacing: 14px;
             HorizontalBox {
                 spacing: 12px;
-                VerticalBox { 
+                VerticalBox {
                     spacing: 4px;
                     horizontal-stretch: 1; 
                     Text { text: "FIRST NAME"; font-size: 9px; color: Theme.text-secondary; font-weight: 800; } 
-                    LineEdit { text <=> root.form-data.first-name; placeholder_text: "First"; height: Theme.input-height; } 
+                    LineEdit { text <=> root.form-data.first-name; placeholder-text: "First"; height: Theme.input-height; } 
                 }
-                VerticalBox { 
+                VerticalBox {
                     spacing: 4px;
                     horizontal-stretch: 1; 
                     Text { text: "MIDDLE NAME"; font-size: 9px; color: Theme.text-secondary; font-weight: 800; } 
-                    LineEdit { text <=> root.form-data.middle-name; placeholder_text: "Middle"; height: Theme.input-height; } 
+                    LineEdit { text <=> root.form-data.middle-name; placeholder-text: "Middle"; height: Theme.input-height; } 
                 }
-                VerticalBox { 
+                VerticalBox {
                     spacing: 4px;
                     horizontal-stretch: 1; 
                     Text { text: "LAST NAME"; font-size: 9px; color: Theme.text-secondary; font-weight: 800; } 
-                    LineEdit { text <=> root.form-data.last-name; placeholder_text: "Last"; height: Theme.input-height; } 
+                    LineEdit { text <=> root.form-data.last-name; placeholder-text: "Last"; height: Theme.input-height; } 
                 }
             }
             HorizontalBox {
                 spacing: 12px;
-                VerticalBox { 
+                VerticalBox {
                     spacing: 4px;
                     horizontal-stretch: 1; 
                     Text { text: "OFFICIAL DESIGNATION"; font-size: 9px; color: Theme.text-secondary; font-weight: 800; } 
-                    LineEdit { text <=> root.form-data.designation; placeholder_text: "e.g., Lead Engineer"; height: Theme.input-height; } 
+                    LineEdit { text <=> root.form-data.designation; placeholder-text: "e.g., Lead Engineer"; height: Theme.input-height; } 
                 }
-                VerticalBox { 
+                VerticalBox {
                     spacing: 4px;
                     horizontal-stretch: 1; 
                     Text { text: "WORKSPACE SECTION"; font-size: 9px; color: Theme.text-secondary; font-weight: 800; } 
-                    LineEdit { text <=> root.form-data.section; placeholder_text: "e.g., Threat Intel"; height: Theme.input-height; } 
+                    LineEdit { text <=> root.form-data.section; placeholder-text: "e.g., Threat Intel"; height: Theme.input-height; } 
                 }
             }
         }
 
-        // Section B: Account Credentials
         VerticalBox {
             spacing: 4px;
             Text { text: "OPERATOR IDENTITY ACCOUNT"; font-size: 10px; color: Theme.text-secondary; font-weight: 800; }
             LineEdit { text <=> root.form-data.username; placeholder_text: "Enter identity sequence..."; height: 36px; }
         }
-        
+
         VerticalBox {
             spacing: 4px;
             Text { text: "CRYPTOGRAPHIC ACCESS SIGNATURE"; font-size: 10px; color: Theme.text-secondary; font-weight: 800; }
-            LineEdit { text <=> root.form-data.secret; placeholder_text: "Enter token secret..."; input-type: password; height: 36px; }
+            LineEdit { text <=> root.form-data.secret; placeholder-text: "Enter token secret..."; input-type: password; height: 36px; }
+        }
+
+        // if (root.validation-error != "") : Rectangle {
+        //     background: #7F1D1D33;
+        //     border-radius: 6px; border-width: 1px; border-color: Theme.brand-danger;
+        //     HorizontalBox { padding: 8px; Text { text: root.validation-error; color: #FCA5A5; font-size: 12px; font-weight: 600; wrap: word-wrap; horizontal-alignment: center; } }
+        // }
+
+        // if (root.operational-error != "") : Rectangle {
+        //     background: #7F1D1D33;
+        //     border-radius: 6px; border-width: 1px; border-color: Theme.brand-danger;
+        //     HorizontalBox { padding: 8px; Text { text: root.operational-error; color: #FCA5A5; font-size: 12px; font-weight: 600; wrap: word-wrap; horizontal-alignment: center; } }
+        // }
+
+        if (root.operational-error != "" || root.validation-error != "") : Rectangle {
+            background: #7F1D1D33;
+            border-radius: 6px; border-width: 1px; border-color: Theme.brand-danger;
+            HorizontalBox {
+                padding: 8px;
+                Text {
+                    text: root.validation-error != "" ? root.validation-error : root.operational-error;
+                    color: #FCA5A5; font-size: 12px; font-weight: 600; wrap: word-wrap; horizontal-alignment: center;
+                }
+            }
         }
         
         // Section C: Challenge Matrix verification field
@@ -104,7 +125,23 @@ export component RegisterView inherits Rectangle {
         HorizontalBox {
             spacing: 14px;
             padding-top: 18px; 
-            Button { text: "Commit Enrollment"; height: Theme.button-height; horizontal-stretch: 1; clicked => { root.submit-registration(); } }
+            Button {
+                text: "Commit Enrollment";
+                height: Theme.button-height;
+                horizontal-stretch: 1;
+                clicked => {
+                    if (root.form-data.username == "" || root.form-data.secret == "" ||
+                        root.form-data.first-name == "" || root.form-data.last-name == "" ||
+                        root.form-data.designation == "" || root.form-data.section == "") {
+                        root.validation-error = "All fields except Middle Name are required.";
+                    } else if (root.form-data.secret.character-count < 8) {
+                        root.validation-error = "Password/secret must be at least 8 characters.";
+                    } else {
+                        root.validation-error = "";
+                        root.submit-registration();
+                    }
+                }
+            }
             Button { text: "Return to Gateway"; height: Theme.button-height; horizontal-stretch: 1; clicked => { root.cancel-registration(); } }
         }
     }

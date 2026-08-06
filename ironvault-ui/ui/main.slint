@@ -349,7 +349,36 @@ export component AppWindow inherits Window {
     in-out property <string> update_changelog: "";
     in-out property <string> update_download_url: "";
     in-out property <string> login_success: "";
+    // --- GPF Busy Indicators ---
+    in-out property <bool> gpf_find_busy: false;
+    in-out property <bool> gpf_drop_busy: false;
+    in-out property <bool> gpf_purge_busy: false;
+    in-out property <bool> gpf_flush_busy: false;
+    in-out property <bool> gpf_auth_drop_busy: false;
 
+    // --- VLCS Busy Indicators ---
+    in-out property <bool> vlcs_get_ddo_busy: false;
+    in-out property <bool> vlcs_update_ddo_busy: false;
+    in-out property <bool> vlcs_get_emp_busy: false;
+    in-out property <bool> vlcs_update_emp_busy: false;
+
+    // --- DAK Busy Indicators ---
+    in-out property <bool> dak_submit_busy: false;
+    in-out property <bool> dak_find_busy: false;
+    in-out property <bool> dak_update_busy: false;
+    in-out property <bool> dak_letter_busy: false;
+
+    // --- SAI Pension Busy Indicator ---
+    in-out property <bool> sai_query_busy: false;
+
+    // --- Application Update Notice Properties & Callbacks ---
+    // in-out property <bool> update_available: false;
+    // in-out property <bool> update_mandatory: false;
+    // in-out property <string> update_latest_version: "";
+    // in-out property <string> update_changelog: "";
+    // in-out property <string> update_download_url: "";
+
+    callback request_dismiss_update_notice(string);
     callback request_open_download_url();
     callback request_step_up(string, string, string);
     callback submit_step_up_reauth(string);

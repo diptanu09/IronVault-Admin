@@ -3315,7 +3315,7 @@ checksum = "d98f6fed1fde3f8c21bc40a1abb88dd75e67924f9cffc3ef95607bad8017f8e2"
 
 [[package]]
 name = "ironvault-core"
-version = "0.1.0"
+version = "1.2.3"
 dependencies = [
  "aes-gcm",
  "bcrypt 0.19.3",
@@ -3340,7 +3340,7 @@ dependencies = [
 
 [[package]]
 name = "ironvault-db"
-version = "0.1.0"
+version = "1.2.3"
 dependencies = [
  "async-trait",
  "bcrypt 0.15.1",
@@ -3361,7 +3361,7 @@ dependencies = [
 
 [[package]]
 name = "ironvault-ui"
-version = "1.0.0"
+version = "1.2.3"
 dependencies = [
  "chrono",
  "chrono-tz",

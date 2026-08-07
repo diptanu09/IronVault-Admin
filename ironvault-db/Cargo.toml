@@ -4,7 +4,7 @@ name = "ironvault-db"
 # edition.workspace = true
 # authors.workspace = true
 # license.workspace = true
-version = "0.1.0"
+version = "1.2.3" #"0.1.0"
 edition = "2021"
 
 [dependencies]
